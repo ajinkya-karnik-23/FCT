@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; height: 100%; background: #080B10; }
+  a { color: #56A0FF; text-decoration: none; }
+  a:hover { color: #8CC0FF; }
+  input { font-family: inherit; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #22303F; }
+  ::-webkit-scrollbar-track { background: #0B1017; }
+  @keyframes ccpulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+</style>
+</helmet>
+
+<div style="height: 100vh; display: flex; background: #080B10; color: #E6ECF4; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; overflow: hidden;">
+
+  <div style="width: 236px; flex-shrink: 0; background: #0B1017; border-right: 1px solid #182231; display: flex; flex-direction: column;">
+    <div style="padding: 22px 22px 20px; border-bottom: 1px solid #182231; display: flex; flex-direction: column; gap: 6px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="width: 8px; height: 8px; background: #2E7DF0; border-radius: 50%; animation: ccpulse 2.4s ease-in-out infinite;"></span>
+        <span style="font-size: 15px; font-weight: 600; letter-spacing: -0.01em;">Controller Cockpit</span>
+      </div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #5C7290;">FINANCE CONTROL TOWER</div>
+    </div>
+
+    <div style="padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto;">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8">
+        <div onClick="{{ n.open }}" style="{{ n.style }}" style-hover="background: #131C27; color: #E6ECF4;">
+          <span>{{ n.label }}</span>
+          <span style="{{ n.badgeStyle }}">{{ n.badge }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="margin-top: auto; padding: 18px 22px; border-top: 1px solid #182231; display: flex; flex-direction: column; gap: 10px;">
+      <div onClick="{{ openPalette }}" style="display: flex; align-items: center; justify-content: space-between; border: 1px solid #22303F; padding: 9px 12px; cursor: pointer; color: #8798AC; font-size: 13px;" style-hover="border-color: #2E7DF0; color: #E6ECF4;">
+        <span>Search everything</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5C7290;">&#8984;K</span>
+      </div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #4A5F7A; letter-spacing: 0.12em;">JUBILANT PHARMOVA</div>
+      
+    </div>
+  </div>
+
+  <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+
+    <div style="height: 60px; flex-shrink: 0; border-bottom: 1px solid #182231; background: #0B1017; display: flex; align-items: center; gap: 18px; padding: 0 26px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8798AC; letter-spacing: 0.06em;">{{ crumb }}</div>
+      <div style="width: 1px; height: 22px; background: #22303F;"></div>
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 13px;">
+        <span style="{{ entityDotStyle }}"></span>
+        <span style="font-weight: 600;">{{ entity.name }}</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5C7290; border: 1px solid #22303F; padding: 3px 7px;">{{ entity.code }}</span>
+      </div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 14px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5C7290;">PERIOD AUG-2026 &middot; DAY 4 OF CLOSE</div>
+        <div onClick="{{ toggleAI }}" style="{{ aiButtonStyle }}" style-hover="border-color: #2E7DF0;">
+          <span style="width: 6px; height: 6px; background: #2E7DF0; border-radius: 50%;"></span>
+          <span>Ask the cockpit</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: 1; display: flex; min-height: 0;">
+      <div style="flex: 1; overflow-y: auto; min-width: 0;">
+
+        <sc-if value="{{ isGroup }}" hint-placeholder-val="{{ true }}">
+          <div style="padding: 30px 26px 40px; display: flex; flex-direction: column; gap: 24px;">
+            <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: #5C7290;">LEVEL 0 &mdash; GROUP</div>
+                <div style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">Finance health across six legal entities</div>
+              </div>
+              <div style="display: flex; gap: 34px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5C7290; letter-spacing: 0.1em;">GROUP SCORE</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 30px; font-weight: 600; color: #F2B23E;">76.5</span></div>
+                <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5C7290; letter-spacing: 0.1em;">VALUE AT RISK</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 30px; font-weight: 600;">&#8377;92.4 cr</span></div>
+                <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5C7290; letter-spacing: 0.1em;">OPEN EXCEPTIONS</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 30px; font-weight: 600;">1,486</span></div>
+              </div>
+            </div>
+
+            <div style="border: 1px solid #182231; background: #0B1017;">
+              <div style="display: grid; grid-template-columns: 300px 120px 1fr 130px 130px 130px 110px 90px; padding: 12px 20px; border-bottom: 1px solid #182231; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">
+                <div>LEGAL ENTITY</div><div>HEALTH</div><div>DIMENSIONS</div><div style="text-align: right;">AP BLOCKED</div><div style="text-align: right;">AR &gt;90D</div><div style="text-align: right;">UNAPPLIED</div><div style="text-align: right;">CLOSE</div><div style="text-align: right;">BREACHES</div>
+              </div>
+              <sc-for list="{{ entities }}" as="e" hint-placeholder-count="6">
+                <div onClick="{{ e.open }}" style="display: grid; grid-template-columns: 300px 120px 1fr 130px 130px 130px 110px 90px; padding: 16px 20px; border-bottom: 1px solid #131C27; align-items: center; cursor: pointer;" style-hover="background: #101822;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="{{ e.dotStyle }}"></span>
+                    <span style="font-size: 14px; font-weight: 500;">{{ e.name }}</span>
+                  </div>
+                  <div style="display: flex; align-items: baseline; gap: 6px;">
+                    <span style="{{ e.scoreStyle }}">{{ e.score }}</span>
+                    <span style="{{ e.statusStyle }}">{{ e.status }}</span>
+                  </div>
+                  <div style="display: flex; gap: 6px; padding-right: 24px;">
+                    <sc-for list="{{ e.bars }}" as="b" hint-placeholder-count="5">
+                      <div title="{{ b.label }}" style="flex: 1; height: 22px; background: #131C27; display: flex; align-items: flex-end;">
+                        <div style="{{ b.style }}"></div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right;">{{ e.ap }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right;">{{ e.ar }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right; color: #B9C6D6;">{{ e.cash }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right; color: #B9C6D6;">{{ e.close }}</div>
+                  <div style="{{ e.breachStyle }}">{{ e.breaches }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+              <div style="border: 1px solid #182231; background: #0B1017; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">GROUP-WIDE RECURRING CAUSES</div>
+                <sc-for list="{{ groupCauses }}" as="c" hint-placeholder-count="4">
+                  <div style="display: flex; align-items: center; gap: 12px; font-size: 13px;">
+                    <span style="flex: 1;">{{ c.name }}</span>
+                    <span style="width: 110px; height: 6px; background: #131C27;"><span style="{{ c.style }}"></span></span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8798AC; width: 42px; text-align: right;">{{ c.pct }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="border: 1px solid #182231; background: #0B1017; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">CLOSE PROGRESS &mdash; DAY 4</div>
+                <div style="display: flex; align-items: baseline; gap: 10px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 30px; font-weight: 600;">71%</span><span style="font-size: 13px; color: #8798AC;">of 214 tasks complete</span></div>
+                <div style="height: 8px; background: #131C27;"><div style="width: 71%; height: 8px; background: #2E7DF0;"></div></div>
+                <div style="display: flex; gap: 24px; font-size: 13px; color: #B9C6D6;"><span>19 overdue</span><span style="color: #FF6B6B;">6 blockers</span><span>3 entities at risk</span></div>
+              </div>
+              <div style="border: 1px solid #182231; background: #0B1017; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">TRANSFORMATION HEALTH</div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px;"><span>Automation rate</span><span style="font-family: 'IBM Plex Mono', monospace; color: #35C48A;">68% &uarr;</span></div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px;"><span>Repeat exceptions</span><span style="font-family: 'IBM Plex Mono', monospace; color: #35C48A;">-14% QoQ</span></div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px;"><span>Causes eliminated</span><span style="font-family: 'IBM Plex Mono', monospace;">11 of 34</span></div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px;"><span>Touchless invoices</span><span style="font-family: 'IBM Plex Mono', monospace;">54%</span></div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isEntity }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 30px 26px 40px; display: flex; flex-direction: column; gap: 22px;">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 30px;">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: #5C7290;">LEVEL 1 &mdash; LEGAL ENTITY</div>
+                <div style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">{{ entity.name }}</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 34px;">
+                <div style="display: flex; align-items: baseline; gap: 10px;">
+                  <span style="{{ bigScoreStyle }}">{{ entity.score }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #5C7290;">/100</span>
+                  <span style="{{ bigStatusStyle }}">{{ entity.status }}</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(5, 96px); gap: 14px;">
+                  <sc-for list="{{ entityBars }}" as="b" hint-placeholder-count="5">
+                    <div style="display: flex; flex-direction: column; gap: 7px;">
+                      <div style="font-size: 11px; color: #8798AC;">{{ b.label }}</div>
+                      <div style="height: 6px; background: #131C27;"><div style="{{ b.style }}"></div></div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(6, 1fr); border: 1px solid #182231; background: #0B1017;">
+              <sc-for list="{{ entityTiles }}" as="t" hint-placeholder-count="6">
+                <div onClick="{{ t.open }}" style="{{ t.style }}" style-hover="background: #101822;">
+                  <div style="font-size: 12px; color: #8798AC;">{{ t.label }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 600;">{{ t.value }}</div>
+                  <div style="{{ t.subStyle }}">{{ t.sub }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px;">
+              <div style="border: 1px solid #182231; background: #0B1017; display: flex; flex-direction: column;">
+                <div style="padding: 16px 20px; border-bottom: 1px solid #182231; display: flex; align-items: center; justify-content: space-between;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">TOP ISSUES REQUIRING ATTENTION</span>
+                  <span onClick="{{ goWorklist }}" style="font-size: 12px; color: #56A0FF; cursor: pointer;">Open worklist &rarr;</span>
+                </div>
+                <sc-for list="{{ topIssues }}" as="i" hint-placeholder-count="6">
+                  <div onClick="{{ i.open }}" style="display: grid; grid-template-columns: 16px 1fr 110px 100px 150px; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid #131C27; cursor: pointer;" style-hover="background: #101822;">
+                    <span style="{{ i.dotStyle }}"></span>
+                    <span style="font-size: 13px;">{{ i.label }}</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; text-align: right;">{{ i.value }}</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8798AC; text-align: right;">{{ i.age }}</span>
+                    <span style="font-size: 12px; color: #8798AC; text-align: right;">{{ i.owner }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="border: 1px solid #182231; background: #0B1017; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">ROOT CAUSE INSIGHTS</span>
+                    <span onClick="{{ goRootCause }}" style="font-size: 12px; color: #56A0FF; cursor: pointer;">Analyse &rarr;</span>
+                  </div>
+                  <sc-for list="{{ entityCauses }}" as="c" hint-placeholder-count="3">
+                    <div onClick="{{ c.open }}" style="display: flex; flex-direction: column; gap: 7px; cursor: pointer;">
+                      <div style="display: flex; justify-content: space-between; font-size: 13px;"><span>{{ c.name }}</span><span style="font-family: 'IBM Plex Mono', monospace; color: #8798AC;">{{ c.pct }}</span></div>
+                      <div style="height: 6px; background: #131C27;"><div style="{{ c.style }}"></div></div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="border: 1px solid #2A3A52; background: #0D1522; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #56A0FF;">RECOMMENDED ACTIONS</div>
+                  <div style="font-size: 13px; color: #D7E1EE; line-height: 1.5;">&#8377;4.2 cr working-capital release available by clearing GR compliance on 11 vendors.</div>
+                  <div style="display: flex; gap: 20px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8798AC;"><span>38 resolvable today</span><span>3 systemic</span></div>
+                  <div onClick="{{ askWhyAmber }}" style="border: 1px solid #2E7DF0; color: #E6ECF4; padding: 9px 12px; font-size: 13px; cursor: pointer; text-align: center;" style-hover="background: #12233C;">Ask why this entity is amber</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isP2P }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 30px 26px 40px; display: flex; flex-direction: column; gap: 22px;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: #5C7290;">LEVEL 2 &mdash; PROCESS &middot; PROCURE TO PAY</div>
+              <div style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">End-to-end flow, not seven separate reports</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px;">
+              <sc-for list="{{ p2pStages }}" as="s" hint-placeholder-count="7">
+                <div onClick="{{ s.open }}" style="{{ s.style }}" style-hover="border-color: #2E7DF0;">
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: #5C7290;">{{ s.step }}</span>
+                    <span style="{{ s.dotStyle }}"></span>
+                  </div>
+                  <div style="font-size: 14px; font-weight: 600;">{{ s.name }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 19px;">{{ s.volume }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #B9C6D6;">{{ s.value }}</div>
+                  <div style="height: 4px; background: #131C27;"><div style="{{ s.barStyle }}"></div></div>
+                  <div style="{{ s.excStyle }}">{{ s.exc }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+              <div style="border: 1px solid #182231; background: #0B1017; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">BLOCKED INVOICES BY AGEING</div>
+                <div style="display: flex; align-items: flex-end; gap: 10px; height: 130px;">
+                  <sc-for list="{{ ageing }}" as="a" hint-placeholder-count="5">
+                    <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; height: 100%;">
+                      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #B9C6D6; text-align: center;">{{ a.value }}</div>
+                      <div style="{{ a.style }}"></div>
+                      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5C7290; text-align: center;">{{ a.label }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="border: 1px solid #182231; background: #0B1017; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">TOP CAUSES &mdash; CLICK TO DRILL</div>
+                <sc-for list="{{ causes }}" as="c" hint-placeholder-count="5">
+                  <div onClick="{{ c.open }}" style="display: flex; align-items: center; gap: 12px; font-size: 13px; cursor: pointer;" style-hover="color: #56A0FF;">
+                    <span style="flex: 1;">{{ c.name }}</span>
+                    <span style="width: 90px; height: 6px; background: #131C27;"><span style="{{ c.style }}"></span></span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8798AC; width: 38px; text-align: right;">{{ c.pct }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="border: 1px solid #182231; background: #0B1017; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">SERVICE &amp; CONTROL</div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px;"><span>SLA on invoice booking</span><span style="font-family: 'IBM Plex Mono', monospace; color: #F2B23E;">93.1%</span></div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px;"><span>Queries overdue</span><span style="font-family: 'IBM Plex Mono', monospace; color: #FF6B6B;">27</span></div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px;"><span>Duplicate payment risk</span><span style="font-family: 'IBM Plex Mono', monospace;">&#8377;0.9 cr</span></div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px;"><span>Manual payment runs</span><span style="font-family: 'IBM Plex Mono', monospace;">4</span></div>
+                <div onClick="{{ goWorklist }}" style="margin-top: auto; border: 1px solid #22303F; padding: 9px 12px; font-size: 13px; text-align: center; cursor: pointer;" style-hover="border-color: #2E7DF0;">Open 327 blocked invoices &rarr;</div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isWorklist }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 30px 26px 40px; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: #5C7290;">LEVEL 4 &mdash; EXCEPTIONS</div>
+                <div style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">Blocked invoices worklist</div>
+              </div>
+              <div style="display: flex; gap: 28px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8798AC;">
+                <span>{{ rowCount }} SHOWN</span>
+                <span>VALUE {{ rowValue }}</span>
+                <span>&gt;30 DAYS {{ rowAged }}</span>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290; margin-right: 4px;">CAUSE</span>
+              <sc-for list="{{ filters }}" as="f" hint-placeholder-count="6">
+                <div onClick="{{ f.open }}" style="{{ f.style }}" style-hover="border-color: #2E7DF0;">{{ f.label }}</div>
+              </sc-for>
+              <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">SORT</span>
+                <sc-for list="{{ sorts }}" as="s" hint-placeholder-count="3">
+                  <div onClick="{{ s.open }}" style="{{ s.style }}" style-hover="border-color: #2E7DF0;">{{ s.label }}</div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="border: 1px solid #182231; background: #0B1017;">
+              <div style="display: grid; grid-template-columns: 130px 1fr 130px 90px 170px 130px 130px 110px; padding: 12px 20px; border-bottom: 1px solid #182231; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">
+                <div>INVOICE</div><div>VENDOR</div><div style="text-align: right;">AMOUNT</div><div style="text-align: right;">AGE</div><div>BLOCKING REASON</div><div>PLANT</div><div>OWNER</div><div style="text-align: right;">CONTROL</div>
+              </div>
+              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="10">
+                <div onClick="{{ r.open }}" style="display: grid; grid-template-columns: 130px 1fr 130px 90px 170px 130px 130px 110px; padding: 13px 20px; border-bottom: 1px solid #131C27; align-items: center; cursor: pointer; font-size: 13px;" style-hover="background: #101822;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; color: #56A0FF;">{{ r.id }}</div>
+                  <div>{{ r.vendor }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; text-align: right;">{{ r.amount }}</div>
+                  <div style="{{ r.ageStyle }}">{{ r.age }}</div>
+                  <div style="color: #B9C6D6;">{{ r.reason }}</div>
+                  <div style="color: #B9C6D6;">{{ r.plant }}</div>
+                  <div style="color: #B9C6D6;">{{ r.owner }}</div>
+                  <div style="{{ r.controlStyle }}">{{ r.control }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isException }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 30px 26px 40px; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: #5C7290;">LEVEL 4 &mdash; TRANSACTION</div>
+                <div style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">{{ ex.vendor }}</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8798AC;">{{ ex.id }} &middot; {{ ex.po }} &middot; booked {{ ex.booked }}</div>
+              </div>
+              <div style="display: flex; gap: 16px;">
+                <div onClick="{{ goRootCause }}" style="border: 1px solid #22303F; padding: 10px 16px; font-size: 13px; cursor: pointer;" style-hover="border-color: #2E7DF0;">Why does this keep happening?</div>
+                <div style="border: 1px solid #2E7DF0; background: #12233C; padding: 10px 16px; font-size: 13px; cursor: pointer;" style-hover="background: #17304F;">Escalate to plant controller</div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px;">
+              <div style="border: 1px solid #182231; background: #0B1017;">
+                <div style="padding: 14px 20px; border-bottom: 1px solid #182231; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">TRANSACTION</div>
+                <sc-for list="{{ exFields }}" as="f" hint-placeholder-count="10">
+                  <div style="display: flex; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid #131C27; font-size: 13px;">
+                    <span style="color: #8798AC;">{{ f.label }}</span>
+                    <span style="{{ f.style }}">{{ f.value }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="border: 1px solid #182231; background: #0B1017; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">LIFECYCLE</div>
+                  <sc-for list="{{ timeline }}" as="t" hint-placeholder-count="5">
+                    <div style="display: grid; grid-template-columns: 90px 14px 1fr; gap: 12px; align-items: center; font-size: 13px;">
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8798AC;">{{ t.date }}</span>
+                      <span style="{{ t.dotStyle }}"></span>
+                      <span style="{{ t.style }}">{{ t.label }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="border: 1px solid #2A3A52; background: #0D1522; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #56A0FF;">NEXT ACTION</div>
+                  <div style="font-size: 14px; line-height: 1.5; color: #D7E1EE;">Goods receipt is pending at Nanjangud stores. Auto-escalation to the plant controller fires in 6 hours; releasing this invoice clears &#8377;2.84 cr of payment block.</div>
+                  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <span style="border: 1px solid #22303F; padding: 8px 12px; font-size: 12px; cursor: pointer;" style-hover="border-color: #2E7DF0;">Chase GR</span>
+                    <span style="border: 1px solid #22303F; padding: 8px 12px; font-size: 12px; cursor: pointer;" style-hover="border-color: #2E7DF0;">Assign owner</span>
+                    <span style="border: 1px solid #22303F; padding: 8px 12px; font-size: 12px; cursor: pointer;" style-hover="border-color: #2E7DF0;">Log control exception</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isRoot }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 30px 26px 40px; display: flex; flex-direction: column; gap: 22px;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: #5C7290;">LEVEL 5 &mdash; ROOT CAUSE</div>
+              <div style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">Why blocked invoices keep recurring</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start;">
+              <div style="border: 1px solid #182231; background: #0B1017;">
+                <div style="padding: 14px 18px; border-bottom: 1px solid #182231; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">TAXONOMY &mdash; P2P</div>
+                <sc-for list="{{ taxonomy }}" as="t" hint-placeholder-count="8">
+                  <div onClick="{{ t.open }}" style="{{ t.style }}" style-hover="background: #101822;">
+                    <span style="flex: 1; font-size: 13px;">{{ t.name }}</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8798AC;">{{ t.pct }}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="border: 1px solid #2A3A52; background: #0D1522; padding: 22px; display: flex; flex-direction: column; gap: 14px;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="width: 6px; height: 6px; background: #2E7DF0; border-radius: 50%;"></span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #56A0FF;">PRIMARY ROOT CAUSE &mdash; {{ cause.name }}</span>
+                  </div>
+                  <div style="font-size: 17px; line-height: 1.55; color: #E6ECF4; max-width: 1100px; text-wrap: pretty;">{{ cause.narrative }}</div>
+                  <div style="display: flex; gap: 34px; padding-top: 6px;">
+                    <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5C7290; letter-spacing: 0.1em;">VALUE AT RISK</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 22px;">{{ cause.value }}</span></div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5C7290; letter-spacing: 0.1em;">AVG DELAY</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 22px;">{{ cause.delay }}</span></div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5C7290; letter-spacing: 0.1em;">RECURRENCE</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 22px;">{{ cause.recurrence }}</span></div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5C7290; letter-spacing: 0.1em;">CONCENTRATION</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 22px;">{{ cause.concentration }}</span></div>
+                  </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                  <div style="border: 1px solid #182231; background: #0B1017; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">BY PLANT</div>
+                    <sc-for list="{{ cause.plants }}" as="d" hint-placeholder-count="4">
+                      <div style="display: flex; align-items: center; gap: 10px; font-size: 13px;"><span style="flex: 1;">{{ d.name }}</span><span style="width: 70px; height: 6px; background: #131C27;"><span style="{{ d.style }}"></span></span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8798AC; width: 36px; text-align: right;">{{ d.pct }}</span></div>
+                    </sc-for>
+                  </div>
+                  <div style="border: 1px solid #182231; background: #0B1017; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">BY VENDOR GROUP</div>
+                    <sc-for list="{{ cause.vendors }}" as="d" hint-placeholder-count="4">
+                      <div style="display: flex; align-items: center; gap: 10px; font-size: 13px;"><span style="flex: 1;">{{ d.name }}</span><span style="width: 70px; height: 6px; background: #131C27;"><span style="{{ d.style }}"></span></span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8798AC; width: 36px; text-align: right;">{{ d.pct }}</span></div>
+                    </sc-for>
+                  </div>
+                  <div style="border: 1px solid #182231; background: #0B1017; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">RECOMMENDED INTERVENTION</div>
+                    <sc-for list="{{ cause.actions }}" as="a" hint-placeholder-count="3">
+                      <div style="display: flex; gap: 10px; font-size: 13px; line-height: 1.45; color: #D7E1EE;"><span style="color: #2E7DF0;">&mdash;</span><span>{{ a }}</span></div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isWC }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 30px 26px 40px; display: flex; flex-direction: column; gap: 22px;">
+            <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: #5C7290;">WORKING CAPITAL</div>
+                <div style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">Cash locked in exceptions</div>
+              </div>
+              <div style="display: flex; gap: 34px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5C7290; letter-spacing: 0.1em;">DSO</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; color: #F2B23E;">62 d</span></div>
+                <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5C7290; letter-spacing: 0.1em;">DPO</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 26px;">48 d</span></div>
+                <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #5C7290; letter-spacing: 0.1em;">RELEASABLE</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; color: #35C48A;">&#8377;4.2 cr</span></div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <div style="border: 1px solid #182231; background: #0B1017; padding: 22px; display: flex; flex-direction: column; gap: 18px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">RECEIVABLES AGEING</div>
+                <sc-for list="{{ arAgeing }}" as="a" hint-placeholder-count="5">
+                  <div style="display: flex; align-items: center; gap: 14px; font-size: 13px;">
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8798AC; width: 80px;">{{ a.label }}</span>
+                    <span style="flex: 1; height: 18px; background: #131C27;"><span style="{{ a.style }}"></span></span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; width: 90px; text-align: right;">{{ a.value }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="border: 1px solid #182231; background: #0B1017; padding: 22px; display: flex; flex-direction: column; gap: 18px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">PAYABLES BLOCKED BY REASON</div>
+                <sc-for list="{{ apBlocked }}" as="a" hint-placeholder-count="5">
+                  <div style="display: flex; align-items: center; gap: 14px; font-size: 13px;">
+                    <span style="width: 150px;">{{ a.label }}</span>
+                    <span style="flex: 1; height: 18px; background: #131C27;"><span style="{{ a.style }}"></span></span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; width: 90px; text-align: right;">{{ a.value }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="border: 1px solid #182231; background: #0B1017;">
+              <div style="display: grid; grid-template-columns: 1fr 140px 140px 140px 180px; padding: 12px 20px; border-bottom: 1px solid #182231; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">
+                <div>CASH OPPORTUNITY</div><div style="text-align: right;">VALUE</div><div style="text-align: right;">ITEMS</div><div style="text-align: right;">EFFORT</div><div>OWNER</div>
+              </div>
+              <sc-for list="{{ opportunities }}" as="o" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: 1fr 140px 140px 140px 180px; padding: 14px 20px; border-bottom: 1px solid #131C27; align-items: center; font-size: 13px;">
+                  <div>{{ o.name }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; text-align: right; color: #35C48A;">{{ o.value }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; text-align: right; color: #B9C6D6;">{{ o.items }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; text-align: right; color: #B9C6D6;">{{ o.effort }}</div>
+                  <div style="color: #B9C6D6;">{{ o.owner }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+
+      <sc-if value="{{ aiOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="width: 470px; flex-shrink: 0; border-left: 1px solid #182231; background: #0A0F16; display: flex; flex-direction: column;">
+          <div style="padding: 16px 20px; border-bottom: 1px solid #182231; display: flex; align-items: center; gap: 10px;">
+            <span style="width: 7px; height: 7px; background: #2E7DF0; border-radius: 50%; animation: ccpulse 2.4s ease-in-out infinite;"></span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.16em; color: #56A0FF;">COCKPIT INTELLIGENCE</span>
+            <span onClick="{{ toggleAI }}" style="margin-left: auto; font-size: 16px; color: #5C7290; cursor: pointer;" style-hover="color: #E6ECF4;">&times;</span>
+          </div>
+          <div style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+            <div style="font-size: 13px; line-height: 1.55; color: #8798AC;">Grounded on the finance semantic model &mdash; every answer resolves to transactions, owners and SLA records.</div>
+            <sc-for list="{{ messages }}" as="m" hint-placeholder-count="2">
+              <div style="{{ m.wrapStyle }}">
+                <div style="{{ m.bubbleStyle }}">{{ m.text }}</div>
+                <sc-if value="{{ m.hasChips }}" hint-placeholder-val="{{ false }}">
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+                    <sc-for list="{{ m.chips }}" as="c" hint-placeholder-count="2">
+                      <span onClick="{{ c.open }}" style="border: 1px solid #22303F; padding: 7px 11px; font-size: 12px; color: #B9C6D6; cursor: pointer;" style-hover="border-color: #2E7DF0; color: #E6ECF4;">{{ c.label }}</span>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+            <sc-if value="{{ isStreaming }}" hint-placeholder-val="{{ false }}">
+              <div style="max-width: 92%;">
+                <div style="background: #101822; border: 1px solid #1B2634; padding: 14px 16px; font-size: 13px; line-height: 1.6; color: #E6ECF4;">{{ streaming }}<span style="color: #2E7DF0;">&#9611;</span></div>
+              </div>
+            </sc-if>
+          </div>
+          <div style="border-top: 1px solid #182231; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.14em; color: #5C7290;">SUGGESTED</div>
+            <sc-for list="{{ suggested }}" as="s" hint-placeholder-count="3">
+              <div onClick="{{ s.open }}" style="border: 1px solid #1B2634; padding: 10px 13px; font-size: 13px; color: #B9C6D6; cursor: pointer;" style-hover="border-color: #2E7DF0; color: #E6ECF4;">{{ s.label }}</div>
+            </sc-for>
+            <div style="display: flex; align-items: center; gap: 10px; border: 1px solid #22303F; padding: 10px 13px;">
+              <input value="{{ aiInput }}" onChange="{{ setAiInput }}" onKeyDown="{{ aiKey }}" placeholder="Ask about any entity, process or exception" style="flex: 1; background: transparent; border: none; outline: none; color: #E6ECF4; font-size: 13px;" />
+              <span onClick="{{ submitAi }}" style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #56A0FF; cursor: pointer;">SEND</span>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{ paletteOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closePalette }}" style="position: fixed; inset: 0; background: rgba(4,7,11,0.72); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; z-index: 50;">
+      <div onClick="{{ stop }}" style="width: 720px; background: #0B1017; border: 1px solid #22303F; box-shadow: 0 40px 100px -30px rgba(0,0,0,0.9);">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #182231;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5C7290;">&gt;</span>
+          <input autoFocus="{{ true }}" value="{{ query }}" onChange="{{ setQuery }}" onKeyDown="{{ paletteKey }}" placeholder="Jump to an entity, process, exception or vendor" style="flex: 1; background: transparent; border: none; outline: none; color: #E6ECF4; font-size: 15px;" />
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5C7290;">ESC</span>
+        </div>
+        <div style="max-height: 380px; overflow-y: auto;">
+          <sc-for list="{{ results }}" as="r" hint-placeholder-count="6">
+            <div onClick="{{ r.open }}" style="{{ r.style }}" style-hover="background: #121C27;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: #5C7290; width: 84px;">{{ r.kind }}</span>
+              <span style="flex: 1; font-size: 14px;">{{ r.label }}</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8798AC;">{{ r.meta }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1920,&quot;height&quot;:1080},&quot;streamSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:4,&quot;min&quot;:1,&quot;max&quot;:12,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;AI panel&quot;}}">
+const ENTITIES = [
+  { code: 'JGL', name: 'Jubilant Generics Ltd', score: 74, status: 'AMBER', dims: [78, 46, 58, 82, 70], ap: '\u20b918.6 cr', ar: '\u20b912.4 cr', cash: '\u20b93.1 cr', close: '78%', breaches: 4 },
+  { code: 'JIL', name: 'Jubilant Ingrevia Ltd', score: 88, status: 'GREEN', dims: [92, 84, 81, 90, 88], ap: '\u20b94.2 cr', ar: '\u20b93.8 cr', cash: '\u20b90.6 cr', close: '94%', breaches: 0 },
+  { code: 'JBS', name: 'Jubilant Biosys Ltd', score: 67, status: 'RED', dims: [58, 52, 61, 74, 66], ap: '\u20b911.3 cr', ar: '\u20b98.9 cr', cash: '\u20b92.4 cr', close: '61%', breaches: 6 },
+  { code: 'JPS', name: 'Jubilant Pharma Pte (SG)', score: 81, status: 'AMBER', dims: [86, 72, 74, 84, 80], ap: '\u20b96.8 cr', ar: '\u20b95.1 cr', cash: '\u20b91.2 cr', close: '88%', breaches: 2 },
+  { code: 'JCL', name: 'Jubilant Cadista LLC', score: 91, status: 'GREEN', dims: [95, 90, 86, 92, 90], ap: '\u20b92.1 cr', ar: '\u20b91.9 cr', cash: '\u20b90.3 cr', close: '96%', breaches: 0 },
+  { code: 'JLS', name: 'Jubilant Life Sciences NV', score: 58, status: 'RED', dims: [48, 44, 55, 68, 62], ap: '\u20b914.7 cr', ar: '\u20b910.6 cr', cash: '\u20b94.0 cr', close: '52%', breaches: 7 },
+];
+
+const REASONS = ['Missing GR', 'PO price mismatch', 'Approval pending', 'Vendor master', 'Duplicate suspicion', 'Tax mismatch'];
+
+const EXCEPTIONS = [
+  { id: 'AP-104281', vendor: 'Suraksha Chemicals Pvt Ltd', amt: 2.84, age: 41, reason: 'Missing GR', plant: 'Nanjangud', owner: 'P. Nair', control: 'High', po: 'PO-4471902', booked: '14 Jul 2026' },
+  { id: 'AP-104306', vendor: 'Zenith Packaging Industries', amt: 1.96, age: 37, reason: 'PO price mismatch', plant: 'Roorkee', owner: 'A. Sethi', control: 'Medium', po: 'PO-4472118', booked: '18 Jul 2026' },
+  { id: 'AP-104355', vendor: 'Meridian Logistics Services', amt: 1.42, age: 34, reason: 'Approval pending', plant: 'Ambernath', owner: 'R. Iyer', control: 'Low', po: 'PO-4472884', booked: '21 Jul 2026' },
+  { id: 'AP-104402', vendor: 'Kaveri Solvents Ltd', amt: 1.28, age: 52, reason: 'Missing GR', plant: 'Nanjangud', owner: 'P. Nair', control: 'High', po: 'PO-4470553', booked: '03 Jul 2026' },
+  { id: 'AP-104417', vendor: 'Orion Instruments Pvt Ltd', amt: 0.96, age: 29, reason: 'Vendor master', plant: 'Noida', owner: 'S. Rao', control: 'Medium', po: 'PO-4473201', booked: '26 Jul 2026' },
+  { id: 'AP-104458', vendor: 'Balaji Engineering Works', amt: 0.88, age: 46, reason: 'Missing GR', plant: 'Roorkee', owner: 'A. Sethi', control: 'High', po: 'PO-4471044', booked: '09 Jul 2026' },
+  { id: 'AP-104473', vendor: 'Deccan Speciality Gases', amt: 0.74, age: 21, reason: 'Duplicate suspicion', plant: 'Nanjangud', owner: 'P. Nair', control: 'High', po: 'PO-4473688', booked: '02 Aug 2026' },
+  { id: 'AP-104501', vendor: 'Trident Maintenance Co', amt: 0.68, age: 18, reason: 'Approval pending', plant: 'Ambernath', owner: 'R. Iyer', control: 'Low', po: 'PO-4473912', booked: '05 Aug 2026' },
+  { id: 'AP-104522', vendor: 'Nova Analytical Labs', amt: 0.61, age: 33, reason: 'PO price mismatch', plant: 'Noida', owner: 'S. Rao', control: 'Medium', po: 'PO-4472470', booked: '20 Jul 2026' },
+  { id: 'AP-104570', vendor: 'Shakti Power Systems', amt: 0.54, age: 12, reason: 'Tax mismatch', plant: 'Roorkee', owner: 'A. Sethi', control: 'Low', po: 'PO-4474355', booked: '11 Aug 2026' },
+  { id: 'AP-104588', vendor: 'Ganga Freight Movers', amt: 0.47, age: 27, reason: 'Missing GR', plant: 'Ambernath', owner: 'R. Iyer', control: 'Medium', po: 'PO-4472996', booked: '24 Jul 2026' },
+  { id: 'AP-104611', vendor: 'Vertex Lab Consumables', amt: 0.39, age: 9, reason: 'Vendor master', plant: 'Noida', owner: 'S. Rao', control: 'Low', po: 'PO-4474612', booked: '14 Aug 2026' },
+];
+
+const CAUSES = {
+  'Missing GR': {
+    name: 'Missing GR', pct: 34, value: '\u20b96.3 cr', delay: '8.4 days', recurrence: '5th month', concentration: '11 vendors',
+    narrative: 'Invoices for Nanjangud and Roorkee remain blocked because goods receipts are posted after invoice receipt. 62% of affected invoices relate to 11 vendors on consignment terms; average GR lag is 8.4 days and the pattern has repeated for five consecutive months.',
+    plants: [['Nanjangud', 43], ['Roorkee', 29], ['Ambernath', 18], ['Noida', 10]],
+    vendors: [['Consignment chemicals', 38], ['Packaging', 27], ['Logistics', 21], ['Other', 14]],
+    actions: ['GR compliance alert for the top 11 vendor/plant pairs', 'Auto-escalate to plant controller after 48 hours', 'Move consignment vendors to GR-based invoicing'],
+  },
+  'PO price mismatch': {
+    name: 'PO price mismatch', pct: 22, value: '\u20b94.1 cr', delay: '6.1 days', recurrence: '3rd month', concentration: '4 contracts',
+    narrative: 'Price differences arise where contract escalations were signed but not loaded into the purchasing info record. Four contracts account for 71% of the variance value; buyers resolve them manually each cycle.',
+    plants: [['Roorkee', 41], ['Noida', 27], ['Nanjangud', 20], ['Ambernath', 12]],
+    vendors: [['Solvents', 34], ['Instruments', 28], ['Packaging', 22], ['Other', 16]],
+    actions: ['Sync contract escalations to info records monthly', 'Tolerance review with category managers', 'Block PO release when price source is stale'],
+  },
+  'Approval pending': {
+    name: 'Approval pending', pct: 18, value: '\u20b93.2 cr', delay: '5.3 days', recurrence: '2nd month', concentration: '7 approvers',
+    narrative: 'Approvals stall with seven approvers who hold 64% of pending items, concentrated in indirect spend above \u20b910 lakh. Delegation is not maintained during travel.',
+    plants: [['Ambernath', 36], ['Noida', 31], ['Roorkee', 19], ['Nanjangud', 14]],
+    vendors: [['Services', 44], ['Maintenance', 26], ['Logistics', 18], ['Other', 12]],
+    actions: ['Enforce delegation-of-authority calendar', 'Reminder at 24h, escalation at 72h', 'Reduce approval tiers below \u20b910 lakh'],
+  },
+  'Vendor master': {
+    name: 'Vendor master', pct: 11, value: '\u20b91.8 cr', delay: '4.2 days', recurrence: '4th month', concentration: '23 records',
+    narrative: 'Bank and GST details fail validation on 23 vendor records created in the last quarter, mostly for one-time service vendors onboarded outside the standard workflow.',
+    plants: [['Noida', 39], ['Ambernath', 28], ['Roorkee', 21], ['Nanjangud', 12]],
+    vendors: [['Services', 51], ['Consumables', 24], ['Logistics', 15], ['Other', 10]],
+    actions: ['Close the manual onboarding route', 'Bank validation at creation, not at payment', 'Quarterly dormant-vendor purge'],
+  },
+  'Duplicate suspicion': {
+    name: 'Duplicate suspicion', pct: 8, value: '\u20b90.9 cr', delay: '3.6 days', recurrence: '1st month', concentration: '9 pairs',
+    narrative: 'Nine invoice pairs are flagged where the same document is submitted through both the vendor portal and email intake. All are held pending manual confirmation.',
+    plants: [['Nanjangud', 34], ['Roorkee', 30], ['Noida', 22], ['Ambernath', 14]],
+    vendors: [['Chemicals', 40], ['Packaging', 25], ['Services', 20], ['Other', 15]],
+    actions: ['Single intake channel per vendor', 'Fuzzy duplicate check at capture', 'Auto-clear matched pairs after 5 days'],
+  },
+  'Tax mismatch': {
+    name: 'Tax mismatch', pct: 7, value: '\u20b90.7 cr', delay: '4.9 days', recurrence: '2nd month', concentration: '2 states',
+    narrative: 'GST place-of-supply is misapplied on interstate service invoices in two states, requiring credit notes before booking.',
+    plants: [['Roorkee', 46], ['Noida', 24], ['Ambernath', 18], ['Nanjangud', 12]],
+    vendors: [['Services', 55], ['Logistics', 23], ['Other', 22]],
+    actions: ['Place-of-supply rule in capture template', 'Vendor education pack for two states', 'Pre-booking tax validation'],
+  },
+};
+
+const ANSWERS = {
+  'Why is this entity showing amber?': 'Jubilant Generics is amber on two of five dimensions. Control health is 46 \u2014 four control breaches and 12 high-risk manual journals sit open. Working capital health is 58, driven by \u20b918.6 cr of blocked payables and \u20b93.1 cr of unapplied cash. Close and process health are both green, so this is a controllership issue rather than a throughput issue.',
+  'Why is AP exposure building?': '\u20b918.6 cr is blocked across 327 invoices. 68% of the exposure sits in items older than 30 days, and 54% of those trace to missing goods receipts \u2014 concentrated in Nanjangud (43%) and Roorkee (29%). The same 11 vendors have appeared in this pattern for five consecutive months.',
+  'Which plants and vendors drive it?': 'Nanjangud accounts for 43% of the missing-GR value, Roorkee 29%. Within that, consignment chemical vendors are 38% and packaging 27%. Suraksha Chemicals alone holds \u20b92.84 cr across four invoices with an average age of 41 days.',
+  'What should I do first?': 'Three actions, in order. One: release the 38 invoices where GR was posted this week \u2014 \u20b94.2 cr of payment capacity, no approvals needed. Two: set a 48-hour GR escalation for the top 11 vendor/plant pairs, which removes roughly 60% of recurrence. Three: take the two intercompany reconciliation breaks with Entity B to the close call today; they are blocking close sign-off.',
+  'Why did close health drop this week?': 'Close health fell 6 points. Three balance-sheet reconciliations remain unresolved, two of them intercompany mismatches with Jubilant Ingrevia, and one late manual journal of \u20b97.2 cr is awaiting controller approval. Nothing else in the close plan slipped.',
+  default: 'Across the six entities, \u20b992.4 cr is currently at risk with 1,486 open exceptions. The largest single driver is missing goods receipts in P2P at \u20b96.3 cr, followed by pricing disputes in O2C at \u20b95.4 cr. Both are concentrated in Jubilant Generics and Jubilant Life Sciences.',
+};
+
+const DIM_LABELS = ['Close', 'Control', 'Wk capital', 'Process', 'Service'];
+
+class Component extends DCLogic {
+  state = {
+    view: 'group', entityCode: 'JGL', cause: 'Missing GR', filter: 'All', sort: 'Value',
+    exId: 'AP-104281', aiOpen: false, aiInput: '', messages: [], streaming: '',
+    paletteOpen: false, query: '',
+  };
+
+  componentDidMount() {
+    this._key = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); this.setState(s => ({ paletteOpen: !s.paletteOpen, query: '' })); }
+      else if (e.key === 'Escape') this.setState({ paletteOpen: false });
+    };
+    window.addEventListener('keydown', this._key);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this._key); clearInterval(this._t); }
+
+  go = (view) => this.setState({ view, paletteOpen: false });
+  statusColor = (s) => (s === 'GREEN' ? '#35C48A' : s === 'AMBER' ? '#F2B23E' : '#FF6B6B');
+  scoreColor = (n) => (n >= 85 ? '#35C48A' : n >= 70 ? '#F2B23E' : '#FF6B6B');
+
+  ask = (q) => {
+    const speed = this.props.streamSpeed ?? 4;
+    const answer = ANSWERS[q] || ANSWERS.default;
+    clearInterval(this._t);
+    this.setState(s => ({ aiOpen: true, aiInput: '', streaming: '', messages: [...s.messages, { role: 'user', text: q }] }));
+    let i = 0;
+    this._t = setInterval(() => {
+      i += speed;
+      if (i >= answer.length) {
+        clearInterval(this._t);
+        this.setState(s => ({ streaming: '', messages: [...s.messages, { role: 'ai', text: answer }] }));
+      } else this.setState({ streaming: answer.slice(0, i) });
+    }, 18);
+  };
+
+  renderVals() {
+    const st = this.state;
+    const entity = ENTITIES.find(e => e.code === st.entityCode) || ENTITIES[0];
+    const cause = CAUSES[st.cause] || CAUSES['Missing GR'];
+    const ex = EXCEPTIONS.find(e => e.id === st.exId) || EXCEPTIONS[0];
+    const money = (n) => '\u20b9' + n.toFixed(2) + ' cr';
+
+    const navItems = [
+      ['Group view', 'group', '6'], ['Entity health', 'entity', ''], ['P2P cockpit', 'p2p', '327'],
+      ['Worklist', 'worklist', '12'], ['Root cause', 'rootcause', ''], ['Working capital', 'workingcapital', ''],
+    ];
+    const nav = navItems.map(([label, view, badge]) => {
+      const active = st.view === view || (view === 'worklist' && st.view === 'exception');
+      return {
+        label, badge, open: () => this.go(view),
+        style: 'display: flex; align-items: center; gap: 10px; padding: 10px 12px; font-size: 13px; cursor: pointer; border-left: 2px solid ' + (active ? '#2E7DF0' : 'transparent') + '; background: ' + (active ? '#121C27' : 'transparent') + '; color: ' + (active ? '#E6ECF4' : '#8798AC') + ';',
+        badgeStyle: 'margin-left: auto; font-family: \'IBM Plex Mono\', monospace; font-size: 11px; color: #5C7290;',
+      };
+    });
+
+    const bar = (v, color, h) => 'width: 100%; height: ' + Math.round((h || 22) * v / 100) + 'px; background: ' + color + ';';
+
+    const entities = ENTITIES.map(e => ({
+      ...e, open: () => this.setState({ entityCode: e.code, view: 'entity', paletteOpen: false }),
+      dotStyle: 'width: 8px; height: 8px; border-radius: 50%; background: ' + this.statusColor(e.status) + ';',
+      scoreStyle: 'font-family: \'IBM Plex Mono\', monospace; font-size: 17px; font-weight: 600; color: ' + this.scoreColor(e.score) + ';',
+      statusStyle: 'font-family: \'IBM Plex Mono\', monospace; font-size: 10px; letter-spacing: 0.1em; color: #5C7290;',
+      breachStyle: 'font-family: \'IBM Plex Mono\', monospace; font-size: 13px; text-align: right; color: ' + (e.breaches > 3 ? '#FF6B6B' : e.breaches > 0 ? '#F2B23E' : '#35C48A') + ';',
+      bars: e.dims.map((v, i) => ({ label: DIM_LABELS[i], style: bar(v, this.scoreColor(v), 22) })),
+    }));
+
+    const entityTiles = [
+      ['Cash unapplied', entity.cash, '19 receipts', 'amber', 'workingcapital'],
+      ['AP blocked', entity.ap, '327 invoices', 'red', 'p2p'],
+      ['AR > 90 days', entity.ar, '41 customers', 'red', 'workingcapital'],
+      ['Close', entity.close, '7 blockers', 'amber', 'entity'],
+      ['Reconciliations', '\u20b914.3 cr', '18 aged breaks', 'red', 'rootcause'],
+      ['Controls', entity.breaches + ' breaches', '12 high-risk JEs', 'amber', 'rootcause'],
+    ].map(([label, value, sub, tone, view], i) => ({
+      label, value, sub, open: () => this.go(view),
+      style: 'padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; border-right: ' + (i < 5 ? '1px solid #182231' : 'none') + ';',
+      subStyle: 'font-size: 12px; color: ' + (tone === 'red' ? '#FF6B6B' : '#F2B23E') + ';',
+    }));
+
+    const topIssues = [
+      ['AP blocked > 30 days', entity.ap, 'oldest 52 d', 'Entity controller', 'red', 'p2p'],
+      ['Overdue AR > 90 days', entity.ar, 'oldest 148 d', 'Collections lead', 'red', 'workingcapital'],
+      ['Unapplied cash', entity.cash, 'oldest 22 d', 'Cash application', 'amber', 'workingcapital'],
+      ['Reconciliation breaks', '18 items', 'oldest 61 d', 'R2R tower', 'amber', 'rootcause'],
+      ['High-risk manual journals', '12 JEs', 'this period', 'Financial controller', 'amber', 'rootcause'],
+      ['Overdue queries', '27 tickets', 'SLA breached', 'Service delivery', 'amber', 'worklist'],
+    ].map(([label, value, age, owner, tone, view]) => ({
+      label, value, age, owner, open: () => this.go(view),
+      dotStyle: 'width: 8px; height: 8px; border-radius: 50%; background: ' + (tone === 'red' ? '#FF6B6B' : '#F2B23E') + ';',
+    }));
+
+    const causeList = Object.keys(CAUSES).map(k => ({
+      name: CAUSES[k].name, pct: CAUSES[k].pct + '%',
+      open: () => this.setState({ cause: k, view: 'rootcause', paletteOpen: false }),
+      style: 'display: block; width: ' + CAUSES[k].pct * 2.6 + '%; height: 6px; background: #2E7DF0;',
+    }));
+
+    const p2pStages = [
+      ['PR', 'Requisition', '4,182', '\u20b962.1 cr', 4, 'green'],
+      ['PO', 'Purchase order', '3,914', '\u20b958.4 cr', 6, 'green'],
+      ['GR', 'Goods receipt', '3,502', '\u20b951.2 cr', 19, 'red'],
+      ['INV', 'Invoice', '1,243', '\u20b918.6 cr', 26, 'red'],
+      ['MTC', 'Three-way match', '916', '\u20b914.2 cr', 22, 'amber'],
+      ['APR', 'Approval', '589', '\u20b98.9 cr', 12, 'amber'],
+      ['PAY', 'Payment', '412', '\u20b96.1 cr', 3, 'green'],
+    ].map(([step, name, volume, value, exc, tone]) => ({
+      step, name, volume, value, exc: exc + '% exception',
+      open: () => this.go('worklist'),
+      style: 'border: 1px solid #182231; background: #0B1017; padding: 16px; display: flex; flex-direction: column; gap: 8px; cursor: pointer;',
+      dotStyle: 'width: 7px; height: 7px; border-radius: 50%; background: ' + (tone === 'red' ? '#FF6B6B' : tone === 'amber' ? '#F2B23E' : '#35C48A') + ';',
+      barStyle: 'width: ' + exc * 3.4 + '%; height: 4px; background: ' + (tone === 'red' ? '#FF6B6B' : tone === 'amber' ? '#F2B23E' : '#35C48A') + ';',
+      excStyle: 'font-family: \'IBM Plex Mono\', monospace; font-size: 11px; color: ' + (tone === 'red' ? '#FF6B6B' : tone === 'amber' ? '#F2B23E' : '#8798AC') + ';',
+    }));
+
+    const ageing = [['0-15 d', '\u20b95.9 cr', 42], ['16-30 d', '\u20b94.2 cr', 30], ['31-60 d', '\u20b94.1 cr', 29], ['61-90 d', '\u20b92.6 cr', 19], ['> 90 d', '\u20b91.8 cr', 13]]
+      .map(([label, value, h]) => ({ label, value, style: 'height: ' + h * 2.4 + 'px; background: ' + (h > 25 ? '#2E7DF0' : '#1F5FB5') + ';' }));
+
+    let rows = EXCEPTIONS.filter(r => st.filter === 'All' || r.reason === st.filter);
+    rows = [...rows].sort((a, b) => st.sort === 'Value' ? b.amt - a.amt : st.sort === 'Age' ? b.age - a.age : a.vendor.localeCompare(b.vendor));
+    const rowVals = rows.map(r => ({
+      ...r, amount: money(r.amt), age: r.age + ' d',
+      open: () => this.setState({ exId: r.id, view: 'exception' }),
+      ageStyle: 'font-family: \'IBM Plex Mono\', monospace; text-align: right; color: ' + (r.age > 30 ? '#FF6B6B' : r.age > 15 ? '#F2B23E' : '#B9C6D6') + ';',
+      controlStyle: 'font-family: \'IBM Plex Mono\', monospace; font-size: 12px; text-align: right; color: ' + (r.control === 'High' ? '#FF6B6B' : r.control === 'Medium' ? '#F2B23E' : '#8798AC') + ';',
+    }));
+
+    const chipStyle = (on) => 'border: 1px solid ' + (on ? '#2E7DF0' : '#22303F') + '; background: ' + (on ? '#12233C' : 'transparent') + '; color: ' + (on ? '#E6ECF4' : '#8798AC') + '; padding: 7px 12px; font-size: 12px; cursor: pointer;';
+
+    return {
+      nav, entity, crumb: this.crumb(entity),
+      entityDotStyle: 'width: 8px; height: 8px; border-radius: 50%; background: ' + this.statusColor(entity.status) + ';',
+      aiButtonStyle: 'display: flex; align-items: center; gap: 9px; border: 1px solid ' + (st.aiOpen ? '#2E7DF0' : '#22303F') + '; padding: 8px 13px; font-size: 13px; cursor: pointer; color: #E6ECF4;',
+      isGroup: st.view === 'group', isEntity: st.view === 'entity', isP2P: st.view === 'p2p',
+      isWorklist: st.view === 'worklist', isException: st.view === 'exception',
+      isRoot: st.view === 'rootcause', isWC: st.view === 'workingcapital',
+
+      entities,
+      groupCauses: [['Missing GR (P2P)', 26], ['Pricing disputes (O2C)', 21], ['Interface breaks (R2R)', 18], ['Approval delays (P2P)', 14]]
+        .map(([name, pct]) => ({ name, pct: pct + '%', style: 'display: block; width: ' + pct * 3.4 + '%; height: 6px; background: #2E7DF0;' })),
+
+      bigScoreStyle: 'font-family: \'IBM Plex Mono\', monospace; font-size: 44px; font-weight: 600; line-height: 1; color: ' + this.scoreColor(entity.score) + ';',
+      bigStatusStyle: 'font-family: \'IBM Plex Mono\', monospace; font-size: 12px; letter-spacing: 0.12em; padding: 4px 9px; color: ' + this.statusColor(entity.status) + '; border: 1px solid ' + this.statusColor(entity.status) + '55;',
+      entityBars: entity.dims.map((v, i) => ({ label: DIM_LABELS[i], style: 'width: ' + v + '%; height: 6px; background: ' + this.scoreColor(v) + ';' })),
+      entityTiles, topIssues,
+      entityCauses: causeList.slice(0, 3),
+      goWorklist: () => this.go('worklist'),
+      goRootCause: () => this.go('rootcause'),
+      askWhyAmber: () => this.ask('Why is this entity showing amber?'),
+
+      p2pStages, ageing, causes: causeList,
+
+      rows: rowVals, rowCount: rowVals.length,
+      rowValue: money(rowVals.reduce((a, r) => a + r.amt, 0)),
+      rowAged: money(rowVals.filter(r => r.age > 30).reduce((a, r) => a + r.amt, 0)),
+      filters: ['All', ...REASONS].map(f => ({ label: f, open: () => this.setState({ filter: f }), style: chipStyle(st.filter === f) })),
+      sorts: ['Value', 'Age', 'Vendor'].map(s => ({ label: s, open: () => this.setState({ sort: s }), style: chipStyle(st.sort === s) })),
+
+      ex,
+      exFields: [
+        ['Entity', entity.name, ''], ['Invoice value', money(ex.amt), 'font-family: \'IBM Plex Mono\', monospace;'],
+        ['Ageing', ex.age + ' days', 'font-family: \'IBM Plex Mono\', monospace; color: ' + (ex.age > 30 ? '#FF6B6B' : '#F2B23E') + ';'],
+        ['Blocking reason', ex.reason, ''], ['Plant', ex.plant, ''], ['Purchase order', ex.po, 'font-family: \'IBM Plex Mono\', monospace;'],
+        ['Responsible function', 'P2P tower \u2014 invoice processing', ''], ['Owner', ex.owner, ''],
+        ['SLA', 'Breached by ' + Math.max(1, ex.age - 15) + ' days', 'color: #FF6B6B;'],
+        ['Control impact', ex.control + ' \u2014 payables completeness', 'color: ' + (ex.control === 'High' ? '#FF6B6B' : '#F2B23E') + ';'],
+      ].map(([label, value, style]) => ({ label, value, style: 'font-size: 13px; ' + style })),
+      timeline: [
+        ['02 Jul', 'PO released to vendor', 'done'], [ex.booked.slice(0, 6), 'Invoice received via vendor portal', 'done'],
+        ['15 Jul', 'Three-way match failed \u2014 no goods receipt', 'fail'], ['16 Jul', 'Query raised with Nanjangud stores', 'done'],
+        ['28 Jul', 'Vendor follow-up, no GR posted', 'fail'], ['Today', 'Awaiting GR \u2014 escalation due in 6 hours', 'open'],
+      ].map(([date, label, kind]) => ({
+        date, label,
+        dotStyle: 'width: 8px; height: 8px; border-radius: 50%; background: ' + (kind === 'fail' ? '#FF6B6B' : kind === 'open' ? '#2E7DF0' : '#35C48A') + ';',
+        style: 'font-size: 13px; color: ' + (kind === 'open' ? '#E6ECF4' : '#B9C6D6') + ';',
+      })),
+
+      cause: {
+        ...cause,
+        plants: cause.plants.map(([name, pct]) => ({ name, pct: pct + '%', style: 'display: block; width: ' + pct + '%; height: 6px; background: #2E7DF0;' })),
+        vendors: cause.vendors.map(([name, pct]) => ({ name, pct: pct + '%', style: 'display: block; width: ' + pct + '%; height: 6px; background: #2E7DF0;' })),
+      },
+      taxonomy: Object.keys(CAUSES).map(k => ({
+        name: CAUSES[k].name, pct: CAUSES[k].pct + '%', open: () => this.setState({ cause: k }),
+        style: 'display: flex; align-items: center; gap: 10px; padding: 13px 18px; border-bottom: 1px solid #131C27; cursor: pointer; border-left: 2px solid ' + (st.cause === k ? '#2E7DF0' : 'transparent') + '; background: ' + (st.cause === k ? '#101822' : 'transparent') + ';',
+      })),
+
+      arAgeing: [['0-30 d', '\u20b924.1 cr', 100], ['31-60 d', '\u20b911.6 cr', 48], ['61-90 d', '\u20b98.2 cr', 34], ['91-180 d', '\u20b97.4 cr', 31], ['> 180 d', '\u20b95.0 cr', 21]]
+        .map(([label, value, w]) => ({ label, value, style: 'display: block; width: ' + w + '%; height: 18px; background: ' + (w > 40 ? '#2E7DF0' : '#B4551E') + ';' })),
+      apBlocked: [['Missing GR', '\u20b96.3 cr', 100], ['PO price mismatch', '\u20b94.1 cr', 65], ['Approval pending', '\u20b93.2 cr', 51], ['Vendor master', '\u20b91.8 cr', 29], ['Duplicate / tax', '\u20b91.6 cr', 25]]
+        .map(([label, value, w]) => ({ label, value, style: 'display: block; width: ' + w + '%; height: 18px; background: #2E7DF0;' })),
+      opportunities: [
+        { name: 'Release invoices where GR posted this week', value: '\u20b94.2 cr', items: '38', effort: 'Low', owner: 'P2P tower' },
+        { name: 'Apply matched receipts to open AR', value: '\u20b92.1 cr', items: '19', effort: 'Low', owner: 'Cash application' },
+        { name: 'Settle pricing disputes under \u20b910 lakh', value: '\u20b91.4 cr', items: '27', effort: 'Medium', owner: 'Collections' },
+        { name: 'Clear intercompany netting with Ingrevia', value: '\u20b93.6 cr', items: '4', effort: 'Medium', owner: 'R2R tower' },
+      ],
+
+      aiOpen: st.aiOpen, toggleAI: () => this.setState(s => ({ aiOpen: !s.aiOpen })),
+      isStreaming: st.streaming.length > 0, streaming: st.streaming,
+      messages: st.messages.map((m, i) => {
+        const isUser = m.role === 'user';
+        const last = i === st.messages.length - 1 && !isUser && !st.streaming;
+        return {
+          text: m.text,
+          wrapStyle: isUser ? 'align-self: flex-end; max-width: 88%;' : 'max-width: 92%;',
+          bubbleStyle: isUser
+            ? 'background: #12233C; border: 1px solid #2A3A52; padding: 12px 15px; font-size: 13px; line-height: 1.5; color: #E6ECF4;'
+            : 'background: #101822; border: 1px solid #1B2634; padding: 14px 16px; font-size: 13px; line-height: 1.6; color: #E6ECF4;',
+          hasChips: last,
+          chips: last ? [
+            { label: 'Open the worklist', open: () => this.go('worklist') },
+            { label: 'Show root cause', open: () => this.go('rootcause') },
+          ] : [],
+        };
+      }),
+      suggested: ['Why is AP exposure building?', 'Which plants and vendors drive it?', 'What should I do first?']
+        .map(q => ({ label: q, open: () => this.ask(q) })),
+      aiInput: st.aiInput,
+      setAiInput: (e) => this.setState({ aiInput: e.target.value }),
+      submitAi: () => { if (st.aiInput.trim()) this.ask(st.aiInput.trim()); },
+      aiKey: (e) => { if (e.key === 'Enter' && e.target.value.trim()) this.ask(e.target.value.trim()); },
+
+      paletteOpen: st.paletteOpen, query: st.query,
+      openPalette: () => this.setState({ paletteOpen: true, query: '' }),
+      closePalette: () => this.setState({ paletteOpen: false }),
+      stop: (e) => e.stopPropagation(),
+      setQuery: (e) => this.setState({ query: e.target.value }),
+      paletteKey: (e) => {
+        if (e.key === 'Enter') { const r = this.results()[0]; if (r) r.run(); }
+        if (e.key === 'Escape') this.setState({ paletteOpen: false });
+      },
+      results: this.results().map(r => ({
+        kind: r.kind, label: r.label, meta: r.meta, open: r.run,
+        style: 'display: flex; align-items: center; gap: 14px; padding: 13px 18px; border-bottom: 1px solid #131C27; cursor: pointer;',
+      })),
+    };
+  }
+
+  results() {
+    const q = this.state.query.trim().toLowerCase();
+    const items = [
+      ...ENTITIES.map(e => ({ kind: 'ENTITY', label: e.name, meta: 'health ' + e.score, run: () => this.setState({ entityCode: e.code, view: 'entity', paletteOpen: false }) })),
+      ...EXCEPTIONS.map(x => ({ kind: 'EXCEPTION', label: x.id + ' \u00b7 ' + x.vendor, meta: '\u20b9' + x.amt.toFixed(2) + ' cr \u00b7 ' + x.age + ' d', run: () => this.setState({ exId: x.id, view: 'exception', paletteOpen: false }) })),
+      ...Object.keys(CAUSES).map(k => ({ kind: 'ROOT CAUSE', label: CAUSES[k].name, meta: CAUSES[k].value, run: () => this.setState({ cause: k, view: 'rootcause', paletteOpen: false }) })),
+      { kind: 'SCREEN', label: 'Group view', meta: '6 entities', run: () => this.go('group') },
+      { kind: 'SCREEN', label: 'P2P cockpit', meta: 'process', run: () => this.go('p2p') },
+      { kind: 'SCREEN', label: 'Blocked invoices worklist', meta: '327 items', run: () => this.go('worklist') },
+      { kind: 'SCREEN', label: 'Working capital', meta: '\u20b94.2 cr releasable', run: () => this.go('workingcapital') },
+    ];
+    return (q ? items.filter(i => (i.label + ' ' + i.kind).toLowerCase().includes(q)) : items).slice(0, 9);
+  }
+
+  crumb(entity) {
+    const map = {
+      group: 'Group', entity: 'Group \u203a ' + entity.code, p2p: 'Group \u203a ' + entity.code + ' \u203a P2P',
+      worklist: 'Group \u203a ' + entity.code + ' \u203a P2P \u203a Invoices',
+      exception: 'Group \u203a ' + entity.code + ' \u203a P2P \u203a Invoices \u203a ' + this.state.exId,
+      rootcause: 'Group \u203a ' + entity.code + ' \u203a P2P \u203a Root cause',
+      workingcapital: 'Group \u203a ' + entity.code + ' \u203a Working capital',
+    };
+    return map[this.state.view] || 'Group';
+  }
+}
+</script>
+</body>
+</html>
