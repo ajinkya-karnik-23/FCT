@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 
-export const colors = {
+// The two palettes are the only place hex/rgba values live in the product.
+export const dark = {
   bgRoot: '#080B10',
   bgPanel: '#0B1017',
   bgPanelAlt: '#0A0F16',
@@ -26,7 +27,76 @@ export const colors = {
   ageingBarAlt: '#1F5FB5', // non-dominant buckets in the blocked-invoice ageing chart (spec/05)
   bgAccentHover: '#17304F', // hover fill for accent-bordered buttons (spec/05)
   assistantBorder: '#1B2634', // assistant bubbles + preset buttons (spec/07)
+  paletteScrim: 'rgba(4, 7, 11, 0.72)', // command-palette backdrop (spec/07)
 } as const
+
+export type Palette = Record<keyof typeof dark, string>
+
+export const light: Palette = {
+  bgRoot: '#F2F5F9',
+  bgPanel: '#FFFFFF',
+  bgPanelAlt: '#F7F9FC',
+  bgRaised: '#EAEFF5',
+  bgSelected: '#E3EAF3',
+  bgAccentSoft: '#DFEAFB',
+  bgAccentPanel: '#EEF4FC',
+  borderDefault: '#D6DEE9',
+  borderSubtle: '#E4EAF2',
+  borderStrong: '#B7C4D4',
+  borderAccent: '#9FBCE8',
+  textPrimary: '#16222F',
+  textSecondary: '#3E5169',
+  textMuted: '#5A6E86',
+  // #64788F keeps the faint tier below muted (5.24 vs 4.54 on white) while clearing AA on panel/root
+  textFaint: '#64788F',
+  textFaintest: '#93A3B5',
+  accent: '#2E7DF0',
+  accentText: '#1D5ED8',
+  // darkened so status labels clear AA on white (5.62) — the bright dark-theme green cannot work on light bgs
+  statusGreen: '#14764F',
+  statusAmber: '#A16207',
+  statusRed: '#D33C3C',
+  chartArOld: '#B4551E', // mid-tone reads on both themes
+  ageingBarAlt: '#1F5FB5', // mid-tone reads on both themes
+  bgAccentHover: '#CFE0F8',
+  assistantBorder: '#D9E2EE',
+  paletteScrim: 'rgba(23, 32, 45, 0.55)',
+}
+
+export type Theme = 'dark' | 'light'
+
+const palettes: Record<Theme, Palette> = { dark, light }
+
+// Components read colors.*; each value is a CSS variable so the active theme
+// resolves at paint time — switching themes needs no React re-render. The
+// satisfies check keeps these keys in lockstep with the palette objects.
+export const colors = {
+  bgRoot: 'var(--bg-root)',
+  bgPanel: 'var(--bg-panel)',
+  bgPanelAlt: 'var(--bg-panel-alt)',
+  bgRaised: 'var(--bg-raised)',
+  bgSelected: 'var(--bg-selected)',
+  bgAccentSoft: 'var(--bg-accent-soft)',
+  bgAccentPanel: 'var(--bg-accent-panel)',
+  borderDefault: 'var(--border-default)',
+  borderSubtle: 'var(--border-subtle)',
+  borderStrong: 'var(--border-strong)',
+  borderAccent: 'var(--border-accent)',
+  textPrimary: 'var(--text-primary)',
+  textSecondary: 'var(--text-secondary)',
+  textMuted: 'var(--text-muted)',
+  textFaint: 'var(--text-faint)',
+  textFaintest: 'var(--text-faintest)',
+  accent: 'var(--accent)',
+  accentText: 'var(--accent-text)',
+  statusGreen: 'var(--status-green)',
+  statusAmber: 'var(--status-amber)',
+  statusRed: 'var(--status-red)',
+  chartArOld: 'var(--chart-ar-old)',
+  ageingBarAlt: 'var(--ageing-bar-alt)',
+  bgAccentHover: 'var(--bg-accent-hover)',
+  assistantBorder: 'var(--assistant-border)',
+} as const satisfies Record<Exclude<keyof typeof dark, 'paletteScrim'>, string>
 
 export type ColorName = keyof typeof colors
 
@@ -85,7 +155,7 @@ export const layout = {
   aiDrawerWidth: '470px',
   paletteWidth: '720px',
   paletteTopOffset: '12vh',
-  paletteScrim: 'rgba(4, 7, 11, 0.72)',
+  paletteScrim: 'var(--palette-scrim)',
 } as const
 
 export const radius = {
@@ -105,24 +175,44 @@ export const animation = {
   fadeIn: 'fade-in 140ms ease-out',
 } as const
 
-// The only shadow in the product; reserved for the command palette.
+// The only shadow in the product; reserved for the command palette. Same value in both themes.
 export const paletteShadow = '0 40px 100px -30px rgba(0, 0, 0, 0.9)'
 
 function toKebab(name: string): string {
   return name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
 }
 
-export const cssVariables: Record<string, string> = {
+// Built from the palette objects — never from `colors`, whose values are the
+// variables themselves (deriving from them would be circular).
+const themeVariables = (theme: Theme): Record<string, string> => ({
   ...Object.fromEntries(
-    Object.entries(colors).map(([name, value]) => [`--${toKebab(name)}`, value]),
+    Object.entries(palettes[theme]).map(([name, value]) => [`--${toKebab(name)}`, value]),
   ),
   '--font-sans': fonts.sans,
   '--font-mono': fonts.mono,
+})
+
+export function applyTheme(theme: Theme = 'dark'): void {
+  const style = document.documentElement.style
+  for (const [name, value] of Object.entries(themeVariables(theme))) {
+    style.setProperty(name, value)
+  }
 }
 
-export function applyTheme(): void {
-  const style = document.documentElement.style
-  for (const [name, value] of Object.entries(cssVariables)) {
-    style.setProperty(name, value)
+const THEME_STORAGE_KEY = 'fct-theme'
+
+export function storedTheme(): Theme {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY) === 'light' ? 'light' : 'dark'
+  } catch {
+    return 'dark' // non-browser context — default theme
+  }
+}
+
+export function setStoredTheme(theme: Theme): void {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme)
+  } catch {
+    // storage unavailable (e.g. private browsing); the choice still applies for this session
   }
 }

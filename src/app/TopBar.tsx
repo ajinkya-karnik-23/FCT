@@ -1,12 +1,21 @@
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { getEntity } from '../api'
 import { StatusDot } from '../components'
 import { scoreColor } from '../theme/derive'
-import { colors, fonts, layout, radius } from '../theme/tokens'
+import { applyTheme, colors, fonts, layout, radius, setStoredTheme, storedTheme, type Theme } from '../theme/tokens'
 import { buildBreadcrumb, DEFAULT_ENTITY, entityCodeFromPath } from './routes'
 
 export function TopBar({ drawerOpen, onToggleDrawer }: { drawerOpen: boolean; onToggleDrawer: () => void }) {
   const { pathname } = useLocation()
+  const [theme, setTheme] = useState<Theme>(storedTheme())
+
+  const toggleTheme = () => {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark'
+    applyTheme(next)
+    setStoredTheme(next)
+    setTheme(next)
+  }
   const crumbs = buildBreadcrumb(pathname)
   const code = entityCodeFromPath(pathname) ?? DEFAULT_ENTITY
   const entity = getEntity(code)
@@ -68,6 +77,21 @@ export function TopBar({ drawerOpen, onToggleDrawer }: { drawerOpen: boolean; on
         </span>
         <button
           type="button"
+          onClick={toggleTheme}
+          style={{
+            border: `1px solid ${colors.borderStrong}`,
+            padding: '3px 7px',
+            fontFamily: fonts.mono,
+            fontSize: 11,
+            color: colors.textFaint,
+            background: 'transparent',
+            cursor: 'pointer',
+          }}
+        >
+          {theme === 'dark' ? 'DARK MODE' : 'LIGHT MODE'}
+        </button>
+        <button
+          type="button"
           onClick={onToggleDrawer}
           style={{
             display: 'flex',
@@ -76,6 +100,7 @@ export function TopBar({ drawerOpen, onToggleDrawer }: { drawerOpen: boolean; on
             padding: '8px 13px',
             fontSize: 13,
             border: `1px solid ${drawerOpen ? colors.accent : colors.borderStrong}`,
+            background: 'transparent',
             color: colors.textPrimary,
           }}
         >
