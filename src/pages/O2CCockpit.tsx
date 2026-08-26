@@ -1,43 +1,60 @@
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getBlockedInvoiceAgeing, getServiceControl, listCauses, listStages } from '../api'
+import { getO2cKpis, getO2cServiceControl, getReceivablesAgeing, listCauses, listStages } from '../api'
 import { AgeingChart, Bar, Eyebrow, StageFlow } from '../components'
 import { formatCr } from '../lib/format'
 import { colors, fonts, spacing, typeScale } from '../theme/tokens'
-
-// Top-causes rows use the same insight scale as the entity home.
-const CAUSE_FILL_SCALE = 2.6
 
 const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
 const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 20, display: 'flex', flexDirection: 'column' }
 
-export function P2PCockpit() {
+// Top-causes rows use the same insight scale as the entity home.
+const CAUSE_FILL_SCALE = 2.6
+
+function Kpi({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <span style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.1em', color: colors.textFaint }}>{label}</span>
+      <span style={{ fontFamily: fonts.mono, fontSize: 26, color }}>{value}</span>
+    </div>
+  )
+}
+
+export function O2CCockpit() {
   const { code } = useParams()
-  const stages = listStages('p2p')
-  const causes = listCauses('p2p')
-  const ageing = getBlockedInvoiceAgeing()
-  const service = getServiceControl()
+  const kpis = getO2cKpis()
+  const stages = listStages('o2c')
+  const causes = listCauses('o2c')
+  const ageing = getReceivablesAgeing()
+  const service = getO2cServiceControl()
 
   return (
     <div style={pageStyle}>
       {/* Plain div, not <header> — a nested header would register as a second banner landmark */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <Eyebrow>Level 2 — Process · Procure to Pay</Eyebrow>
-        <h1 style={titleStyle}>End-to-end flow, not seven separate reports</h1>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 24 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Eyebrow>Level 2 — Process · Order to Cash</Eyebrow>
+          <h1 style={titleStyle}>Revenue to cash, as one flow</h1>
+        </div>
+        <div style={{ display: 'flex', gap: 34 }}>
+          <Kpi label="DSO" value={`${kpis.dsoDays} d`} color={colors.statusAmber} />
+          <Kpi label="OVERDUE AR" value={formatCr(kpis.overdueArCr)} color={colors.textPrimary} />
+          <Kpi label="UNAPPLIED" value={formatCr(kpis.unappliedCr)} color={colors.statusRed} />
+        </div>
       </div>
 
-      <StageFlow stages={stages} to={`/entity/${code}/p2p/invoices`} />
+      <StageFlow stages={stages} to={`/entity/${code}/working-capital`} />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: spacing.gapCards }}>
-        <AgeingChart title="Blocked invoices by ageing" buckets={ageing} />
+        <AgeingChart title="Receivables by ageing" buckets={ageing} />
 
         <section style={{ ...cardStyle, gap: 14 }}>
-          <Eyebrow style={typeScale.tableHeader}>Top causes — click to drill</Eyebrow>
+          <Eyebrow style={typeScale.tableHeader}>Top causes — O2C taxonomy</Eyebrow>
           {causes.map((c) => (
             <Link
               key={c.key}
-              to={`/entity/${code}/root-cause/p2p/${c.key}`}
+              to={`/entity/${code}/root-cause/o2c/${c.key}`}
               className="fct-cause-row"
               style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: colors.textPrimary, textDecoration: 'none' }}
             >
@@ -54,28 +71,28 @@ export function P2PCockpit() {
           <Eyebrow style={typeScale.tableHeader}>Service &amp; control</Eyebrow>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span>SLA on invoice booking</span>
-              <span style={{ fontFamily: fonts.mono, color: colors.statusAmber }}>{`${service.slaInvoiceBookingPct}%`}</span>
+              <span>Billing accuracy</span>
+              <span style={{ fontFamily: fonts.mono, color: colors.statusAmber }}>{`${service.billingAccuracyPct}%`}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span>Queries overdue</span>
-              <span style={{ fontFamily: fonts.mono, color: colors.statusRed }}>{service.queriesOverdue}</span>
+              <span>Open disputes</span>
+              <span style={{ fontFamily: fonts.mono, color: colors.statusRed }}>{service.openDisputes}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span>Duplicate payment risk</span>
-              <span style={{ fontFamily: fonts.mono }}>{formatCr(service.duplicatePaymentRiskCr)}</span>
+              <span>Orders on credit block</span>
+              <span style={{ fontFamily: fonts.mono, color: colors.statusAmber }}>{service.ordersOnCreditBlock}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span>Manual payment runs</span>
-              <span style={{ fontFamily: fonts.mono }}>{service.manualPaymentRuns}</span>
+              <span>Unapplied receipts</span>
+              <span style={{ fontFamily: fonts.mono, color: colors.textPrimary }}>{service.unappliedReceipts}</span>
             </div>
           </div>
           <Link
-            to={`/entity/${code}/p2p/invoices`}
+            to={`/entity/${code}/working-capital`}
             className="fct-blocked-btn"
             style={{ marginTop: 'auto', padding: '9px 12px', fontSize: 13, textAlign: 'center', color: colors.textPrimary, textDecoration: 'none' }}
           >
-            Open 327 blocked invoices →
+            Open 41 overdue customers →
           </Link>
         </section>
       </div>

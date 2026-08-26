@@ -1,5 +1,7 @@
+export { AgeingChart } from './AgeingChart'
 export { Bar } from './Bar'
 export { Card } from './Card'
 export { DataTable, type Column } from './DataTable'
 export { Eyebrow } from './Eyebrow'
+export { StageFlow } from './StageFlow'
 export { StatusDot } from './StatusDot'

@@ -44,7 +44,7 @@ export function ExceptionDetail() {
           <span style={{ fontFamily: fonts.mono, fontSize: 13, color: colors.textMuted }}>{`${x.id} · ${x.po} · booked ${x.bookedOn}`}</span>
         </div>
         <div style={{ display: 'flex', gap: 16 }}>
-          <Link to={`/entity/${code}/root-cause/${x.reasonKey}`} className="fct-detail-btn" style={{ padding: '10px 16px', fontSize: 13, color: colors.textPrimary, textDecoration: 'none' }}>
+          <Link to={`/entity/${code}/root-cause/p2p/${x.reasonKey}`} className="fct-detail-btn" style={{ padding: '10px 16px', fontSize: 13, color: colors.textPrimary, textDecoration: 'none' }}>
             Why does this keep happening?
           </Link>
           <button type="button" className="fct-escalate-btn" onClick={() => {}} style={{ padding: '10px 16px', fontSize: 13, color: colors.textPrimary }}>

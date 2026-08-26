@@ -2,6 +2,7 @@ import { useContext } from 'react'
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getEntity, listCauses } from '../api'
+import { defaultRootCauseTo } from '../app/paths'
 import { Bar, Eyebrow, StatusDot } from '../components'
 import { AssistantContext } from '../features/assistant/AssistantDrawer'
 import { formatCr } from '../lib/format'
@@ -30,16 +31,16 @@ export function EntityHome() {
     { label: 'AR > 90 days', value: formatCr(entity.arOver90), sub: '41 customers', tone: colors.statusRed, to: `/entity/${entity.code}/working-capital` },
     { label: 'Close', value: `${entity.closePct}%`, sub: '7 blockers', tone: colors.statusAmber, to: `/entity/${entity.code}` },
     // No per-entity reconciliation field in the data model yet; static reference value.
-    { label: 'Reconciliations', value: formatCr(14.3), sub: '18 aged breaks', tone: colors.statusRed, to: `/entity/${entity.code}/root-cause/missing-gr` },
-    { label: 'Controls', value: `${entity.controlBreaches} breaches`, sub: '12 high-risk JEs', tone: colors.statusAmber, to: `/entity/${entity.code}/root-cause/missing-gr` },
+    { label: 'Reconciliations', value: formatCr(14.3), sub: '18 aged breaks', tone: colors.statusRed, to: defaultRootCauseTo(entity.code) },
+    { label: 'Controls', value: `${entity.controlBreaches} breaches`, sub: '12 high-risk JEs', tone: colors.statusAmber, to: defaultRootCauseTo(entity.code) },
   ]
 
   const issues = [
     { dot: colors.statusRed, label: 'AP blocked > 30 days', value: formatCr(entity.apBlocked), age: 'oldest 52 d', owner: 'Entity controller', to: `/entity/${entity.code}/p2p` },
     { dot: colors.statusRed, label: 'Overdue AR > 90 days', value: formatCr(entity.arOver90), age: 'oldest 148 d', owner: 'Collections lead', to: `/entity/${entity.code}/working-capital` },
     { dot: colors.statusAmber, label: 'Unapplied cash', value: formatCr(entity.cashUnapplied), age: 'oldest 22 d', owner: 'Cash application', to: `/entity/${entity.code}/working-capital` },
-    { dot: colors.statusAmber, label: 'Reconciliation breaks', value: '18 items', age: 'oldest 61 d', owner: 'R2R tower', to: `/entity/${entity.code}/root-cause/missing-gr` },
-    { dot: colors.statusAmber, label: 'High-risk manual journals', value: '12 JEs', age: 'this period', owner: 'Financial controller', to: `/entity/${entity.code}/root-cause/missing-gr` },
+    { dot: colors.statusAmber, label: 'Reconciliation breaks', value: '18 items', age: 'oldest 61 d', owner: 'R2R tower', to: `/entity/${entity.code}/root-cause/p2p/missing-gr` },
+    { dot: colors.statusAmber, label: 'High-risk manual journals', value: '12 JEs', age: 'this period', owner: 'Financial controller', to: `/entity/${entity.code}/root-cause/p2p/missing-gr` },
     { dot: colors.statusAmber, label: 'Overdue queries', value: '27 tickets', age: 'SLA breached', owner: 'Service delivery', to: `/entity/${entity.code}/p2p/invoices` },
   ]
 
@@ -128,10 +129,10 @@ export function EntityHome() {
           <section style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Eyebrow style={typeScale.tableHeader}>Root cause insights</Eyebrow>
-              <Link to={`/entity/${entity.code}/root-cause/missing-gr`} style={{ fontSize: 12, color: colors.accentText, textDecoration: 'none' }}>Analyse →</Link>
+              <Link to={defaultRootCauseTo(entity.code)} style={{ fontSize: 12, color: colors.accentText, textDecoration: 'none' }}>Analyse →</Link>
             </div>
             {insights.map((c) => (
-              <Link key={c.key} to={`/entity/${entity.code}/root-cause/${c.key}`} style={{ display: 'flex', flexDirection: 'column', gap: 7, color: colors.textPrimary, textDecoration: 'none' }}>
+              <Link key={c.key} to={`/entity/${entity.code}/root-cause/p2p/${c.key}`} style={{ display: 'flex', flexDirection: 'column', gap: 7, color: colors.textPrimary, textDecoration: 'none' }}>
                 <span style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                   <span>{c.name}</span>
                   <span style={{ fontFamily: fonts.mono, color: colors.textMuted }}>{`${c.sharePct}%`}</span>

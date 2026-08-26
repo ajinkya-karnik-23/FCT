@@ -1,4 +1,13 @@
-import type { AgeingBucket, CashOpportunity, GroupSummary, PayableReason, RecurringCause, ServiceControl } from '../types';
+import type {
+  AgeingBucket,
+  CashOpportunity,
+  GroupSummary,
+  O2cKpis,
+  O2cServiceControl,
+  PayableReason,
+  RecurringCause,
+  ServiceControl,
+} from '../types';
 
 // spec/03 — Other datasets. All values are reference data for the bid demo.
 
@@ -45,6 +54,20 @@ export const serviceControl: ServiceControl = {
   queriesOverdue: 27,
   duplicatePaymentRiskCr: 0.9,
   manualPaymentRuns: 4,
+};
+
+// spec/08 Part B — O2C cockpit header KPIs and service & control rows.
+export const o2cKpis: O2cKpis = {
+  dsoDays: 62,
+  overdueArCr: 20.6,
+  unappliedCr: 3.1,
+};
+
+export const o2cServiceControl: O2cServiceControl = {
+  billingAccuracyPct: 96.4,
+  openDisputes: 34,
+  ordersOnCreditBlock: 18,
+  unappliedReceipts: 19,
 };
 
 // spec/03 — Group aggregates shown on the group view (score is the mean of entity scores).

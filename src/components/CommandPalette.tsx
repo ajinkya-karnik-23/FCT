@@ -21,11 +21,14 @@ function buildItems(entityCode: string): PaletteItem[] {
   for (const x of listExceptions()) {
     items.push({ kind: 'EXCEPTION', label: `${x.id} · ${x.vendor}`, meta: `${formatCr(x.amount, 2)} · ${x.ageDays} d`, to: `/entity/${x.entityCode}/p2p/invoices/${x.id}` })
   }
-  for (const c of listCauses('p2p')) {
-    items.push({ kind: 'ROOT CAUSE', label: c.name, meta: formatCr(c.valueAtRisk), to: `/entity/${entityCode}/root-cause/${c.key}` })
+  for (const processKey of ['p2p', 'o2c'] as const) {
+    for (const c of listCauses(processKey)) {
+      items.push({ kind: 'ROOT CAUSE', label: `${c.name} · ${processKey.toUpperCase()}`, meta: formatCr(c.valueAtRisk), to: `/entity/${entityCode}/root-cause/${processKey}/${c.key}` })
+    }
   }
   items.push({ kind: 'SCREEN', label: 'Group view', meta: '6 entities', to: '/' })
   items.push({ kind: 'SCREEN', label: 'P2P cockpit', meta: 'process', to: `/entity/${entityCode}/p2p` })
+  items.push({ kind: 'SCREEN', label: 'O2C cockpit', meta: 'process', to: `/entity/${entityCode}/o2c` })
   items.push({ kind: 'SCREEN', label: 'Blocked invoices worklist', meta: '327 items', to: `/entity/${entityCode}/p2p/invoices` })
   items.push({ kind: 'SCREEN', label: 'Working capital', meta: '₹4.2 cr releasable', to: `/entity/${entityCode}/working-capital` })
   return items

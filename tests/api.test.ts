@@ -6,6 +6,8 @@ import {
   getEntity,
   getException,
   getGroupSummary,
+  getO2cKpis,
+  getO2cServiceControl,
   getPayablesByReason,
   getReceivablesAgeing,
   getRecurringCauses,
@@ -133,6 +135,28 @@ describe('spec values transcribed exactly', () => {
   })
 })
 
+describe('O2C datasets (spec/08)', () => {
+  it('7 O2C stages, 5 receivables ageing buckets and 6 O2C causes', () => {
+    expect(listStages('o2c')).toHaveLength(7)
+    expect(getReceivablesAgeing()).toHaveLength(5)
+    expect(listCauses('o2c')).toHaveLength(6)
+  })
+
+  it('every O2C cause has a non-empty narrative and exactly three actions', () => {
+    const o2c = listCauses('o2c')
+    expect(o2c).toHaveLength(6) // guard: the loop below would pass vacuously on an empty set
+    for (const c of o2c) {
+      expect(c.narrative.length).toBeGreaterThan(0)
+      expect(c.actions).toHaveLength(3)
+    }
+  })
+
+  it('O2C header KPIs and service & control values transcribed exactly', () => {
+    expect(getO2cKpis()).toEqual({ dsoDays: 62, overdueArCr: 20.6, unappliedCr: 3.1 })
+    expect(getO2cServiceControl()).toEqual({ billingAccuracyPct: 96.4, openDisputes: 34, ordersOnCreditBlock: 18, unappliedReceipts: 19 })
+  })
+})
+
 describe('derived status never drifts from score', () => {
   it('statusWord(score) equals the stored status for every entity', () => {
     for (const e of listEntities()) {
@@ -143,5 +167,5 @@ describe('derived status never drifts from score', () => {
 
 describe('filters', () => {
   it('no exceptions outside JGL in the mock set', () => expect(listExceptions('JBS')).toHaveLength(0))
-  it('no stages outside p2p in the mock set', () => expect(listStages('o2c')).toHaveLength(0))
+  it('no stages for r2r in the mock set', () => expect(listStages('r2r')).toHaveLength(0))
 })

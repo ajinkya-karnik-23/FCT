@@ -46,8 +46,8 @@ describe('P2P cockpit (spec/05)', () => {
     expect(m.getByText('₹5.9 cr')).toBeTruthy()
 
     // Top causes — each row drills to its root-cause page.
-    expect(m.getByRole('link', { name: /Missing GR/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/missing-gr')
-    expect(m.getByRole('link', { name: /PO price mismatch/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/po-price-mismatch')
+    expect(m.getByRole('link', { name: /Missing GR/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
+    expect(m.getByRole('link', { name: /PO price mismatch/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/po-price-mismatch')
     expect(m.getByText('34%')).toBeTruthy()
 
     // Service & control values.
@@ -177,8 +177,29 @@ describe('Exception detail (spec/05)', () => {
     }
 
     // Header actions.
-    expect(m.getByRole('link', { name: 'Why does this keep happening?' }).getAttribute('href')).toBe('/entity/JGL/root-cause/missing-gr')
+    expect(m.getByRole('link', { name: 'Why does this keep happening?' }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
     expect(m.getByRole('button', { name: 'Escalate to plant controller' })).toBeTruthy()
     expect(m.getByRole('link', { name: /Back to worklist/ }).getAttribute('href')).toBe('/entity/JGL/p2p/invoices')
+  })
+
+  it('never inherits the last-viewed cause — the button targets the exception\'s own reason (spec/08 Part D)', () => {
+    // Arrive via the O2C cockpit so an O2C cause is the most recently viewed one.
+    window.history.pushState(null, '', '/entity/JGL/o2c')
+    render(<App />)
+    const m = main()
+    fireEvent.click(m.getByRole('link', { name: /Pricing disputes/ }))
+    expect(window.location.pathname).toBe('/entity/JGL/root-cause/o2c/pricing-disputes')
+
+    // Back to the P2P worklist, open invoice AP-104281 (blocking reason 'Missing GR').
+    const rail = screen.getByRole('navigation', { name: 'Primary' })
+    fireEvent.click(within(rail).getByRole('link', { name: /Worklist/ }))
+    expect(window.location.pathname).toBe('/entity/JGL/p2p/invoices')
+    fireEvent.click(m.getByRole('link', { name: /AP-104281/ }))
+
+    // The button lands on Missing GR / P2P — not the O2C cause seen moments earlier.
+    fireEvent.click(m.getByRole('link', { name: 'Why does this keep happening?' }))
+    expect(window.location.pathname).toBe('/entity/JGL/root-cause/p2p/missing-gr')
+    expect(m.getByRole('heading', { level: 1, name: 'Why blocked invoices keep recurring' })).toBeTruthy()
+    expect(m.getByText(/taxonomy — p2p/i)).toBeTruthy()
   })
 })

@@ -1,6 +1,8 @@
 import type { CauseNode } from '../types';
 
-// spec/03 — P2P root-cause taxonomy (6, fixed). AI classifies within this set and never invents a cause.
+// spec/03 — P2P root-cause taxonomy (6, fixed); spec/08 Part C — O2C taxonomy (6).
+// AI classifies within this set and never invents a cause. For O2C nodes the `plants`
+// field carries customer segments and `vendors` carries cause drivers (spec/08 Part C).
 export const causes: CauseNode[] = [
   {
     processKey: 'p2p',
@@ -173,6 +175,178 @@ export const causes: CauseNode[] = [
       'Place-of-supply rule in the capture template',
       'Vendor education pack for two states',
       'Pre-booking tax validation',
+    ],
+  },
+  // spec/08 Part C — O2C taxonomy. `plants` carries customer segments, `vendors` cause drivers.
+  {
+    processKey: 'o2c',
+    key: 'pricing-disputes',
+    name: 'Pricing disputes',
+    sharePct: 31,
+    valueAtRisk: 5.4,
+    avgDelayDays: 11.2,
+    recurrence: '6th month',
+    concentration: '9 customers',
+    narrative:
+      'Customers short-pay against contracted rates that were revised mid-quarter but not reflected on the invoice. Nine distribution customers account for 64% of disputed value; each dispute takes an average of 11.2 days to resolve because pricing evidence sits outside the billing system.',
+    plants: [
+      { name: 'Distribution', pct: 41 },
+      { name: 'Institutional', pct: 28 },
+      { name: 'Export', pct: 19 },
+      { name: 'Retail', pct: 12 },
+    ],
+    vendors: [
+      { name: 'Rate revision lag', pct: 44 },
+      { name: 'Contract not loaded', pct: 26 },
+      { name: 'Scheme mismatch', pct: 18 },
+      { name: 'Other', pct: 12 },
+    ],
+    actions: [
+      'Load contract revisions to billing before the effective date',
+      'Attach pricing evidence to the invoice at issue',
+      'Escalate disputes above ₹10 lakh to the commercial owner in 48 hours',
+    ],
+  },
+  {
+    processKey: 'o2c',
+    key: 'deductions',
+    name: 'Deductions & short-pay',
+    sharePct: 24,
+    valueAtRisk: 4.1,
+    avgDelayDays: 9.6,
+    recurrence: '5th month',
+    concentration: '14 customers',
+    narrative:
+      'Customers deduct scheme, damage and freight claims at payment without reference to an approved credit note. 71% of deductions are eventually accepted, meaning the dispute cycle adds cost without changing the outcome.',
+    plants: [
+      { name: 'Retail', pct: 38 },
+      { name: 'Distribution', pct: 31 },
+      { name: 'Institutional', pct: 20 },
+      { name: 'Export', pct: 11 },
+    ],
+    vendors: [
+      { name: 'Scheme claims', pct: 42 },
+      { name: 'Damage claims', pct: 27 },
+      { name: 'Freight', pct: 19 },
+      { name: 'Other', pct: 12 },
+    ],
+    actions: [
+      'Pre-approve recurring scheme deductions',
+      'Auto-clear deductions below the write-off threshold',
+      'Monthly claim reconciliation with the top 14 customers',
+    ],
+  },
+  {
+    processKey: 'o2c',
+    key: 'billing-errors',
+    name: 'Billing errors',
+    sharePct: 17,
+    valueAtRisk: 2.9,
+    avgDelayDays: 6.8,
+    recurrence: '3rd month',
+    concentration: '4 order types',
+    narrative:
+      'Invoices are rejected on receipt for missing purchase order references, incorrect GST registration or wrong ship-to detail. Four order types created outside the standard flow generate most of the rework.',
+    plants: [
+      { name: 'Institutional', pct: 44 },
+      { name: 'Export', pct: 24 },
+      { name: 'Distribution', pct: 20 },
+      { name: 'Retail', pct: 12 },
+    ],
+    vendors: [
+      { name: 'Missing PO reference', pct: 39 },
+      { name: 'Tax detail', pct: 28 },
+      { name: 'Ship-to detail', pct: 21 },
+      { name: 'Other', pct: 12 },
+    ],
+    actions: [
+      'Mandatory PO reference at order entry for institutional customers',
+      'Validate customer tax registration at master creation',
+      'Close the manual order-entry route',
+    ],
+  },
+  {
+    processKey: 'o2c',
+    key: 'credit-block',
+    name: 'Credit block delays',
+    sharePct: 12,
+    valueAtRisk: 2.1,
+    avgDelayDays: 4.4,
+    recurrence: '2nd month',
+    concentration: '18 orders',
+    narrative:
+      'Orders sit on credit block awaiting manual review because exposure limits were last reviewed a year ago. Eighteen orders are currently held, most for customers with a clean payment record.',
+    plants: [
+      { name: 'Distribution', pct: 46 },
+      { name: 'Retail', pct: 25 },
+      { name: 'Institutional', pct: 18 },
+      { name: 'Export', pct: 11 },
+    ],
+    vendors: [
+      { name: 'Stale credit limit', pct: 51 },
+      { name: 'Awaiting approval', pct: 29 },
+      { name: 'Security expired', pct: 20 },
+    ],
+    actions: [
+      'Annual credit limit refresh, risk-scored',
+      'Auto-release for customers with a 12-month clean record',
+      'Same-day review SLA for held orders',
+    ],
+  },
+  {
+    processKey: 'o2c',
+    key: 'cash-application',
+    name: 'Cash application mismatch',
+    sharePct: 9,
+    valueAtRisk: 3.1,
+    avgDelayDays: 5.1,
+    recurrence: '4th month',
+    concentration: '19 receipts',
+    narrative:
+      'Receipts arrive without remittance advice or covering multiple invoices, leaving ₹3.1 cr unapplied. Nineteen receipts are currently open, the oldest for 22 days.',
+    plants: [
+      { name: 'Distribution', pct: 37 },
+      { name: 'Retail', pct: 29 },
+      { name: 'Institutional', pct: 22 },
+      { name: 'Export', pct: 12 },
+    ],
+    vendors: [
+      { name: 'No remittance advice', pct: 48 },
+      { name: 'Part payment', pct: 27 },
+      { name: 'Multi-invoice receipt', pct: 25 },
+    ],
+    actions: [
+      'Request structured remittance advice from the top 20 payers',
+      'Tolerance-based auto-matching for part payments',
+      'Daily unapplied cash review with a named owner',
+    ],
+  },
+  {
+    processKey: 'o2c',
+    key: 'customer-master',
+    name: 'Customer master',
+    sharePct: 7,
+    valueAtRisk: 1.2,
+    avgDelayDays: 3.9,
+    recurrence: '3rd month',
+    concentration: '16 records',
+    narrative:
+      'Sixteen customer records carry incomplete tax registration or credit terms, blocking clean billing and distorting the ageing view.',
+    plants: [
+      { name: 'Retail', pct: 41 },
+      { name: 'Distribution', pct: 27 },
+      { name: 'Institutional', pct: 19 },
+      { name: 'Export', pct: 13 },
+    ],
+    vendors: [
+      { name: 'Tax registration', pct: 45 },
+      { name: 'Credit terms', pct: 33 },
+      { name: 'Ship-to hierarchy', pct: 22 },
+    ],
+    actions: [
+      'Complete-record enforcement at customer creation',
+      'Quarterly master data review with commercial',
+      'Block billing on incomplete records',
     ],
   },
 ];

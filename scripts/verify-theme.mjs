@@ -260,9 +260,11 @@ const ROUTES = [
   ['/', 'group'],
   ['/entity/JGL', 'entity-home'],
   ['/entity/JGL/p2p', 'p2p-cockpit'],
+  ['/entity/JGL/o2c', 'o2c-cockpit'],
   ['/entity/JGL/p2p/invoices', 'worklist'],
   ['/entity/JGL/p2p/invoices/AP-104281', 'exception-detail'],
-  ['/entity/JGL/root-cause/missing-gr', 'root-cause'],
+  ['/entity/JGL/root-cause/p2p/missing-gr', 'root-cause-p2p'],
+  ['/entity/JGL/root-cause/o2c/pricing-disputes', 'root-cause-o2c'],
   ['/entity/JGL/working-capital', 'working-capital'],
 ]
 
@@ -271,9 +273,11 @@ const EXPECTED_PRESENT = {
   group: ['statusGreen', 'statusRed', 'textFaint', 'borderDefault'],
   'entity-home': ['statusAmber', 'statusRed', 'accentText'],
   'p2p-cockpit': ['statusAmber', 'statusRed', 'ageingBarAlt', 'accent'],
+  'o2c-cockpit': ['statusAmber', 'statusRed', 'ageingBarAlt', 'accent'],
   worklist: ['accentText', 'textFaint'],
   'exception-detail': ['statusGreen', 'statusRed'],
-  'root-cause': ['accentText', 'textFaint'],
+  'root-cause-p2p': ['accentText', 'textFaint'],
+  'root-cause-o2c': ['accentText', 'textFaint'],
   'working-capital': ['statusAmber', 'statusGreen', 'chartArOld', 'accent'],
 }
 

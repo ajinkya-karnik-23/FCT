@@ -34,9 +34,17 @@ describe('Command palette (spec/07)', () => {
     expect(rows[0].textContent).toContain('₹2.84 cr · 41 d')
 
     // The kind column is part of the match target; uppercase query still matches.
+    // Both taxonomies are covered — twelve entries, capped at nine (spec/08 Part D).
     fireEvent.change(input, { target: { value: 'ROOT CAUSE' } })
     rows = within(p).getAllByRole('button')
-    expect(rows).toHaveLength(6)
+    expect(rows).toHaveLength(9)
+    expect(rows[0].textContent).toContain('Missing GR · P2P')
+
+    // A cause name matches its own entry in either taxonomy.
+    fireEvent.change(input, { target: { value: 'pricing disputes' } })
+    rows = within(p).getAllByRole('button')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].textContent).toContain('Pricing disputes · O2C')
   })
 
   it('shows the unfiltered list capped at nine rows, in spec order', () => {
@@ -87,6 +95,40 @@ describe('Command palette (spec/07)', () => {
     fireEvent.click(document.querySelector('.fct-palette-scrim') as HTMLElement)
     expect(screen.queryByRole('dialog')).toBeNull()
   })
+
+  it('lists all twelve root causes, six per process, each opening its own pair (spec/08 Part D)', () => {
+    render(<App />)
+
+    const cases: Array<[string, string, string]> = [
+      ['missing gr', 'Missing GR · P2P', '/entity/JGL/root-cause/p2p/missing-gr'],
+      ['po price mismatch', 'PO price mismatch · P2P', '/entity/JGL/root-cause/p2p/po-price-mismatch'],
+      ['approval pending', 'Approval pending · P2P', '/entity/JGL/root-cause/p2p/approval-pending'],
+      ['vendor master', 'Vendor master · P2P', '/entity/JGL/root-cause/p2p/vendor-master'],
+      ['duplicate suspicion', 'Duplicate suspicion · P2P', '/entity/JGL/root-cause/p2p/duplicate-suspicion'],
+      ['tax mismatch', 'Tax mismatch · P2P', '/entity/JGL/root-cause/p2p/tax-mismatch'],
+      ['pricing disputes', 'Pricing disputes · O2C', '/entity/JGL/root-cause/o2c/pricing-disputes'],
+      ['short-pay', 'Deductions & short-pay · O2C', '/entity/JGL/root-cause/o2c/deductions'],
+      ['billing errors', 'Billing errors · O2C', '/entity/JGL/root-cause/o2c/billing-errors'],
+      ['credit block delays', 'Credit block delays · O2C', '/entity/JGL/root-cause/o2c/credit-block'],
+      ['cash application mismatch', 'Cash application mismatch · O2C', '/entity/JGL/root-cause/o2c/cash-application'],
+      ['customer master', 'Customer master · O2C', '/entity/JGL/root-cause/o2c/customer-master'],
+    ]
+
+    for (const [query, label, path] of cases) {
+      fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
+      const input = within(palette()).getByPlaceholderText(PALETTE_INPUT)
+      fireEvent.change(input, { target: { value: query } })
+
+      // Each cause name matches exactly one entry — its own process.
+      const rows = within(palette()).getAllByRole('button')
+      expect(rows).toHaveLength(1)
+      expect(rows[0].textContent).toContain(label)
+
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(window.location.pathname).toBe(path)
+      expect(screen.queryByRole('dialog')).toBeNull()
+    }
+  })
 })
 
 describe('AI drawer (spec/07)', () => {
@@ -108,6 +150,10 @@ describe('AI drawer (spec/07)', () => {
     // Follow-up chips navigate.
     fireEvent.click(screen.getByRole('button', { name: 'Open the worklist' }))
     expect(window.location.pathname).toBe('/entity/JGL/p2p/invoices')
+
+    // The no-cause chip resolves to the default pair — p2p plus its first cause (spec/08 Part D).
+    fireEvent.click(screen.getByRole('button', { name: 'Show root cause' }))
+    expect(window.location.pathname).toBe('/entity/JGL/root-cause/p2p/missing-gr')
   }, 15000)
 
   it('top bar toggles the drawer open and closed without starting a conversation', () => {

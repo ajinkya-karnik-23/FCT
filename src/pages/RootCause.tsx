@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getCause, getEntity, listCauses } from '../api'
+import { getEntity, listCauses, type ProcessKey } from '../api'
 import { Bar, Eyebrow } from '../components'
 import { formatCr } from '../lib/format'
 import { barHeights, colors, fonts, radius, spacing, typeScale } from '../theme/tokens'
@@ -22,7 +22,7 @@ function DriverRow({ name, pct }: { name: string; pct: number }) {
 }
 
 export function RootCause() {
-  const { code, causeKey } = useParams()
+  const { code, process, causeKey } = useParams()
   const entity = getEntity(code ?? '')
   if (!entity) {
     return (
@@ -37,17 +37,20 @@ export function RootCause() {
     )
   }
 
-  const taxonomy = listCauses('p2p')
-  const cause = getCause(causeKey ?? '')
+  // The process and cause key travel as one pair; the cause is looked up inside this process's
+  // taxonomy, so a cause from another taxonomy can't be paired with it.
+  const proc: ProcessKey = process === 'o2c' ? 'o2c' : 'p2p'
+  const taxonomy = listCauses(proc)
+  const cause = taxonomy.find((c) => c.key === causeKey)
   if (!cause) {
     return (
       <div style={pageStyle}>
         <Eyebrow>Root cause</Eyebrow>
         <h1 style={titleStyle}>{`Unknown cause ${causeKey}`}</h1>
-        <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0 }}>The taxonomy is fixed — pick one of the six P2P causes.</p>
+        <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0 }}>{`The taxonomy is fixed — pick one of the ${taxonomy.length} ${proc.toUpperCase()} causes.`}</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
           {taxonomy.map((c) => (
-            <Link key={c.key} to={`/entity/${code}/root-cause/${c.key}`} className="fct-link" style={{ padding: '10px 12px', fontSize: 13, textDecoration: 'none' }}>
+            <Link key={c.key} to={`/entity/${code}/root-cause/${proc}/${c.key}`} className="fct-link" style={{ padding: '10px 12px', fontSize: 13, textDecoration: 'none' }}>
               {c.name} — {`${c.sharePct}%`}
             </Link>
           ))}
@@ -68,19 +71,19 @@ export function RootCause() {
       {/* Plain div, not <header> — a nested header would register as a second banner landmark */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <Eyebrow>Level 5 — Root cause</Eyebrow>
-        <h1 style={titleStyle}>Why blocked invoices keep recurring</h1>
+        <h1 style={titleStyle}>{proc === 'o2c' ? 'Why receivables keep ageing' : 'Why blocked invoices keep recurring'}</h1>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: spacing.gapCards, alignItems: 'start' }}>
         {/* Taxonomy — the selected row is driven by the :causeKey route param */}
         <section style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel }}>
           <div style={{ padding: '14px 18px', borderBottom: `1px solid ${colors.borderDefault}` }}>
-            <Eyebrow style={typeScale.tableHeader}>Taxonomy — P2P</Eyebrow>
+            <Eyebrow style={typeScale.tableHeader}>{`Taxonomy — ${proc.toUpperCase()}`}</Eyebrow>
           </div>
           {taxonomy.map((c) => (
             <Link
               key={c.key}
-              to={`/entity/${code}/root-cause/${c.key}`}
+              to={`/entity/${code}/root-cause/${proc}/${c.key}`}
               className={c.key === cause.key ? 'fct-tax-row fct-tax-row--selected' : 'fct-tax-row'}
               style={{
                 display: 'flex',
@@ -119,14 +122,14 @@ export function RootCause() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: spacing.gapCards }}>
             <section style={cardStyle}>
-              <Eyebrow style={typeScale.tableHeader}>By plant</Eyebrow>
+              <Eyebrow style={typeScale.tableHeader}>{proc === 'o2c' ? 'By customer segment' : 'By plant'}</Eyebrow>
               {cause.plants.map((d) => (
                 <DriverRow key={d.name} name={d.name} pct={d.pct} />
               ))}
             </section>
 
             <section style={cardStyle}>
-              <Eyebrow style={typeScale.tableHeader}>By vendor group</Eyebrow>
+              <Eyebrow style={typeScale.tableHeader}>{proc === 'o2c' ? 'By driver' : 'By vendor group'}</Eyebrow>
               {cause.vendors.map((d) => (
                 <DriverRow key={d.name} name={d.name} pct={d.pct} />
               ))}

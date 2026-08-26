@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify:theme": "node scripts/verify-theme.mjs"
+    "verify:theme": "node scripts/verify-theme.mjs",
+    "verify:drills": "node scripts/verify-drills.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

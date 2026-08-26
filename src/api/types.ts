@@ -107,6 +107,21 @@ export interface ServiceControl {
   manualPaymentRuns: number; // 4
 }
 
+// spec/08 — O2C cockpit header KPIs (labels and colors composed at render time).
+export interface O2cKpis {
+  dsoDays: number; // 62
+  overdueArCr: number; // 20.6
+  unappliedCr: number; // 3.1
+}
+
+// spec/08 — O2C service & control rows (labels composed at render time, as for P2P).
+export interface O2cServiceControl {
+  billingAccuracyPct: number; // 96.4
+  openDisputes: number; // 34
+  ordersOnCreditBlock: number; // 18
+  unappliedReceipts: number; // 19
+}
+
 export interface GroupSummary {
   score: number; // 76.5
   valueAtRiskCr: number; // 92.4

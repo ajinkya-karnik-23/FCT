@@ -113,8 +113,9 @@ describe('Entity health home (spec/04)', () => {
     expect(m.getByRole('link', { name: /327 invoices/ }).getAttribute('href')).toBe('/entity/JGL/p2p')
     expect(m.getByRole('link', { name: /41 customers/ }).getAttribute('href')).toBe('/entity/JGL/working-capital')
     expect(m.getByRole('link', { name: /7 blockers/ }).getAttribute('href')).toBe('/entity/JGL')
-    expect(m.getByRole('link', { name: /18 aged breaks/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/missing-gr')
-    expect(m.getByRole('link', { name: /12 high-risk JEs/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/missing-gr')
+    // No-cause entry points resolve to the default pair — p2p plus its first cause (spec/08 Part D).
+    expect(m.getByRole('link', { name: /18 aged breaks/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
+    expect(m.getByRole('link', { name: /12 high-risk JEs/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
   })
 
   it('lists the six top issues and three root-cause insights with their drill targets', () => {
@@ -138,16 +139,16 @@ describe('Entity health home (spec/04)', () => {
     expect(m.getByRole('link', { name: /AP blocked > 30 days/ }).getAttribute('href')).toBe('/entity/JGL/p2p')
     expect(m.getByRole('link', { name: /Overdue AR > 90 days/ }).getAttribute('href')).toBe('/entity/JGL/working-capital')
     expect(m.getByRole('link', { name: /Unapplied cash/ }).getAttribute('href')).toBe('/entity/JGL/working-capital')
-    expect(m.getByRole('link', { name: /Reconciliation breaks/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/missing-gr')
-    expect(m.getByRole('link', { name: /High-risk manual journals/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/missing-gr')
+    expect(m.getByRole('link', { name: /Reconciliation breaks/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
+    expect(m.getByRole('link', { name: /High-risk manual journals/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
     expect(m.getByRole('link', { name: /Overdue queries/ }).getAttribute('href')).toBe('/entity/JGL/p2p/invoices')
 
     // Root cause insights — first three of the fixed P2P taxonomy.
     expect(m.getByText(/root cause insights/i)).toBeTruthy()
-    expect(m.getByRole('link', { name: 'Analyse →' }).getAttribute('href')).toBe('/entity/JGL/root-cause/missing-gr')
-    expect(m.getByRole('link', { name: /Missing GR/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/missing-gr')
-    expect(m.getByRole('link', { name: /PO price mismatch/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/po-price-mismatch')
-    expect(m.getByRole('link', { name: /Approval pending/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/approval-pending')
+    expect(m.getByRole('link', { name: 'Analyse →' }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
+    expect(m.getByRole('link', { name: /Missing GR/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
+    expect(m.getByRole('link', { name: /PO price mismatch/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/po-price-mismatch')
+    expect(m.getByRole('link', { name: /Approval pending/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/approval-pending')
     expect(m.getByText('34%')).toBeTruthy()
     expect(m.getByText('22%')).toBeTruthy()
     expect(m.getByText('18%')).toBeTruthy()

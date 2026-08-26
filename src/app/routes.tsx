@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { defaultRootCauseTo } from './paths'
 import { EntityHome } from '../pages/EntityHome'
 import { ExceptionDetail } from '../pages/ExceptionDetail'
 import { GroupView } from '../pages/GroupView'
+import { O2CCockpit } from '../pages/O2CCockpit'
 import { P2PCockpit } from '../pages/P2PCockpit'
 import { RootCause } from '../pages/RootCause'
 import { Worklist } from '../pages/Worklist'
@@ -28,6 +30,7 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
 
   if (parts.length === 2) return [group, { label: code }]
   if (parts[2] === 'p2p' && parts.length === 3) return [group, entityLink, { label: 'P2P' }]
+  if (parts[2] === 'o2c' && parts.length === 3) return [group, entityLink, { label: 'O2C' }]
   if (parts[2] === 'p2p' && parts[3] === 'invoices' && parts.length === 4) {
     return [group, entityLink, p2pLink, { label: 'Invoices' }]
   }
@@ -35,15 +38,16 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
     return [group, entityLink, p2pLink, { label: 'Invoices', to: `/entity/${code}/p2p/invoices` }, { label: parts[4] }]
   }
   if (parts[2] === 'root-cause') {
-    // Root cause lives under P2P in the drill path: Group › JGL › P2P › Root cause
-    return [group, entityLink, p2pLink, { label: 'Root cause' }]
+    // The process segment picks the middle crumb: Group › JGL › P2P|O2C › Root cause
+    const processCrumb: Crumb = parts[3] === 'o2c' ? { label: 'O2C', to: `/entity/${code}/o2c` } : p2pLink
+    return [group, entityLink, processCrumb, { label: 'Root cause' }]
   }
   if (parts[2] === 'working-capital') return [group, entityLink, { label: 'Working capital' }]
 
   return [{ label: 'Group' }]
 }
 
-export type NavKey = 'group' | 'entityHealth' | 'p2pCockpit' | 'worklist' | 'rootCause' | 'workingCapital'
+export type NavKey = 'group' | 'entityHealth' | 'p2pCockpit' | 'o2cCockpit' | 'worklist' | 'rootCause' | 'workingCapital'
 
 // Worklist stays active while an exception detail page is open (spec/02).
 export function activeNavKey(pathname: string): NavKey {
@@ -53,6 +57,8 @@ export function activeNavKey(pathname: string): NavKey {
   switch (parts[2]) {
     case 'p2p':
       return parts.length > 3 ? 'worklist' : 'p2pCockpit'
+    case 'o2c':
+      return 'o2cCockpit'
     case 'root-cause':
       return 'rootCause'
     case 'working-capital':
@@ -74,8 +80,9 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'group', label: 'Group view', count: 6, to: () => '/' },
   { key: 'entityHealth', label: 'Entity health', to: (c) => `/entity/${c ?? DEFAULT_ENTITY}` },
   { key: 'p2pCockpit', label: 'P2P cockpit', count: 327, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/p2p` },
+  { key: 'o2cCockpit', label: 'O2C cockpit', count: 284, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/o2c` },
   { key: 'worklist', label: 'Worklist', count: 12, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/p2p/invoices` },
-  { key: 'rootCause', label: 'Root cause', to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/root-cause/missing-gr` },
+  { key: 'rootCause', label: 'Root cause', to: (c) => defaultRootCauseTo(c ?? DEFAULT_ENTITY) },
   { key: 'workingCapital', label: 'Working capital', to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/working-capital` },
 ]
 
@@ -92,7 +99,8 @@ export function AppRoutes() {
       <Route path="/entity/:code/p2p" element={<P2PCockpit />} />
       <Route path="/entity/:code/p2p/invoices" element={<Worklist />} />
       <Route path="/entity/:code/p2p/invoices/:exceptionId" element={<ExceptionDetail />} />
-      <Route path="/entity/:code/root-cause/:causeKey" element={<RootCause />} />
+      <Route path="/entity/:code/o2c" element={<O2CCockpit />} />
+      <Route path="/entity/:code/root-cause/:process/:causeKey" element={<RootCause />} />
       <Route path="/entity/:code/working-capital" element={<WorkingCapital />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

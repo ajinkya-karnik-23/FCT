@@ -1,6 +1,7 @@
 import { createContext, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { defaultRootCauseTo } from '../../app/paths'
 import { Eyebrow, StatusDot } from '../../components'
 import { colors, fonts, layout } from '../../theme/tokens'
 import { mockAssistant, type AssistantProvider } from './provider'
@@ -123,7 +124,7 @@ export function AssistantDrawer({ entityCode, question, onClose, onQuestionConsu
                 <button type="button" className="fct-followup-chip" onClick={() => navigate(`/entity/${entityCode}/p2p/invoices`)}>
                   Open the worklist
                 </button>
-                <button type="button" className="fct-followup-chip" onClick={() => navigate(`/entity/${entityCode}/root-cause/missing-gr`)}>
+                <button type="button" className="fct-followup-chip" onClick={() => navigate(defaultRootCauseTo(entityCode))}>
                   Show root cause
                 </button>
               </div>

@@ -10,6 +10,8 @@ import {
   blockedInvoiceAgeing,
   cashOpportunities,
   groupSummary,
+  o2cKpis,
+  o2cServiceControl,
   payablesByReason,
   receivablesAgeing,
   recurringCauses,
@@ -23,6 +25,8 @@ import type {
   Entity,
   Exception,
   GroupSummary,
+  O2cKpis,
+  O2cServiceControl,
   PayableReason,
   ProcessKey,
   ProcessStage,
@@ -40,6 +44,8 @@ export type {
   Entity,
   Exception,
   GroupSummary,
+  O2cKpis,
+  O2cServiceControl,
   PayableReason,
   ProcessKey,
   ProcessStage,
@@ -102,6 +108,15 @@ export function getPayablesByReason(): PayableReason[] {
 
 export function getServiceControl(): ServiceControl {
   return serviceControl;
+}
+
+// spec/08 — O2C cockpit datasets.
+export function getO2cKpis(): O2cKpis {
+  return o2cKpis;
+}
+
+export function getO2cServiceControl(): O2cServiceControl {
+  return o2cServiceControl;
 }
 
 export function getRecurringCauses(): RecurringCause[] {
