@@ -1,23 +1,20 @@
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getCashOpportunities, getEntity, getPayablesByReason, getReceivablesAgeing } from '../api'
-import { Eyebrow } from '../components'
+import { Eyebrow, FreshnessStamp, Metric } from '../components'
 import { formatCr } from '../lib/format'
 import { barHeights, colors, fonts, spacing, typeScale } from '../theme/tokens'
 
 const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
 const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }
-const tableGrid: CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 140px 140px 140px 180px' }
+// §10 — the effort and owner columns merged without a column gap; 12 matches the other row grids.
+const tableGrid: CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 140px 140px 140px 180px', gap: 12 }
 
-// Spec/06 header KPIs — literal reference values, not part of the spec/03 datasets.
-const KPIS = [
-  { label: 'DSO', value: '62 d', color: colors.statusAmber },
-  { label: 'DPO', value: '48 d', color: colors.textPrimary },
-  { label: 'RELEASABLE', value: formatCr(4.2), color: colors.statusGreen },
-]
+// §8.3 — DSO/DPO trend per entity; the header KPI look (mono 26) is kept via valueStyle.
+const kpiValueStyle: CSSProperties = { fontFamily: fonts.mono, fontSize: 26 }
 
-function Kpi({ label, value, color }: (typeof KPIS)[number]) {
+function Kpi({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <span style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.1em', color: colors.textFaint }}>{label}</span>
@@ -42,7 +39,7 @@ export function WorkingCapital() {
     )
   }
 
-  const ar = getReceivablesAgeing()
+  const ar = getReceivablesAgeing(code ?? '')
   const ap = getPayablesByReason()
   const opportunities = getCashOpportunities()
   const maxAr = Math.max(...ar.map((b) => b.value))
@@ -55,11 +52,19 @@ export function WorkingCapital() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Eyebrow>Working capital</Eyebrow>
           <h1 style={titleStyle}>Cash locked in exceptions</h1>
+          {/* §8.7 — the working-capital figures are read from SAP ECC */}
+          <FreshnessStamp sources={['SAP ECC']} />
         </div>
         <div style={{ display: 'flex', gap: 34 }}>
-          {KPIS.map((k) => (
-            <Kpi key={k.label} {...k} />
-          ))}
+          <Metric label="DSO" value={`${entity.metrics.dso.current} d`} trend={entity.metrics.dso} inverse={true} valueStyle={kpiValueStyle} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {/* §8.5.1 — DPO is direction-neutral: rising terms and unprocessable invoices both raise it */}
+            <Metric label="DPO" value={`${entity.metrics.dpo.current} d`} trend={entity.metrics.dpo} inverse={null} valueStyle={kpiValueStyle} />
+            {/* §8.6 — headline DPO is inflated by blocked invoices; the adjusted figure sits next to it */}
+            <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textMuted }}>{`Includes ${formatCr(entity.metrics.apBlocked.current)} of blocked invoices; adjusted DPO ${entity.metrics.dpoAdjusted} days.`}</span>
+          </div>
+          {/* §7.19 — releasable cash per entity; no prior period, so it stays a plain KPI */}
+          <Kpi label="RELEASABLE" value={formatCr(entity.metrics.releasableCash)} color={colors.statusGreen} />
         </div>
       </div>
 
@@ -105,7 +110,8 @@ export function WorkingCapital() {
           <span style={typeScale.tableHeader}>Owner</span>
         </div>
         {opportunities.map((o) => (
-          <div key={o.name} style={{ ...tableGrid, padding: '14px 20px', borderBottom: `1px solid ${colors.borderSubtle}`, alignItems: 'center', fontSize: 13 }}>
+          // §8.2 — the intercompany netting row is a drill anchor target from the consequence strip
+          <div key={o.name} id={/intercompany/i.test(o.name) ? 'fct-ic-netting' : undefined} style={{ ...tableGrid, padding: '14px 20px', borderBottom: `1px solid ${colors.borderSubtle}`, alignItems: 'center', fontSize: 13 }}>
             <span>{o.name}</span>
             <span style={{ fontFamily: fonts.mono, textAlign: 'right', color: colors.statusGreen }}>{formatCr(o.value)}</span>
             <span style={{ fontFamily: fonts.mono, textAlign: 'right', color: colors.textSecondary }}>{o.items}</span>

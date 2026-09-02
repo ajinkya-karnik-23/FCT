@@ -7,6 +7,7 @@
 //   FCT_CHROME     path to a Chrome/Chromium executable (default: Windows x86 install)
 //   FCT_BASE_URL   app base URL (default http://localhost:5200)
 //   FCT_SHOTS_DIR  where screenshots are written (default <tmp>/fct-theme-verify/shots)
+//   FCT_DEBUG_PORT Chrome DevTools port (default 9333; Windows may reserve ranges — pick a free one)
 //
 // Palettes are imported from src/theme/tokens.ts via Node's type stripping, so this
 // script can never drift from the source of truth — a palette edit is verified against itself.
@@ -18,7 +19,7 @@ import path from 'node:path'
 import { dark, light } from '../src/theme/tokens.ts'
 
 const CHROME = process.env.FCT_CHROME ?? 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
-const PORT = 9333
+const PORT = Number(process.env.FCT_DEBUG_PORT ?? 9333)
 const BASE = process.env.FCT_BASE_URL ?? 'http://localhost:5200'
 const OUT = process.env.FCT_SHOTS_DIR ?? path.join(os.tmpdir(), 'fct-theme-verify', 'shots')
 fs.mkdirSync(OUT, { recursive: true })
@@ -266,6 +267,20 @@ const ROUTES = [
   ['/entity/JGL/root-cause/p2p/missing-gr', 'root-cause-p2p'],
   ['/entity/JGL/root-cause/o2c/pricing-disputes', 'root-cause-o2c'],
   ['/entity/JGL/working-capital', 'working-capital'],
+  ['/risk-control', 'risk-control'],
+  ['/compliance', 'compliance'],
+  ['/data-quality', 'data-quality'],
+  ['/service-desk', 'service-desk'],
+  ['/cause-backlog', 'cause-backlog'],
+  ['/entity/JGL/predictive', 'predictive'],
+  // Screens built since Step 3b — the contrast walk must reach every one of them (Step 16 item 10)
+  ['/entity/JGL/service', 'service-attribution'],
+  ['/entity/JGL/vendor/suraksha-chemicals-pvt-ltd', 'vendor-page'],
+  ['/entity/JGL/customer/jgl-amrit', 'customer-page'],
+  ['/entity/JGL/cost-centre/jgl-nanjangud-operations', 'cost-centre-page'],
+  ['/entity/JGL/plant/jgl-nanjangud', 'plant-page'],
+  // The capped entity — the walk must reach JRP so the veto pairing is audited in situ, not only by unit test
+  ['/entity/JRP', 'jrp-entity-home'],
 ]
 
 // colors each route must show somewhere (evidence from source grep) — resolved via palette
@@ -279,6 +294,18 @@ const EXPECTED_PRESENT = {
   'root-cause-p2p': ['accentText', 'textFaint'],
   'root-cause-o2c': ['accentText', 'textFaint'],
   'working-capital': ['statusAmber', 'statusGreen', 'chartArOld', 'accent'],
+  'risk-control': ['statusRed', 'bgRiskSoft'],
+  compliance: ['statusGreen', 'statusAmber', 'statusRed'], // filed / due / overdue tags
+  'data-quality': ['statusGreen', 'statusAmber', 'statusRed'], // DQ-score header colours + interface health tags
+  'service-desk': ['statusRed', 'statusGreen', 'textFaint', 'borderDefault'], // queue SLA words (breached/met) + measuring-since line
+  'cause-backlog': ['statusGreen', 'statusAmber', 'accentText', 'borderDefault'], // elimination status colours + cause back-links
+  predictive: ['statusAmber'], // base case renders four OPEN AT MONTH-END tags
+  'service-attribution': ['accent', 'ageingBarAlt', 'borderAccent', 'statusAmber'], // SLA split segments (thirdParty folds into system) + JGL health score amber
+  'vendor-page': ['accentText', 'statusRed', 'textFaint', 'accent'], // invoice links; Suraksha items at 41d/52d age red; single non-zero bucket bars accent
+  'customer-page': ['statusGreen', 'textFaint', 'borderDefault', 'accent', 'ageingBarAlt'], // jgl-amrit is OPEN (not credit-blocked); seeded ageing keeps all five buckets non-zero
+  'cost-centre-page': ['statusRed', 'accent', 'statusAmber', 'textFaint'], // Nanjangud Operations runs over budget; booked/committed bars
+  'plant-page': ['accentText', 'statusRed', 'statusAmber', 'textFaint'], // Nanjangud items at 41d/52d red, 21d amber
+  'jrp-entity-home': ['statusRed', 'statusAmber', 'accentText', 'textFaint', 'bgWarnSoft'], // capped entity: RED score + CAPPED badge, warn-soft cap strips
 }
 
 async function themePass(themeName, palette) {
@@ -362,7 +389,7 @@ async function themePass(themeName, palette) {
   } else {
     await clickAt(ask.x, ask.y)
     await new Promise((r) => setTimeout(r, 600)) // drawer mounts (fade-in 140ms)
-    const preset = await evaluate(`(${FIND_BY_TEXT_JS})('Why is AP exposure building?')`)
+    const preset = await evaluate(`(${FIND_BY_TEXT_JS})('Why is this entity amber?')`)
     if (!preset) {
       check(`${themeName}: preset question found in open drawer`, false)
     } else {
@@ -405,6 +432,24 @@ async function themePass(themeName, palette) {
 }
 
 // ---------- contrast reporting ----------
+// In-situ pairs allowed below AA, mirroring src/theme/tokens.test.ts EXEMPT (same roles, surfaces, rationale).
+// A sub-AA pair not listed here — or a color that resolves to no palette token — fails the run.
+const CONTRAST_EXEMPT = {
+  dark: [['textFaint', '*'], ['textFaintest', '*']], // frozen baseline / footnote tier — sub-AA by design
+  light: [
+    ['textFaintest', '*'],
+    ['textFaint', 'bgRoot'], ['textFaint', 'bgPanelAlt'], ['textFaint', 'bgRaised'],
+    ['textFaint', 'bgSelected'], ['textFaint', 'bgAccentSoft'], ['textFaint', 'bgAccentPanel'],
+  ],
+}
+
+function tokenFor(palette, value) {
+  for (const [name, v] of Object.entries(palette)) if (sameColor(v, value)) return name
+  return null
+}
+
+// Enforcing: every in-situ text pair must meet AA 4.5 unless it is a documented exemption above.
+// Returns the violation list; main() gates on it via check().
 function reportContrast(reports) {
   console.log('\n=== IN-SITU CONTRAST (text vs its resolved background) ===')
   const seen = new Map() // theme|fg|bg -> count
@@ -420,12 +465,29 @@ function reportContrast(reports) {
     rows.push({ theme, fg, bg, ratio: contrast(fg, bg), count })
   }
   rows.sort((a, b) => a.ratio - b.ratio)
+  const violations = []
   for (const r of rows) {
-    const flag = r.ratio < 4.5 ? '  <-- below AA 4.5' : ''
-    console.log(`${r.theme.padEnd(6)} ${r.ratio.toFixed(2).padStart(6)}:1  fg=${r.fg} bg=${r.bg} (x${r.count})${flag}`)
+    if (r.ratio >= 4.5) {
+      console.log(`${r.theme.padEnd(6)} ${r.ratio.toFixed(2).padStart(6)}:1  fg=${r.fg} bg=${r.bg} (x${r.count})`)
+      continue
+    }
+    const pal = r.theme === 'light' ? light : dark
+    const role = tokenFor(pal, r.fg)
+    const surface = tokenFor(pal, r.bg)
+    if (!role || !surface) {
+      violations.push(`${r.theme}: unresolved color fg=${r.fg} bg=${r.bg} at ${r.ratio.toFixed(2)}:1`)
+      console.log(`${r.theme.padEnd(6)} ${r.ratio.toFixed(2).padStart(6)}:1  fg=${r.fg} bg=${r.bg} (x${r.count})  <-- below AA, UNRESOLVED`)
+      continue
+    }
+    const exempt = CONTRAST_EXEMPT[r.theme].some(([roleName, surf]) => roleName === role && (surf === '*' || surf === surface))
+    if (exempt) {
+      console.log(`${r.theme.padEnd(6)} ${r.ratio.toFixed(2).padStart(6)}:1  fg=${r.fg} bg=${r.bg} (x${r.count})  <-- below AA, exempt (${role}/${surface})`)
+    } else {
+      violations.push(`${r.theme}: ${role} on ${surface} = ${r.ratio.toFixed(2)}:1`)
+      console.log(`${r.theme.padEnd(6)} ${r.ratio.toFixed(2).padStart(6)}:1  fg=${r.fg} bg=${r.bg} (x${r.count})  <-- below AA, NOT EXEMPT (${role}/${surface})`)
+    }
   }
-  const bad = rows.filter((r) => r.ratio < 4.5)
-  return bad
+  return violations
 }
 
 function paletteMatrix(themeName, p) {
@@ -503,9 +565,10 @@ async function main() {
       check('toggle: mode button found in top bar', false)
     }
 
-    // contrast analysis (informational + gate on in-situ text pairs)
-    const bad = reportContrast(reports)
-    paletteMatrix('dark', dark)
+    // contrast analysis — enforcing: every non-exempt in-situ text pair must meet AA 4.5
+    const violations = reportContrast(reports)
+    check('contrast: no non-exempt in-situ text pair below AA 4.5', violations.length === 0, violations.slice(0, 6).join('; '))
+    paletteMatrix('dark', dark) // informational — the full design space is enforced by tokens.test.ts
     paletteMatrix('light', light)
 
     console.log(`\n=== SUMMARY: ${passCount} passed, ${failures.length} failed ===`)

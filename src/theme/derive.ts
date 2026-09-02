@@ -2,16 +2,19 @@ import { colors } from './tokens'
 
 export type StatusWord = 'GREEN' | 'AMBER' | 'RED'
 
+// The single place that decides a score band (spec §3.3).
+export function scoreBand(n: number): StatusWord {
+  if (n >= 85) return 'GREEN'
+  if (n >= 65) return 'AMBER'
+  return 'RED'
+}
+
 export function scoreColor(n: number): string {
-  if (n >= 85) return colors.statusGreen
-  if (n >= 70) return colors.statusAmber
-  return colors.statusRed
+  return statusColor(scoreBand(n))
 }
 
 export function statusWord(n: number): StatusWord {
-  if (n >= 85) return 'GREEN'
-  if (n >= 70) return 'AMBER'
-  return 'RED'
+  return scoreBand(n)
 }
 
 export function statusColor(status: StatusWord): string {
@@ -31,10 +34,10 @@ export function ageColor(days: number): string {
   return colors.textSecondary
 }
 
-export type ControlImpact = 'High' | 'Medium' | 'Low'
+export type ControlSignificance = 'High' | 'Medium' | 'Low'
 
-export function controlColor(impact: ControlImpact): string {
-  switch (impact) {
+export function controlColor(significance: ControlSignificance): string {
+  switch (significance) {
     case 'High':
       return colors.statusRed
     case 'Medium':
@@ -48,4 +51,51 @@ export function breachColor(n: number): string {
   if (n > 3) return colors.statusRed
   if (n > 0) return colors.statusAmber
   return colors.statusGreen
+}
+
+// §8.3/§8.5.1 — direction colour follows improvement, not arithmetic sign (the inverse flag lives in trendDelta).
+export function trendColor(direction: 'improving' | 'worsening' | 'flat' | 'neutral'): string {
+  if (direction === 'improving') return colors.statusGreen
+  if (direction === 'worsening') return colors.statusRed
+  return colors.textMuted // flat or neutral — no direction to colour
+}
+
+// §7.26 — compliance status colour; the single place that decides it.
+export function complianceColor(status: 'filed' | 'due' | 'overdue'): string {
+  if (status === 'filed') return colors.statusGreen
+  if (status === 'due') return colors.statusAmber
+  return colors.statusRed
+}
+
+// §7.27 — interface health colour; the single place that decides it.
+export function interfaceColor(status: 'on schedule' | 'delayed' | 'stale'): string {
+  if (status === 'on schedule') return colors.statusGreen
+  if (status === 'delayed') return colors.statusAmber
+  return colors.statusRed
+}
+
+// §7.29 — per-request SLA status against its type's committed TAT; the single place that decides this band. The
+// effective age already has stop-clock hours subtracted (§5 attribution logic applied to requests).
+export type RequestSlaWord = 'on track' | 'breached' | 'met'
+
+export function requestSlaStatusWord(effectiveAgeDays: number, targetDays: number, closed: boolean): RequestSlaWord {
+  if (closed) return effectiveAgeDays <= targetDays ? 'met' : 'breached'
+  return effectiveAgeDays > targetDays ? 'breached' : 'on track'
+}
+
+export function requestSlaColor(word: RequestSlaWord): string {
+  if (word === 'breached') return colors.statusRed
+  if (word === 'met') return colors.statusGreen
+  return colors.textSecondary // on track — nothing to flag yet; green is reserved for met
+}
+
+// §7.30 — cause elimination status; the single place that decides this band. Eliminated is done (green), in
+// progress is work underway (amber); identified-but-not-started stays muted — a blank target date is the honest
+// state, and there is nothing to flag.
+export type CauseEliminationWord = 'identified' | 'in-progress' | 'eliminated'
+
+export function causeEliminationColor(status: CauseEliminationWord): string {
+  if (status === 'eliminated') return colors.statusGreen
+  if (status === 'in-progress') return colors.statusAmber
+  return colors.textMuted // identified — not started yet; no commitment to flag
 }

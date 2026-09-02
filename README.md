@@ -1,8 +1,8 @@
-# Handoff: Controller Cockpit (Finance Control Tower)
+# Handoff: Finance Control Tower
 
 ## Overview
 
-The Controller Cockpit is a finance controllership application for a multi-entity pharma group
+Finance Control Tower is a finance controllership application for a multi-entity pharma group
 (Jubilant Pharmova, six legal entities). It gives a legal-entity controller one view of financial
 health, operational exceptions, controllership risk and root causes across P2P, O2C and R2R.
 
@@ -70,11 +70,11 @@ hero-screen concept. Do not implement it.
 | `accent` | `#2E7DF0` | Primary accent, bars, active states |
 | `accent/text` | `#56A0FF` | Links, IDs, "Analyse →" affordances |
 | `status/green` | `#35C48A` | Healthy, ≥85 score, improvement |
-| `status/amber` | `#F2B23E` | Attention, 70–84 score |
-| `status/red` | `#FF6B6B` | Breach, <70 score, >30-day ageing |
+| `status/amber` | `#F2B23E` | Attention, 65–84 score |
+| `status/red` | `#FF6B6B` | Breach, <65 score, >30-day ageing |
 | `chart/ar-old` | `#B4551E` | Older AR ageing buckets |
 
-Status is derived, not authored: `score ≥ 85 → green`, `≥ 70 → amber`, else `red`. Ageing:
+Status is derived, not authored: `score ≥ 85 → green`, `≥ 65 → amber`, else `red`. Ageing:
 `> 30 d → red`, `> 15 d → amber`, else secondary text. Control impact: `High → red`,
 `Medium → amber`, `Low → muted`.
 
@@ -120,47 +120,62 @@ Global chrome is present on every view.
 
 ### Left rail (236px, `bg/panel`, right border `border/default`)
 
-Header: pulsing 8px accent dot + "Controller Cockpit" (15px/600) + "FINANCE CONTROL TOWER" mono
+Header: pulsing 8px accent dot + "Finance Control Tower" (15px/600) + "JUBILANT PHARMOVA" mono
 eyebrow. Nav items, 13px, `10px 12px` padding, 2px left border — active item gets
 `border-left: 2px solid accent`, `bg/selected`, primary text; inactive is `text/muted` on
 transparent, hover `#131C27`. A right-aligned mono badge shows a count.
 
-Nav: Group view `6` · Entity health · P2P cockpit `327` · Worklist `12` · Root cause ·
-Working capital. The Worklist item stays active while an exception detail is open.
+Nav, grouped under six mono labels (§9.1): **OVERVIEW** — Group view `6`, Entity health;
+**PROCESS** — P2P cockpit `327`, O2C cockpit `284`; **EXPLAIN** — Worklist `12`, Root cause,
+Cause elimination; **ASSURE** — Risk & control, Compliance, Data quality; **FORWARD** — Working
+capital, Predictive; **SERVICE** — Service & attribution, Service desk. Counts are the default
+entity's (JGL) figures from the data layer; items without a count show `—`. The Worklist item stays
+active while an exception detail is open; counterparty pages (vendor / customer / plant / cost
+centre) are drill-only and never appear in the rail.
 
-Footer, pinned bottom: a "Search everything ⌘K" button (1px `border/strong`, hover border accent)
-and the mono `JUBILANT PHARMOVA` wordmark.
+Footer, pinned bottom: a "Search everything ⌘K" button (1px `border/strong`, hover border accent).
 
 ### Top bar (60px)
 
 Breadcrumb (12px mono, `text/muted`) reflecting the drill path —
 `Group › JGL › P2P › Invoices › AP-104281`; 1px×22px divider; entity status dot + entity name (600)
-+ code chip in a 1px box; right side: `PERIOD AUG-2026 · DAY 4 OF CLOSE` and the
-**Ask the cockpit** button (accent dot + label; border becomes accent while the drawer is open).
++ code chip in a 1px box; right side: a `DEMO MODE` label with a three-way cockpit-mode toggle
+(CLOSE / BAU / PRE-CLOSE, default PRE-CLOSE) whose active mode sets the period label —
+`PERIOD AUG-2026 · DAY 4 OF CLOSE`, `BUSINESS AS USUAL · DAY 12` or
+`PRE-CLOSE READINESS · 3 DAYS TO CLOSE`; then the dark/light theme button and the **Ask the cockpit**
+button (accent dot + label; border becomes accent while the drawer is open).
 
 ### 1. Group view (Level 0) — default landing
 
 Header row: eyebrow `LEVEL 0 — GROUP`, title "Finance health across six legal entities", and three
-right-aligned KPIs (Group score 76.5 amber, Value at risk ₹92.4 cr, Open exceptions 1,486).
+right-aligned KPIs (Group score 76 amber, Value at risk ₹100.4 cr, Open exceptions 1,980), each with
+its definition on hover.
 
 Entity table, columns `300px 120px 1fr 130px 130px 130px 110px 90px`:
 `LEGAL ENTITY | HEALTH | DIMENSIONS | AP BLOCKED | AR >90D | UNAPPLIED | CLOSE | BREACHES`.
-Each row: status dot + name; mono score colored by band + status word; a five-column micro bar chart
-(Close, Control, Wk capital, Process, Service — each 22px track, filled bottom-up to the dimension
-score, colored by band, `title` attribute carries the dimension name); mono money cells; breach
-count colored by count (`>3` red, `>0` amber, else green). Row hover `bg/raised`, whole row
-navigates to that entity.
+Each row: status dot + name; mono score colored by band + status word (capped entities carry a
+CAPPED badge); a six-column micro bar chart (Operational, Service & attribution, Risk & control,
+Working capital, Data & MDM quality, Compliance — each 22px track, filled bottom-up to the dimension
+score, colored by band, `title` attribute carries the dimension name and its definition); mono money
+cells; breach count colored by count (`>3` red, `>0` amber, else green). Row hover `bg/raised`, whole
+row navigates to that entity.
 
-Below, three cards: **Group-wide recurring causes** (4 labelled bars), **Close progress — Day 4**
-(71% of 214 tasks, 8px progress bar, "19 overdue / 6 blockers / 3 entities at risk"),
+Below, three cards: **Group-wide recurring causes** (4 labelled bars), the close card — eyebrow
+"Close progress — day 4" in close mode or "Pre-close readiness — 3 days to close" in pre-close; hidden
+in BAU (71% of 214 tasks, 8px progress bar, "19 overdue / 6 blockers / 3 entities at risk") — and
 **Transformation health** (automation rate 68% ↑, repeat exceptions −14% QoQ, causes eliminated
-11 of 34, touchless invoices 54%).
+11 of 34, touchless invoices 54%). The close card also carries the §8.10 cross-process trace strip:
+missing goods receipt → blocked invoice → understated accrual → close exposure, this screen's node
+current and the other three linked out.
 
 ### 2. Entity health home (Level 1) — the hero screen
 
-Header: eyebrow `LEVEL 1 — LEGAL ENTITY`, entity name, and on the right the 44px mono score, `/100`,
-a status chip (colored text, 1px border at 33% alpha of the status color), then five 96px dimension
-meters with 6px bars.
+Header: eyebrow `LEVEL 1 — LEGAL ENTITY`, entity name, and on the right the 44px mono score, `/100`
+plus a two-period delta, a status chip (colored text, 1px border at 33% alpha of the status color),
+then six dimension meters (124px columns, 6px bars) — Operational, Service & attribution, Risk &
+control, Working capital, Data & MDM quality, Compliance. Capped entities show a `CAPPED` badge under
+the score; clicking it reveals the raw score and every active cap, and an adjacent button asks the
+drawer why.
 
 Six-tile strip in one bordered row, 1px dividers between tiles: Cash unapplied · AP blocked ·
 AR > 90 days · Close · Reconciliations · Controls. Each tile is label (12px muted) / value (22px
@@ -173,8 +188,9 @@ Two-column body (`1.4fr 1fr`):
   navigate to the relevant view.
 - **Root cause insights** — three labelled bars, click drills into that cause; "Analyse →" link.
 - **Recommended actions** — accent panel: "₹4.2 cr working-capital release available by clearing GR
-  compliance on 11 vendors", mono meta ("38 resolvable today / 3 systemic"), and an
-  **Ask why this entity is amber** button that opens the AI drawer and streams the answer.
+  compliance on 11 vendors" (each entity renders its own §7.19 figures), mono meta ("38 resolvable
+  today / 3 systemic"), and an **Ask why this entity is amber** button that opens the AI drawer and
+  streams the answer.
 
 ### 3. P2P cockpit (Level 2)
 
@@ -201,7 +217,10 @@ risk, 4 manual payment runs) plus an "Open 327 blocked invoices →" button.
 
 ### 4. Blocked invoices worklist (Level 4)
 
-Header shows live aggregates over the current filter: `N SHOWN`, `VALUE ₹x cr`, `>30 DAYS ₹y cr`.
+Header shows the sample against its pool, recomputed over the current filter (§7.20):
+`12 of 327 shown · ₹12.77 cr of ₹18.6 cr · >30 days ₹8.99 cr · 4 of 38 resolvable in this view` —
+the >30-day segment is the stale share of what is shown, and every entity carries its §7.19
+resolvable count.
 
 Filter chips: `CAUSE` label then All + the six taxonomy causes. Sort chips (right-aligned):
 Value, Age, Vendor. Active chip = accent border, `bg/accent-soft`, primary text; inactive =
@@ -327,9 +346,9 @@ the route. `filter`, `sort` become query params. `aiOpen`, `messages`, `streamin
 ## Data model (for the API)
 
 ```
-Entity        { code, name, score, status, dims[5], apBlocked, arOver90, cashUnapplied,
-                closePct, controlBreaches }
-Dimension     { key: close|control|workingCapital|process|service, score, weight }
+Entity        { code, name, score, status, dims[6], apBlocked, arOver90, cashUnapplied,
+                closePct, controlBreaches, vetoes[] }
+Dimension     { key: operational|service|risk|workingCapital|dataQuality|compliance, score, weight }
 ProcessStage  { processKey, step, name, volume, value, exceptionPct, status }
 Exception     { id, entityCode, processKey, vendor, amount, ageDays, reasonKey, plant,
                 owner, controlImpact, po, bookedOn, slaBreachDays }
@@ -338,8 +357,10 @@ CauseNode     { processKey, key, name, sharePct, valueAtRisk, avgDelayDays, recu
 CashOpportunity { name, value, items, effort, owner }
 ```
 
-Health score composition (from the deck, weights not exposed in UI): Close 25%, Control 25%,
-Working capital 20%, Process 15%, Service 15%.
+Health score composition (contractual per §3.2; disclosed on the entity home via "How this score is
+built"): Operational 20%, Service & attribution 15%, Risk & control 20%, Working capital 20%, Data &
+MDM quality 10%, Compliance 15%. The displayed score is the weighted sum capped by the lowest active
+veto cap (§3.5).
 
 The cockpit is designed to sit **above** the transactional platforms (SAP ECC/S4, Concur, AP
 workflow, banks, collections, reconciliation tooling, master data, ticketing) on a common semantic
@@ -391,6 +412,6 @@ taller views are cut at the bottom — the prototype is the authority on full-he
 
 ## Out of scope in this handoff
 
-O2C and R2R cockpits, close tracker, operations-persona view, mobile alert view, authentication,
+The R2R cockpit, close tracker, operations-persona view, mobile alert view, authentication,
 real integrations, and the AI retrieval/reasoning backend. The AI answers in the prototype are
 canned strings.

@@ -25,8 +25,8 @@ describe('Root cause (spec/06)', () => {
     expect(m.getByText(/level 5 — root cause/i)).toBeTruthy()
     expect(m.getByText(/taxonomy — p2p/i)).toBeTruthy()
 
-    // Six taxonomy rows, each linking to its own cause key.
-    const links = m.getAllByRole('link')
+    // Six taxonomy rows, each linking to its own cause key; the by-plant card also drills to plant pages (spec/11).
+    const links = m.getAllByRole('link').filter((l) => (l.getAttribute('href') ?? '').startsWith('/entity/JGL/root-cause/p2p/'))
     expect(links).toHaveLength(6)
     for (const [name, key] of [
       ['Missing GR', 'missing-gr'],
@@ -43,13 +43,16 @@ describe('Root cause (spec/06)', () => {
     expect(m.getByRole('link', { name: /Missing GR/ }).className).toContain('fct-tax-row--selected')
     expect(m.getByRole('link', { name: /PO price mismatch/ }).className).not.toContain('--selected')
 
+    // §7.24 — by-plant rows drill sideways to the plant counterparty page (spec/11).
+    expect(m.getByRole('link', { name: 'Nanjangud' }).getAttribute('href')).toBe('/entity/JGL/plant/jgl-nanjangud')
+
     // Primary root cause panel — narrative and the four metrics from the CauseNode.
     expect(m.getByText(/primary root cause — missing gr/i)).toBeTruthy()
     expect(m.getByText(/goods receipts are posted after invoice receipt/)).toBeTruthy()
     for (const [label, value] of [
-      ['VALUE AT RISK', '₹6.3 cr'],
+      ['VALUE AT RISK', '₹6.4 cr'],
       ['AVG DELAY', '8.4 days'],
-      ['RECURRENCE', '5th month'],
+      ['RECURRENCE', '5th consecutive month'],
       ['CONCENTRATION', '11 vendors'],
     ] as const) {
       expect(m.getByText(label)).toBeTruthy()
@@ -84,7 +87,7 @@ describe('Root cause (spec/06)', () => {
     // The right-hand side now reads from the po-price-mismatch CauseNode.
     expect(m.getByText(/primary root cause — po price mismatch/i)).toBeTruthy()
     expect(m.getByText(/contract escalations were signed but not loaded into the purchasing info record/)).toBeTruthy()
-    for (const value of ['₹4.1 cr', '6.1 days', '3rd month', '4 contracts']) {
+    for (const value of ['₹4.1 cr', '6.1 days', '3rd consecutive month', '4 vendors']) {
       expect(m.getByText(value)).toBeTruthy()
     }
 
@@ -134,7 +137,7 @@ describe('Root cause (spec/06)', () => {
     for (const [label, value] of [
       ['VALUE AT RISK', '₹5.4 cr'],
       ['AVG DELAY', '11.2 days'],
-      ['RECURRENCE', '6th month'],
+      ['RECURRENCE', '6th consecutive month'],
       ['CONCENTRATION', '9 customers'],
     ] as const) {
       expect(m.getByText(label)).toBeTruthy()
@@ -211,11 +214,11 @@ describe('Working capital (spec/06)', () => {
     // Payables blocked by reason — five rows from the dataset.
     expect(m.getByText(/payables blocked by reason/i)).toBeTruthy()
     for (const [label, value] of [
-      ['Missing GR', '₹6.3 cr'],
+      ['Missing GR', '₹6.4 cr'],
       ['PO price mismatch', '₹4.1 cr'],
-      ['Approval pending', '₹3.2 cr'],
-      ['Vendor master', '₹1.8 cr'],
-      ['Duplicate / tax', '₹1.6 cr'],
+      ['Approval pending', '₹3.3 cr'],
+      ['Vendor master', '₹2.0 cr'],
+      ['Duplicate / tax', '₹2.8 cr'],
     ] as const) {
       expect(m.getByText(label)).toBeTruthy()
       expect(m.getByText(value)).toBeTruthy()
@@ -235,6 +238,9 @@ describe('Working capital (spec/06)', () => {
     for (const owner of ['P2P tower', 'Cash application', 'Collections', 'R2R tower']) {
       expect(m.getByText(owner)).toBeTruthy()
     }
+
+    // §8.2 — the intercompany netting row carries the drill anchor id from the consequence strip.
+    expect(document.getElementById('fct-ic-netting')?.textContent).toContain('Clear intercompany netting with Ingrevia')
 
     // Rows are informational — nothing on this page is clickable.
     expect(m.queryAllByRole('link')).toHaveLength(0)

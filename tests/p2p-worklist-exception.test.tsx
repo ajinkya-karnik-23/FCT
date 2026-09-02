@@ -2,11 +2,14 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import App from '../src/App'
+import { getException, resetWorklistActionStore } from '../src/api'
 
 // jsdom shares one window across tests in a file; BrowserRouter reads the live
-// pathname on mount, so reset before each render.
+// pathname on mount, so reset before each render. §8.9 actions mutate the shared
+// exception store, so restore the seeded state too.
 beforeEach(() => {
   window.history.pushState(null, '', '/')
+  resetWorklistActionStore()
 })
 
 afterEach(cleanup)
@@ -27,6 +30,10 @@ describe('P2P cockpit (spec/05)', () => {
 
     expect(m.getByRole('heading', { level: 1, name: 'End-to-end flow, not seven separate reports' })).toBeTruthy()
 
+    // §8.1 — the stage cards are open work in progress, not period volumes.
+    expect(m.getByText('In flight at each stage')).toBeTruthy()
+    expect(m.getByText('Open work in progress, not period volumes')).toBeTruthy()
+
     // Seven stage cards plus the "Open blocked invoices" button-link all target the worklist.
     const toWorklist = m.getAllByRole('link').filter((l) => l.getAttribute('href') === '/entity/JGL/p2p/invoices')
     expect(toWorklist).toHaveLength(8)
@@ -34,8 +41,8 @@ describe('P2P cockpit (spec/05)', () => {
       expect(toWorklist.some((l) => (l.textContent ?? '').includes(name))).toBe(true)
     }
 
-    // Stage card contents: thousands-separated volume and the exception rate.
-    expect(m.getByText('3,502')).toBeTruthy()
+    // Stage card contents: thousands-separated volume and the exception rate (Goods receipt stage).
+    expect(m.getByText('349')).toBeTruthy()
     expect(m.getByText('19% exception')).toBeTruthy()
 
     // Blocked invoices by ageing — bucket labels and values.
@@ -74,9 +81,8 @@ describe('Worklist (spec/05)', () => {
     // Default sort is value descending — the ₹2.84 cr invoice leads.
     expect((rows[0].textContent ?? '').startsWith('AP-104281')).toBe(true)
 
-    expect(m.getByText('12 SHOWN')).toBeTruthy()
-    expect(m.getByText('VALUE ₹12.77 cr')).toBeTruthy()
-    expect(m.getByText('>30 DAYS ₹8.99 cr')).toBeTruthy()
+    // §7.20 — the sample explains itself against the pool; every entity carries its §7.19 resolvable count.
+    expect(m.getByText('12 of 327 shown · ₹12.77 cr of ₹18.6 cr · >30 days ₹8.99 cr · 4 of 38 resolvable in this view')).toBeTruthy()
   })
 
   it('filters by cause in the URL and recomputes the aggregates over the filtered rows', () => {
@@ -94,16 +100,14 @@ describe('Worklist (spec/05)', () => {
       expect(ids.some((t) => t.startsWith(id))).toBe(true)
     }
 
-    // Aggregates recompute: ₹5.47 cr total, and only three of the four are >30 days (₹5.00 cr).
-    expect(m.getByText('4 SHOWN')).toBeTruthy()
-    expect(m.getByText('VALUE ₹5.47 cr')).toBeTruthy()
-    expect(m.getByText('>30 DAYS ₹5.00 cr')).toBeTruthy()
+    // Aggregates recompute over the filtered rows; one of the four (AP-104588) is resolvable today. §7.20 — denominators follow the filter: the pool is the cause's own 111 / ₹6.4 cr, not the entity-wide one.
+    expect(m.getByText('4 of 111 shown · ₹5.47 cr of ₹6.4 cr · >30 days ₹5.00 cr · 1 of 38 resolvable in this view')).toBeTruthy()
 
     // "All" clears the filter and restores the full-list aggregates.
     fireEvent.click(m.getByRole('button', { name: 'All' }))
     expect(window.location.search).toBe('')
     expect(worklistLinks(m)).toHaveLength(12)
-    expect(m.getByText('VALUE ₹12.77 cr')).toBeTruthy()
+    expect(m.getByText('12 of 327 shown · ₹12.77 cr of ₹18.6 cr · >30 days ₹8.99 cr · 4 of 38 resolvable in this view')).toBeTruthy()
   })
 
   it('sorts by value, age and vendor via the URL', () => {
@@ -121,8 +125,10 @@ describe('Worklist (spec/05)', () => {
 
     fireEvent.click(m.getByRole('button', { name: 'Vendor' }))
     expect(window.location.search).toBe('?sort=vendor')
-    // A→Z — Balaji Engineering Works leads.
-    expect(worklistLinks(m)[0].textContent).toContain('Balaji Engineering Works')
+    // A→Z — Balaji Engineering Works leads. The link carries the invoice id; the vendor sits in its row.
+    const firstRow = worklistLinks(m)[0]
+    expect(firstRow.textContent).toBe('AP-104458')
+    expect((firstRow.closest('.fct-table-row')?.textContent ?? '')).toContain('Balaji Engineering Works')
 
     fireEvent.click(m.getByRole('button', { name: 'Value' }))
     expect((worklistLinks(m)[0].textContent ?? '').startsWith('AP-104281')).toBe(true)
@@ -135,7 +141,59 @@ describe('Worklist (spec/05)', () => {
 
     expect(worklistLinks(m)).toHaveLength(0)
     expect(m.getByText('No exceptions match this cause')).toBeTruthy()
-    expect(m.getByText('0 SHOWN')).toBeTruthy()
+    expect(m.getByText('0 of 327 shown · ₹0.00 cr of ₹18.6 cr · >30 days ₹0.00 cr · 0 of 38 resolvable in this view')).toBeTruthy()
+  })
+
+  it('releases a single row — the evidence trail records it and the row reads RELEASED', () => {
+    window.history.pushState(null, '', '/entity/JGL/p2p/invoices')
+    render(<App />)
+    const m = main()
+
+    // Value-desc default ⇒ AP-104281 leads; its Release button is first in DOM order.
+    fireEvent.click(m.getAllByRole('button', { name: 'Release' })[0])
+    expect(getException('AP-104281')!.status).toBe('released')
+    expect(getException('AP-104281')!.evidence).toHaveLength(4)
+
+    const firstRow = worklistLinks(m)[0]
+    expect((firstRow.closest('.fct-table-row')?.textContent ?? '')).toContain('RELEASED')
+  })
+
+  it('multi-selects rows and applies a bulk action', () => {
+    window.history.pushState(null, '', '/entity/JGL/p2p/invoices')
+    render(<App />)
+    const m = main()
+
+    fireEvent.click(m.getByRole('checkbox', { name: 'Select AP-104281' }))
+    fireEvent.click(m.getByRole('checkbox', { name: 'Select AP-104306' }))
+    expect(m.getByText('2 SELECTED')).toBeTruthy()
+
+    // The bulk bar renders before the table, so its Chase button is first in DOM order.
+    fireEvent.click(m.getAllByRole('button', { name: 'Chase' })[0])
+
+    expect(getException('AP-104281')!.status).toBe('chased')
+    expect(getException('AP-104306')!.status).toBe('chased')
+    expect(m.queryByText('2 SELECTED')).toBeNull() // selection clears after the bulk action
+  })
+
+  it('filters to the low-effort releasable set and offers a bulk release', () => {
+    window.history.pushState(null, '', '/entity/JGL/p2p/invoices')
+    render(<App />)
+    const m = main()
+
+    fireEvent.click(m.getByRole('button', { name: '38 resolvable today' }))
+    expect(window.location.search).toBe('?resolvable=1')
+
+    // The four resolvable-today rows remain, value-descending (§7.19); the header explains why 4 of 38.
+    const ids = worklistLinks(m).map((r) => r.textContent ?? '')
+    expect(ids).toEqual(['AP-104355', 'AP-104473', 'AP-104570', 'AP-104588'])
+    expect(m.getByText('4 of 327 shown · ₹3.17 cr of ₹18.6 cr · >30 days ₹1.42 cr · 4 of 38 resolvable in this view')).toBeTruthy()
+    expect(m.getByText('4 low-effort items · ₹3.17 cr')).toBeTruthy()
+
+    fireEvent.click(m.getByRole('button', { name: 'Release all 4' }))
+    for (const id of ['AP-104355', 'AP-104473', 'AP-104570', 'AP-104588']) {
+      expect(getException(id)!.status).toBe('released')
+    }
+    expect(m.queryByRole('button', { name: 'Release all 4' })).toBeNull() // nothing left to release
   })
 })
 
@@ -146,7 +204,8 @@ describe('Exception detail (spec/05)', () => {
     const m = main()
 
     expect(m.getByRole('heading', { level: 1, name: 'Suraksha Chemicals Pvt Ltd' })).toBeTruthy()
-    expect(m.getByText(/AP-104281 · PO-4471902 · booked 14 Jul 2026/)).toBeTruthy()
+    // §7.21 — the booking date is relative to today; derive it from the dataset, not a pinned literal.
+    expect(m.getByText(`AP-104281 · PO-4471902 · booked ${getException('AP-104281')!.bookedOn}`)).toBeTruthy()
 
     // Transaction card.
     expect(m.getByText('Jubilant Generics Ltd')).toBeTruthy()
@@ -169,6 +228,10 @@ describe('Exception detail (spec/05)', () => {
     ]) {
       expect(m.getByText(label)).toBeTruthy()
     }
+
+    // §7.6 — attribution and the reason for it sit with the lifecycle, not in a separate panel.
+    expect(m.getByText('Attribution — client')).toBeTruthy()
+    expect(m.getByText('Goods receipts are posted by client plant stores — the block sits with the client')).toBeTruthy()
 
     // Next action card.
     expect(m.getByText(/clears ₹2\.84 cr of payment block/)).toBeTruthy()

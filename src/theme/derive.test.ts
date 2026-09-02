@@ -9,14 +9,15 @@ describe('scoreColor', () => {
     expect(scoreColor(85)).toBe(colors.statusGreen)
   })
 
-  it('is amber from 70 up to just below 85', () => {
+  it('is amber from 65 up to just below 85', () => {
     expect(scoreColor(84.9)).toBe(colors.statusAmber)
     expect(scoreColor(76.5)).toBe(colors.statusAmber)
-    expect(scoreColor(70)).toBe(colors.statusAmber)
+    expect(scoreColor(69.9)).toBe(colors.statusAmber)
+    expect(scoreColor(65)).toBe(colors.statusAmber)
   })
 
-  it('is red below 70', () => {
-    expect(scoreColor(69.9)).toBe(colors.statusRed)
+  it('is red below 65', () => {
+    expect(scoreColor(64.9)).toBe(colors.statusRed)
     expect(scoreColor(41)).toBe(colors.statusRed)
     expect(scoreColor(0)).toBe(colors.statusRed)
   })
@@ -27,12 +28,12 @@ describe('statusWord', () => {
     expect(statusWord(85)).toBe('GREEN')
     expect(statusWord(97)).toBe('GREEN')
     expect(statusWord(84.9)).toBe('AMBER')
-    expect(statusWord(70)).toBe('AMBER')
-    expect(statusWord(69.9)).toBe('RED')
+    expect(statusWord(65)).toBe('AMBER')
+    expect(statusWord(64.9)).toBe('RED')
   })
 
   it('agrees with scoreColor at every boundary', () => {
-    for (const n of [0, 42, 69.9, 70, 76.5, 84.9, 85, 100]) {
+    for (const n of [0, 42, 64.9, 65, 76.5, 84.9, 85, 100]) {
       const word = statusWord(n)
       const color = scoreColor(n)
       if (word === 'GREEN') expect(color).toBe(colors.statusGreen)

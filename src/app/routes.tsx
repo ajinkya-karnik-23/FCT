@@ -1,11 +1,23 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { defaultRootCauseTo } from './paths'
+import { getCounterparty, getEntity, listCostCentres, listEntities, listExceptions, listPlants } from '../api'
+import { CauseBacklog } from '../pages/CauseBacklog'
+import { CompliancePage } from '../pages/CompliancePage'
+import { CostCentrePage } from '../pages/CostCentrePage'
+import { CustomerPage } from '../pages/CustomerPage'
+import { DataQualityPage } from '../pages/DataQualityPage'
 import { EntityHome } from '../pages/EntityHome'
 import { ExceptionDetail } from '../pages/ExceptionDetail'
 import { GroupView } from '../pages/GroupView'
 import { O2CCockpit } from '../pages/O2CCockpit'
 import { P2PCockpit } from '../pages/P2PCockpit'
+import { PlantPage } from '../pages/PlantPage'
+import { Predictive } from '../pages/Predictive'
+import { RiskControl } from '../pages/RiskControl'
 import { RootCause } from '../pages/RootCause'
+import { ServiceAttribution } from '../pages/ServiceAttribution'
+import { ServiceDesk } from '../pages/ServiceDesk'
+import { VendorPage } from '../pages/VendorPage'
 import { Worklist } from '../pages/Worklist'
 import { WorkingCapital } from '../pages/WorkingCapital'
 
@@ -21,6 +33,11 @@ export interface Crumb {
 // Breadcrumb derives from the route; every level is linkable except the last.
 export function buildBreadcrumb(pathname: string): Crumb[] {
   const parts = pathname.split('/').filter(Boolean)
+  if (parts.length === 1 && parts[0] === 'risk-control') return [{ label: 'Group', to: '/' }, { label: 'Risk & control' }]
+  if (parts.length === 1 && parts[0] === 'compliance') return [{ label: 'Group', to: '/' }, { label: 'Compliance' }]
+  if (parts.length === 1 && parts[0] === 'data-quality') return [{ label: 'Group', to: '/' }, { label: 'Data quality' }]
+  if (parts.length === 1 && parts[0] === 'service-desk') return [{ label: 'Group', to: '/' }, { label: 'Finance Service Desk' }]
+  if (parts.length === 1 && parts[0] === 'cause-backlog') return [{ label: 'Group', to: '/' }, { label: 'Cause elimination' }]
   if (parts.length === 0 || parts[0] !== 'entity' || !parts[1]) return [{ label: 'Group' }]
 
   const code = parts[1]
@@ -43,15 +60,40 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
     return [group, entityLink, processCrumb, { label: 'Root cause' }]
   }
   if (parts[2] === 'working-capital') return [group, entityLink, { label: 'Working capital' }]
+  if (parts[2] === 'service') return [group, entityLink, { label: 'Service & attribution' }]
+  if (parts[2] === 'predictive') return [group, entityLink, { label: 'Predictive' }]
+
+  // §9.1 — counterparty pages are reached by drill only; the breadcrumb carries them back to their process screen.
+  if (parts[2] === 'vendor' && parts.length === 4) {
+    const name = getCounterparty(parts[3])?.name ?? parts[3]
+    return [group, entityLink, p2pLink, { label: name }]
+  }
+  if (parts[2] === 'customer' && parts.length === 4) {
+    const name = getCounterparty(parts[3])?.name ?? parts[3]
+    return [group, entityLink, { label: 'O2C', to: `/entity/${code}/o2c` }, { label: name }]
+  }
+  if (parts[2] === 'cost-centre' && parts.length === 4) {
+    const name = listCostCentres(code).find((c) => c.id === parts[3])?.name ?? parts[3]
+    return [group, entityLink, p2pLink, { label: name }]
+  }
+  if (parts[2] === 'plant' && parts.length === 4) {
+    const name = listPlants(code).find((p) => p.id === parts[3])?.name ?? parts[3]
+    return [group, entityLink, p2pLink, { label: name }]
+  }
 
   return [{ label: 'Group' }]
 }
 
-export type NavKey = 'group' | 'entityHealth' | 'p2pCockpit' | 'o2cCockpit' | 'worklist' | 'rootCause' | 'workingCapital'
+export type NavKey = 'group' | 'entityHealth' | 'p2pCockpit' | 'o2cCockpit' | 'worklist' | 'rootCause' | 'causeBacklog' | 'riskControl' | 'compliance' | 'dataQuality' | 'workingCapital' | 'predictive' | 'serviceAttribution' | 'serviceDesk'
 
 // Worklist stays active while an exception detail page is open (spec/02).
 export function activeNavKey(pathname: string): NavKey {
   const parts = pathname.split('/').filter(Boolean)
+  if (parts.length === 1 && parts[0] === 'risk-control') return 'riskControl'
+  if (parts.length === 1 && parts[0] === 'compliance') return 'compliance'
+  if (parts.length === 1 && parts[0] === 'data-quality') return 'dataQuality'
+  if (parts.length === 1 && parts[0] === 'service-desk') return 'serviceDesk'
+  if (parts.length === 1 && parts[0] === 'cause-backlog') return 'causeBacklog'
   if (parts.length === 0 || parts[0] !== 'entity') return 'group'
   if (parts.length === 2) return 'entityHealth'
   switch (parts[2]) {
@@ -63,6 +105,17 @@ export function activeNavKey(pathname: string): NavKey {
       return 'rootCause'
     case 'working-capital':
       return 'workingCapital'
+    case 'predictive':
+      return 'predictive'
+    case 'service':
+      return 'serviceAttribution'
+    // §9.1 — counterparty pages keep their process screen active (vendor/plant/cost centre sit under P2P, customer under O2C).
+    case 'vendor':
+    case 'plant':
+    case 'cost-centre':
+      return 'worklist'
+    case 'customer':
+      return 'o2cCockpit'
     default:
       return 'group'
   }
@@ -71,19 +124,35 @@ export function activeNavKey(pathname: string): NavKey {
 export interface NavItem {
   key: NavKey
   label: string
+  group: RailGroup // §9.1 — the rail renders one labelled block per group, in first-appearance order
   count?: number // undefined renders as "—" (spec/02)
   to: (entityCode?: string) => string
 }
 
-// Counts are the literal spec values; `to` keeps the current entity when one is in context.
+export type RailGroup = 'OVERVIEW' | 'PROCESS' | 'EXPLAIN' | 'ASSURE' | 'FORWARD' | 'SERVICE'
+
+// §9.1 — the six rail groups, in render order.
+export const RAIL_GROUPS: RailGroup[] = ['OVERVIEW', 'PROCESS', 'EXPLAIN', 'ASSURE', 'FORWARD', 'SERVICE']
+
+// §0/§9.1 — counts derive from the API accessors (no literals); the rail shows the default entity's figures.
+const DEFAULT_ENTITY_METRICS = getEntity(DEFAULT_ENTITY)!.metrics
+
 export const NAV_ITEMS: NavItem[] = [
-  { key: 'group', label: 'Group view', count: 6, to: () => '/' },
-  { key: 'entityHealth', label: 'Entity health', to: (c) => `/entity/${c ?? DEFAULT_ENTITY}` },
-  { key: 'p2pCockpit', label: 'P2P cockpit', count: 327, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/p2p` },
-  { key: 'o2cCockpit', label: 'O2C cockpit', count: 284, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/o2c` },
-  { key: 'worklist', label: 'Worklist', count: 12, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/p2p/invoices` },
-  { key: 'rootCause', label: 'Root cause', to: (c) => defaultRootCauseTo(c ?? DEFAULT_ENTITY) },
-  { key: 'workingCapital', label: 'Working capital', to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/working-capital` },
+  { key: 'group', label: 'Group view', group: 'OVERVIEW', count: listEntities().length, to: () => '/' },
+  { key: 'entityHealth', label: 'Entity health', group: 'OVERVIEW', to: (c) => `/entity/${c ?? DEFAULT_ENTITY}` },
+  { key: 'p2pCockpit', label: 'P2P cockpit', group: 'PROCESS', count: DEFAULT_ENTITY_METRICS.apBlockedCount, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/p2p` },
+  { key: 'o2cCockpit', label: 'O2C cockpit', group: 'PROCESS', count: DEFAULT_ENTITY_METRICS.o2cExceptionCount, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/o2c` },
+  { key: 'worklist', label: 'Worklist', group: 'EXPLAIN', count: listExceptions(DEFAULT_ENTITY, 'p2p').length, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/p2p/invoices` },
+  { key: 'rootCause', label: 'Root cause', group: 'EXPLAIN', to: (c) => defaultRootCauseTo(c ?? DEFAULT_ENTITY) },
+  // §7.30 — the elimination backlog sits next to Root cause under EXPLAIN; group-scoped, so no entity in `to`.
+  { key: 'causeBacklog', label: 'Cause elimination', group: 'EXPLAIN', to: () => '/cause-backlog' },
+  { key: 'riskControl', label: 'Risk & control', group: 'ASSURE', to: () => '/risk-control' },
+  { key: 'compliance', label: 'Compliance', group: 'ASSURE', to: () => '/compliance' },
+  { key: 'dataQuality', label: 'Data quality', group: 'ASSURE', to: () => '/data-quality' },
+  { key: 'workingCapital', label: 'Working capital', group: 'FORWARD', to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/working-capital` },
+  { key: 'predictive', label: 'Predictive', group: 'FORWARD', to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/predictive` },
+  { key: 'serviceAttribution', label: 'Service & attribution', group: 'SERVICE', to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/service` },
+  { key: 'serviceDesk', label: 'Finance Service Desk', group: 'SERVICE', to: () => '/service-desk' }, // §9.1
 ]
 
 export function entityCodeFromPath(pathname: string): string | undefined {
@@ -102,6 +171,18 @@ export function AppRoutes() {
       <Route path="/entity/:code/o2c" element={<O2CCockpit />} />
       <Route path="/entity/:code/root-cause/:process/:causeKey" element={<RootCause />} />
       <Route path="/entity/:code/working-capital" element={<WorkingCapital />} />
+      <Route path="/entity/:code/service" element={<ServiceAttribution />} />
+      <Route path="/entity/:code/predictive" element={<Predictive />} />
+      {/* §9.1 — counterparty pages: drill-only, no rail entries */}
+      <Route path="/entity/:code/vendor/:id" element={<VendorPage />} />
+      <Route path="/entity/:code/customer/:id" element={<CustomerPage />} />
+      <Route path="/entity/:code/cost-centre/:id" element={<CostCentrePage />} />
+      <Route path="/entity/:code/plant/:id" element={<PlantPage />} />
+      <Route path="/risk-control" element={<RiskControl />} />
+      <Route path="/compliance" element={<CompliancePage />} />
+      <Route path="/data-quality" element={<DataQualityPage />} />
+      <Route path="/service-desk" element={<ServiceDesk />} />
+      <Route path="/cause-backlog" element={<CauseBacklog />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

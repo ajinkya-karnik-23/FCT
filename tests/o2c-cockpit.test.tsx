@@ -29,6 +29,10 @@ describe('O2C cockpit (spec/08 Part B)', () => {
       expect(m.getByText(text)).toBeTruthy()
     }
 
+    // §8.1 — the stage cards are open work in progress, not period volumes.
+    expect(m.getByText('In flight at each stage')).toBeTruthy()
+    expect(m.getByText('Open work in progress, not period volumes')).toBeTruthy()
+
     // Seven stage cards plus the pinned button all target working capital.
     const toWorkingCapital = m.getAllByRole('link').filter((l) => l.getAttribute('href') === '/entity/JGL/working-capital')
     expect(toWorkingCapital).toHaveLength(8)
@@ -36,9 +40,12 @@ describe('O2C cockpit (spec/08 Part B)', () => {
       expect(toWorkingCapital.some((l) => (l.textContent ?? '').includes(name))).toBe(true)
     }
 
-    // Stage card contents: thousands-separated volume and the exception rate.
-    expect(m.getByText('5,140')).toBeTruthy()
+    // Stage card contents: thousands-separated volume and the exception rate (Collection stage).
+    expect(m.getByText('1,183')).toBeTruthy()
     expect(m.getByText('24% exception')).toBeTruthy()
+
+    // §8.2 — the Collection stage card carries the drill anchor id from the consequence strip.
+    expect(m.getByRole('link', { name: /Collection/ }).id).toBe('fct-stage-COL')
 
     // Receivables by ageing — bucket labels and values.
     expect(m.getByText(/receivables by ageing/i)).toBeTruthy()

@@ -26,12 +26,16 @@ describe('Command palette (spec/07)', () => {
     const p = palette()
     const input = within(p).getByPlaceholderText(PALETTE_INPUT)
 
-    // Vendor name matches the exception label.
+    // Vendor name matches the exception label — and, since counterparties are first-class
+    // objects (spec/11), the vendor itself is a second row that drills to its page.
     fireEvent.change(input, { target: { value: 'suraksha' } })
     let rows = within(p).getAllByRole('button')
-    expect(rows).toHaveLength(1)
+    expect(rows).toHaveLength(2)
     expect(rows[0].textContent).toContain('AP-104281 · Suraksha Chemicals Pvt Ltd')
     expect(rows[0].textContent).toContain('₹2.84 cr · 41 d')
+    expect(rows[1].textContent).toContain('VENDOR')
+    expect(rows[1].textContent).toContain('Suraksha Chemicals Pvt Ltd')
+    expect(rows[1].textContent).toContain('₹2.8 cr')
 
     // The kind column is part of the match target; uppercase query still matches.
     // Both taxonomies are covered — twelve entries, capped at nine (spec/08 Part D).
@@ -57,7 +61,7 @@ describe('Command palette (spec/07)', () => {
     // Six entities first, with their health scores...
     expect(rows[0].textContent).toContain('Jubilant Generics Ltd')
     expect(rows[0].textContent).toContain('health 74')
-    expect(rows[5].textContent).toContain('Jubilant Life Sciences NV')
+    expect(rows[5].textContent).toContain('Jubilant Radiopharma')
     // ...then exceptions in dataset order; root causes and screens are past the cap.
     expect(rows[6].textContent).toContain('AP-104281')
     expect(rows[8].textContent).toContain('AP-104355')
@@ -132,7 +136,7 @@ describe('Command palette (spec/07)', () => {
 })
 
 describe('AI drawer (spec/07)', () => {
-  it('asks from the entity home, streams the answer and commits it with follow-up chips', async () => {
+  it('asks from the entity home, streams the answer and commits it with source and follow-up chips', async () => {
     window.history.pushState(null, '', '/entity/JGL')
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Ask why this entity is amber' }))
@@ -141,19 +145,51 @@ describe('AI drawer (spec/07)', () => {
     expect(screen.getByText(/cockpit intelligence/i)).toBeTruthy()
     expect(screen.getByText('Why is this entity showing amber?')).toBeTruthy()
 
-    // The canned answer streams in and commits once complete — cursor drops, chips appear.
-    await screen.findByText(/controllership issue rather than a throughput issue/, undefined, { timeout: 8000 })
+    // The computed answer streams in and commits once complete — cursor drops, chips appear.
+    await screen.findByText(/weakest dimensions are working capital at 58/, undefined, { timeout: 8000 })
     await waitFor(() => expect(screen.queryByText('▋')).toBeNull(), { timeout: 2000 })
-    expect(screen.getByRole('button', { name: 'Open the worklist' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Show root cause' })).toBeTruthy()
 
-    // Follow-up chips navigate.
-    fireEvent.click(screen.getByRole('button', { name: 'Open the worklist' }))
+    // Citations render as source chips; the worklist is cited and offered again as a follow-up.
+    expect(screen.getByRole('button', { name: 'Score & dimensions' })).toBeTruthy()
+    const worklistChips = screen.getAllByRole('button', { name: 'Open the worklist' })
+    expect(worklistChips).toHaveLength(2)
+
+    // Source chips navigate to their drill target.
+    fireEvent.click(worklistChips[0])
     expect(window.location.pathname).toBe('/entity/JGL/p2p/invoices')
 
-    // The no-cause chip resolves to the default pair — p2p plus its first cause (spec/08 Part D).
+    // The follow-up chip resolves to the default pair — p2p plus its first cause (spec/08 Part D).
     fireEvent.click(screen.getByRole('button', { name: 'Show root cause' }))
     expect(window.location.pathname).toBe('/entity/JGL/root-cause/p2p/missing-gr')
+  }, 15000)
+
+  it('asks why a capped entity is capped and cites the score history (spec/11)', async () => {
+    window.history.pushState(null, '', '/entity/JRP')
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Ask why this entity is capped' }))
+
+    expect(screen.getByText('Why is this entity capped?')).toBeTruthy()
+
+    // The fall is computed from the score history — 60 → 55, a control event, not a slide.
+    await screen.findByText(/fell from 60 to 55/, undefined, { timeout: 8000 })
+    // The capped answer is the longest seed — give the stream its full run-out.
+    await waitFor(() => expect(screen.queryByText('▋')).toBeNull(), { timeout: 8000 })
+
+    // The "no other action moves the number" clause is recomputed at answer time.
+    expect(screen.getByText(/no other action moves the number/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Score history · 60 → 55' })).toBeTruthy()
+  }, 15000)
+
+  it('asks about a capped row from the group view and resolves against that entity (spec/11)', async () => {
+    // On '/' the page has no entity of its own — the default is JGL. The ask must resolve
+    // against the row's entity: without the pin the answer would be JGL's amber explanation.
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Ask why it is capped' }))
+
+    expect(screen.getByText('Why is this entity capped?')).toBeTruthy()
+    await screen.findByText(/fell from 60 to 55/, undefined, { timeout: 8000 })
+    // The capped answer is the longest seed — give the stream its full run-out.
+    await waitFor(() => expect(screen.queryByText('▋')).toBeNull(), { timeout: 8000 })
   }, 15000)
 
   it('top bar toggles the drawer open and closed without starting a conversation', () => {
@@ -164,28 +200,32 @@ describe('AI drawer (spec/07)', () => {
     fireEvent.click(toggle)
     expect(screen.getByText(/cockpit intelligence/i)).toBeTruthy()
     expect(screen.getByText(/grounded on the finance semantic model/i)).toBeTruthy()
-    for (const q of ['Why is AP exposure building?', 'Which plants and vendors drive it?', 'What should I do first?']) {
+    for (const q of ['Why is this entity amber?', 'What lifts it fastest?', 'What is our exposure at close?']) {
       expect(screen.getByRole('button', { name: q })).toBeTruthy()
     }
+
+    // The footer states the grounding rule (spec/11).
+    expect(screen.getByText(/Nothing is asserted without a source/)).toBeTruthy()
 
     fireEvent.click(toggle)
     expect(screen.queryByText(/cockpit intelligence/i)).toBeNull()
   })
 
-  it('preset buttons ask their canned question and stream to completion', async () => {
+  it('preset buttons ask their seeded question and stream to completion', async () => {
     render(<App />)
     const header = screen.getByRole('banner')
     fireEvent.click(within(header).getByRole('button', { name: /Ask the cockpit/ }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'What should I do first?' }))
+    fireEvent.click(screen.getByRole('button', { name: 'What lifts it fastest?' }))
     // The question text now appears twice: the preset button and the user bubble.
-    expect(screen.getAllByText('What should I do first?')).toHaveLength(2)
+    expect(screen.getAllByText('What lifts it fastest?')).toHaveLength(2)
 
-    await screen.findByText(/blocking close sign-off/, undefined, { timeout: 8000 })
+    // The answer is computed from JGL's sensitivity — the top move, 74 → 81.
+    await screen.findByText(/lifting the score from 74 to 81/, undefined, { timeout: 8000 })
     await waitFor(() => expect(screen.queryByText('▋')).toBeNull(), { timeout: 2000 })
   }, 15000)
 
-  it('falls back to the group answer for an unrecognised question', async () => {
+  it('says plainly when the dataset has no answer for a question', async () => {
     render(<App />)
     const header = screen.getByRole('banner')
     fireEvent.click(within(header).getByRole('button', { name: /Ask the cockpit/ }))
@@ -194,8 +234,8 @@ describe('AI drawer (spec/07)', () => {
     fireEvent.change(input, { target: { value: 'How is the group doing?' } })
     fireEvent.keyDown(input, { key: 'Enter' })
 
-    // Match the true tail of the fallback answer, then wait for the commit (cursor drop).
-    await screen.findByText(/concentrated in Jubilant Generics and Jubilant Life Sciences\./, undefined, { timeout: 8000 })
+    // No fabrication — the drawer declines and offers seeded questions instead.
+    await screen.findByText(/The dataset has no answer for that question, so I will not guess\./, undefined, { timeout: 8000 })
     await waitFor(() => expect(screen.queryByText('▋')).toBeNull(), { timeout: 2000 })
   }, 15000)
 })

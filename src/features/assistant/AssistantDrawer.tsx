@@ -4,12 +4,14 @@ import { useNavigate } from 'react-router-dom'
 import { defaultRootCauseTo } from '../../app/paths'
 import { Eyebrow, StatusDot } from '../../components'
 import { colors, fonts, layout } from '../../theme/tokens'
-import { mockAssistant, type AssistantProvider } from './provider'
+import { mockAssistant, type AssistantProvider, type Citation, type FollowUpAction } from './provider'
 
 // Lets any part of the app open the drawer and ask a question (spec/07) —
-// used by the entity home's "Ask why this entity is amber" button.
+// used by the entity home's "Ask why this entity is amber" button. The optional
+// second argument pins the conversation to an entity other than the page's own
+// (the group view asks about a row's entity while the page itself has none).
 export interface AssistantApi {
-  ask(question?: string): void
+  ask(question?: string, contextEntityCode?: string): void
 }
 
 export const AssistantContext = createContext<AssistantApi | null>(null)
@@ -17,9 +19,19 @@ export const AssistantContext = createContext<AssistantApi | null>(null)
 interface Message {
   role: 'user' | 'assistant'
   text: string
+  citations?: Citation[] // source chips the provider attached to this answer
+  followUps?: FollowUpAction[] // provider-supplied follow-ups; absent → drawer defaults below
 }
 
-const PRESET_QUESTIONS = ['Why is AP exposure building?', 'Which plants and vendors drive it?', 'What should I do first?'] as const
+const PRESET_QUESTIONS = ['Why is this entity amber?', 'What lifts it fastest?', 'What is our exposure at close?'] as const
+
+// Shown when a provider does not supply follow-ups for an answer.
+function fallbackFollowUps(entityCode: string): FollowUpAction[] {
+  return [
+    { label: 'Open the worklist', to: `/entity/${entityCode}/p2p/invoices` },
+    { label: 'Show root cause', to: defaultRootCauseTo(entityCode) },
+  ]
+}
 
 const userBubbleStyle: CSSProperties = {
   maxWidth: '88%',
@@ -39,9 +51,14 @@ const assistantBubbleStyle: CSSProperties = {
   lineHeight: 1.6,
 }
 
+interface HandedInQuestion {
+  text: string
+  entityCode?: string // pins the conversation to this entity instead of the page's own
+}
+
 interface AssistantDrawerProps {
   entityCode: string
-  question: string | null // handed in from outside (entity home); asked once, then cleared via onQuestionConsumed
+  question: HandedInQuestion | null // handed in from outside (entity home, group view); asked once, then cleared via onQuestionConsumed
   onClose(): void
   onQuestionConsumed(): void
   provider?: AssistantProvider
@@ -52,25 +69,32 @@ export function AssistantDrawer({ entityCode, question, onClose, onQuestionConsu
   const [messages, setMessages] = useState<Message[]>([])
   const [streaming, setStreaming] = useState<string | null>(null)
   const [input, setInput] = useState('')
+  // A question pinned to another entity (a group view row) keeps the whole conversation on that entity.
+  const [pinnedEntity, setPinnedEntity] = useState<string | null>(null)
+  const activeEntity = pinnedEntity ?? entityCode
   // A new question — or unmount — invalidates any in-flight stream.
   const streamId = useRef(0)
 
   useEffect(() => () => void (streamId.current += 1), [])
 
-  async function submit(raw: string) {
+  async function submit(raw: string, contextEntityCode?: string) {
     const q = raw.trim()
     if (!q) return
+    // The pin lands in state after this render, so resolve it locally for the first call.
+    const ctx = contextEntityCode ?? activeEntity
+    if (contextEntityCode !== undefined) setPinnedEntity(contextEntityCode)
     const id = ++streamId.current
     setMessages((m) => [...m, { role: 'user', text: q }])
     setInput('')
     let acc = ''
-    for await (const chunk of provider.ask(q, { entityCode })) {
+    const meta = provider.answerMeta?.(q, { entityCode: ctx })
+    for await (const chunk of provider.ask(q, { entityCode: ctx })) {
       if (streamId.current !== id) return
       acc += chunk
       setStreaming(acc)
     }
     if (streamId.current === id) {
-      setMessages((m) => [...m, { role: 'assistant', text: acc }])
+      setMessages((m) => [...m, { role: 'assistant', text: acc, citations: meta?.citations, followUps: meta?.followUps }])
       setStreaming(null)
     }
   }
@@ -78,7 +102,7 @@ export function AssistantDrawer({ entityCode, question, onClose, onQuestionConsu
   // A question handed in from outside is asked once on arrival.
   useEffect(() => {
     if (!question) return
-    void submit(question)
+    void submit(question.text, question.entityCode)
     onQuestionConsumed()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question])
@@ -120,13 +144,34 @@ export function AssistantDrawer({ entityCode, question, onClose, onQuestionConsu
           <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
             <div style={msg.role === 'user' ? userBubbleStyle : assistantBubbleStyle}>{msg.text}</div>
             {i === lastAssistantIndex && (
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" className="fct-followup-chip" onClick={() => navigate(`/entity/${entityCode}/p2p/invoices`)}>
-                  Open the worklist
-                </button>
-                <button type="button" className="fct-followup-chip" onClick={() => navigate(defaultRootCauseTo(entityCode))}>
-                  Show root cause
-                </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {msg.citations !== undefined && msg.citations.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <Eyebrow>Sources</Eyebrow>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {msg.citations.map((c) => (
+                        <button key={c.label} type="button" className="fct-followup-chip" onClick={() => navigate(c.to)}>
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {(msg.followUps !== undefined && msg.followUps.length > 0 ? msg.followUps : fallbackFollowUps(activeEntity)).map((fu) => (
+                    <button
+                      key={fu.label}
+                      type="button"
+                      className="fct-followup-chip"
+                      onClick={() => {
+                        if (fu.ask !== undefined) void submit(fu.ask)
+                        else if (fu.to !== undefined) navigate(fu.to)
+                      }}
+                    >
+                      {fu.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -168,6 +213,9 @@ export function AssistantDrawer({ entityCode, question, onClose, onQuestionConsu
             SEND
           </button>
         </div>
+        <p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: colors.textMuted }}>
+          Answers resolve to transactions, owners and service records. Nothing is asserted without a source.
+        </p>
       </div>
     </aside>
   )

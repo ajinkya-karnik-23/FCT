@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getBlockedInvoiceAgeing, getServiceControl, listCauses, listStages } from '../api'
-import { AgeingChart, Bar, Eyebrow, StageFlow } from '../components'
+import { entityTileSubs, getBlockedInvoiceAgeing, getEntity, getServiceControl, listCauses, listCostCentres, listStages } from '../api'
+import { AgeingChart, Bar, Eyebrow, FreshnessStamp, Metric, StageFlow } from '../components'
 import { formatCr } from '../lib/format'
 import { colors, fonts, spacing, typeScale } from '../theme/tokens'
 
@@ -14,17 +14,31 @@ const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, 
 
 export function P2PCockpit() {
   const { code } = useParams()
-  const stages = listStages('p2p')
+  const entity = getEntity(code ?? '')
+  const stages = listStages('p2p', code)
   const causes = listCauses('p2p')
-  const ageing = getBlockedInvoiceAgeing()
+  const ageing = getBlockedInvoiceAgeing(code ?? '')
   const service = getServiceControl()
+  // §7.24 — committed spend by cost centre; the total ties to the PO stage in-flight figure above.
+  const costCentres = listCostCentres(code ?? '')
 
   return (
     <div style={pageStyle}>
       {/* Plain div, not <header> — a nested header would register as a second banner landmark */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <Eyebrow>Level 2 — Process · Procure to Pay</Eyebrow>
-        <h1 style={titleStyle}>End-to-end flow, not seven separate reports</h1>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 24 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Eyebrow>Level 2 — Process · Procure to Pay</Eyebrow>
+          <h1 style={titleStyle}>End-to-end flow, not seven separate reports</h1>
+          {/* §8.7 — the whole flow is read from SAP ECC */}
+          <FreshnessStamp sources={['SAP ECC']} />
+        </div>
+        {/* §8.3 — the process headline (AP blocked) shows direction of travel; ageing sub per §7.13 */}
+        {entity && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            <Metric label="AP blocked" value={formatCr(entity.metrics.apBlocked.current)} trend={entity.metrics.apBlocked} inverse={true} />
+            <span style={{ fontSize: 12, color: colors.statusRed }}>{entityTileSubs(entity).apBlocked}</span>
+          </div>
+        )}
       </div>
 
       <StageFlow stages={stages} to={`/entity/${code}/p2p/invoices`} />
@@ -59,7 +73,8 @@ export function P2PCockpit() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
               <span>Queries overdue</span>
-              <span style={{ fontFamily: fonts.mono, color: colors.statusRed }}>{service.queriesOverdue}</span>
+              {/* §7.31 — per entity, not a group figure */}
+              <span style={{ fontFamily: fonts.mono, color: colors.statusRed }}>{entity ? entity.metrics.queriesOverdue : '—'}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
               <span>Duplicate payment risk</span>
@@ -75,10 +90,35 @@ export function P2PCockpit() {
             className="fct-blocked-btn"
             style={{ marginTop: 'auto', padding: '9px 12px', fontSize: 13, textAlign: 'center', color: colors.textPrimary, textDecoration: 'none' }}
           >
-            Open 327 blocked invoices →
+            {entity ? `Open ${entity.metrics.apBlockedCount} blocked invoices →` : 'Open blocked invoices →'}
           </Link>
         </section>
       </div>
+
+      {/* §7.24 — committed spend is the part most tools miss; each row drills to its cost centre page */}
+      {costCentres.length > 0 && (
+        <section style={{ ...cardStyle, gap: 12 }}>
+          <Eyebrow style={typeScale.tableHeader}>Committed spend by cost centre</Eyebrow>
+          {costCentres.map((cc) => (
+            <Link
+              key={cc.id}
+              to={`/entity/${code}/cost-centre/${cc.id}`}
+              className="fct-cause-row"
+              style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: colors.textPrimary, textDecoration: 'none' }}
+            >
+              <span className="fct-cause-label" style={{ flex: 1 }}>{cc.name}</span>
+              <span style={{ width: 90, flexShrink: 0 }}>
+                <Bar value={cc.committedSpendCr} max={cc.budgetCr} color={colors.statusAmber} />
+              </span>
+              <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textMuted, width: 78, textAlign: 'right' }}>{formatCr(cc.committedSpendCr)}</span>
+            </Link>
+          ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 10, fontSize: 12, color: colors.textMuted }}>
+            <span>Open POs not yet invoiced — the part most tools miss</span>
+            <span style={{ fontFamily: fonts.mono }}>{`${formatCr(costCentres.reduce((sum, cc) => sum + cc.committedSpendCr, 0))} committed`}</span>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

@@ -26,6 +26,8 @@ export const dark = {
   chartArOld: '#B4551E',
   ageingBarAlt: '#1F5FB5', // non-dominant buckets in the blocked-invoice ageing chart (spec/05)
   bgAccentHover: '#17304F', // hover fill for accent-bordered buttons (spec/05)
+  bgWarnSoft: '#352D1E', // statusAmber-tinted surface: amber blended ~18% into the panel, same relationship as bgAccentSoft/accent (§7.10.1, §7.8)
+  bgRiskSoft: '#372026', // statusRed-tinted surface, same blend as bgWarnSoft (§7.9)
   assistantBorder: '#1B2634', // assistant bubbles + preset buttons (spec/07)
   paletteScrim: 'rgba(4, 7, 11, 0.72)', // command-palette backdrop (spec/07)
 } as const
@@ -55,10 +57,15 @@ export const light: Palette = {
   // darkened so status labels clear AA on white (5.62) — the bright dark-theme green cannot work on light bgs
   statusGreen: '#14764F',
   statusAmber: '#A16207',
-  statusRed: '#D33C3C',
+  // darkened so red text clears small-text AA on bgRiskSoft as well, not just white (§7.8, §10)
+  statusRed: '#C22E2E',
   chartArOld: '#B4551E', // mid-tone reads on both themes
   ageingBarAlt: '#1F5FB5', // mid-tone reads on both themes
   bgAccentHover: '#CFE0F8',
+  // Paler than the dark-theme blend on purpose: light statusAmber/statusRed are already
+  // darkened to clear AA on white, so a stronger tint would drop their text below 4.5:1.
+  bgWarnSoft: '#F9F6F0', // pale amber-tinted surface; keeps statusAmber text ≥4.5:1 (AA) on it (§7.10.1, §7.8)
+  bgRiskSoft: '#FCF3F3', // pale red-tinted surface, same blend as bgWarnSoft (§7.9)
   assistantBorder: '#D9E2EE',
   paletteScrim: 'rgba(23, 32, 45, 0.55)',
 }
@@ -95,6 +102,8 @@ export const colors = {
   chartArOld: 'var(--chart-ar-old)',
   ageingBarAlt: 'var(--ageing-bar-alt)',
   bgAccentHover: 'var(--bg-accent-hover)',
+  bgWarnSoft: 'var(--bg-warn-soft)',
+  bgRiskSoft: 'var(--bg-risk-soft)',
   assistantBorder: 'var(--assistant-border)',
 } as const satisfies Record<Exclude<keyof typeof dark, 'paletteScrim'>, string>
 

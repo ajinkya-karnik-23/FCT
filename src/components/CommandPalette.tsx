@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { listCauses, listEntities, listExceptions } from '../api'
+import { causeBacklogCounts, computeScore, getControlSignals, getEntity, getForecast, listCauses, listCompliance, listCostCentres, listCounterparties, listDataQuality, listEntities, listExceptions, listPlants, listRequests, slaBreachSplit } from '../api'
 import { formatCr } from '../lib/format'
 import { colors, fonts, layout, paletteShadow } from '../theme/tokens'
 import { DEFAULT_ENTITY, entityCodeFromPath } from '../app/routes'
@@ -12,11 +12,11 @@ interface PaletteItem {
   to: string
 }
 
-// Result set in spec order — entities, exceptions, root causes, screens.
+// Result set in spec order — entities, exceptions, root causes, counterparties (scoped to the entity in context), screens.
 function buildItems(entityCode: string): PaletteItem[] {
   const items: PaletteItem[] = []
   for (const e of listEntities()) {
-    items.push({ kind: 'ENTITY', label: e.name, meta: `health ${e.score}`, to: `/entity/${e.code}` })
+    items.push({ kind: 'ENTITY', label: e.name, meta: `health ${computeScore(e).displayed}`, to: `/entity/${e.code}` })
   }
   for (const x of listExceptions()) {
     items.push({ kind: 'EXCEPTION', label: `${x.id} · ${x.vendor}`, meta: `${formatCr(x.amount, 2)} · ${x.ageDays} d`, to: `/entity/${x.entityCode}/p2p/invoices/${x.id}` })
@@ -26,11 +26,38 @@ function buildItems(entityCode: string): PaletteItem[] {
       items.push({ kind: 'ROOT CAUSE', label: `${c.name} · ${processKey.toUpperCase()}`, meta: formatCr(c.valueAtRisk), to: `/entity/${entityCode}/root-cause/${processKey}/${c.key}` })
     }
   }
+  // §7.24 — counterparties are first-class objects; scoped to the entity in context so a drill target is always one row away.
+  for (const c of listCounterparties(entityCode)) {
+    const kind = c.type === 'vendor' ? 'VENDOR' : 'CUSTOMER'
+    const meta = c.type === 'vendor' ? formatCr(c.blockedCr) : `exposure ${formatCr(c.exposureCr ?? 0)}`
+    items.push({ kind, label: c.name, meta, to: `/entity/${c.entityCode}/${c.type}/${c.id}` })
+  }
+  for (const p of listPlants(entityCode)) {
+    items.push({ kind: 'PLANT', label: p.name, meta: formatCr(p.blockedCr), to: `/entity/${p.entityCode}/plant/${p.id}` })
+  }
+  for (const cc of listCostCentres(entityCode)) {
+    items.push({ kind: 'COST CENTRE', label: cc.name, meta: `committed ${formatCr(cc.committedSpendCr)}`, to: `/entity/${cc.entityCode}/cost-centre/${cc.id}` })
+  }
+  // §7.31 — the worklist and working-capital rows follow the entity in context; unknown codes fall back rather than borrow JGL's figures.
+  const ctx = getEntity(entityCode)
   items.push({ kind: 'SCREEN', label: 'Group view', meta: '6 entities', to: '/' })
   items.push({ kind: 'SCREEN', label: 'P2P cockpit', meta: 'process', to: `/entity/${entityCode}/p2p` })
   items.push({ kind: 'SCREEN', label: 'O2C cockpit', meta: 'process', to: `/entity/${entityCode}/o2c` })
-  items.push({ kind: 'SCREEN', label: 'Blocked invoices worklist', meta: '327 items', to: `/entity/${entityCode}/p2p/invoices` })
-  items.push({ kind: 'SCREEN', label: 'Working capital', meta: '₹4.2 cr releasable', to: `/entity/${entityCode}/working-capital` })
+  items.push({ kind: 'SCREEN', label: 'Blocked invoices worklist', meta: ctx ? `${ctx.metrics.apBlockedCount} items` : '—', to: `/entity/${entityCode}/p2p/invoices` })
+  items.push({ kind: 'SCREEN', label: 'Working capital', meta: ctx ? `${formatCr(ctx.metrics.releasableCash)} releasable` : '—', to: `/entity/${entityCode}/working-capital` })
+  items.push({ kind: 'SCREEN', label: 'Risk & control', meta: `${getControlSignals().length} open signals`, to: '/risk-control' })
+  // §7.26/§7.27 — the ASSURE screens; counts come from the dataset, never literals.
+  items.push({ kind: 'SCREEN', label: 'Compliance', meta: `${listCompliance().filter((c) => c.status !== 'filed').length} open obligations`, to: '/compliance' })
+  items.push({ kind: 'SCREEN', label: 'Data quality', meta: `${listDataQuality().reduce((s, d) => s + d.failCount, 0)} failing records`, to: '/data-quality' })
+  items.push({ kind: 'SCREEN', label: 'Service & attribution', meta: `${slaBreachSplit().total} SLA breaches`, to: `/entity/${entityCode}/service` })
+  // §7.29 — the desk is group-scoped; its count comes from the request dataset, never a literal. §9.1 — full name in the rail and palette.
+  items.push({ kind: 'SCREEN', label: 'Finance Service Desk', meta: `${listRequests().filter((r) => r.status !== 'closed').length} open requests`, to: '/service-desk' })
+  // §7.30 — the elimination backlog is group-scoped like the desk; counts derive from the register, never literals.
+  const cb = causeBacklogCounts()
+  items.push({ kind: 'SCREEN', label: 'Cause elimination', meta: `${cb.eliminated} of ${cb.identified} causes eliminated`, to: '/cause-backlog' })
+  // §7.23 — every entity carries its own forecast; the row follows the entity in context, as the other screens do.
+  const fc = getForecast(entityCode)
+  if (fc) items.push({ kind: 'SCREEN', label: 'Predictive', meta: `DSO ${fc.current} → ${fc.projected} at month-end`, to: `/entity/${entityCode}/predictive` }) // unknown codes render the fallback page, which has no forecast
   return items
 }
 

@@ -1,18 +1,20 @@
-import type { CSSProperties } from 'react'
+import { useContext, type CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getEntity, listCauses, type ProcessKey } from '../api'
-import { Bar, Eyebrow } from '../components'
-import { formatCr } from '../lib/format'
+import { getEntity, listCauses, plantRoute, type ProcessKey } from '../api'
+import { Bar, CrossProcessTrace, Eyebrow, FreshnessStamp } from '../components'
+import { AssistantContext } from '../features/assistant/AssistantDrawer'
+import { formatCr, formatRecurrence } from '../lib/format'
 import { barHeights, colors, fonts, radius, spacing, typeScale } from '../theme/tokens'
 
 const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
 const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }
 
-function DriverRow({ name, pct }: { name: string; pct: number }) {
+function DriverRow({ name, pct, to }: { name: string; pct: number; to?: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-      <span style={{ flex: 1 }}>{name}</span>
+      {/* §7.24 — a plant row drills sideways to its counterparty page when one exists */}
+      {to ? <Link to={to} style={{ flex: 1, color: colors.accentText, textDecoration: 'none' }}>{name}</Link> : <span style={{ flex: 1 }}>{name}</span>}
       <span style={{ width: 70, flexShrink: 0 }}>
         <Bar value={pct} max={100} height={barHeights.inlineMeter} />
       </span>
@@ -23,6 +25,7 @@ function DriverRow({ name, pct }: { name: string; pct: number }) {
 
 export function RootCause() {
   const { code, process, causeKey } = useParams()
+  const assistant = useContext(AssistantContext)
   const entity = getEntity(code ?? '')
   if (!entity) {
     return (
@@ -62,7 +65,7 @@ export function RootCause() {
   const metrics = [
     { label: 'VALUE AT RISK', value: formatCr(cause.valueAtRisk) },
     { label: 'AVG DELAY', value: `${cause.avgDelayDays} days` },
-    { label: 'RECURRENCE', value: cause.recurrence },
+    { label: 'RECURRENCE', value: formatRecurrence(cause.recurrence) },
     { label: 'CONCENTRATION', value: cause.concentration },
   ]
 
@@ -72,6 +75,10 @@ export function RootCause() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <Eyebrow>Level 5 — Root cause</Eyebrow>
         <h1 style={titleStyle}>{proc === 'o2c' ? 'Why receivables keep ageing' : 'Why blocked invoices keep recurring'}</h1>
+        {/* §8.7 — the cause register is read from SAP ECC */}
+        <FreshnessStamp sources={['SAP ECC']} />
+        {/* §11 — the root cause view poses its own question to the drawer */}
+        <button type="button" className="fct-ask-btn" onClick={() => assistant?.ask(proc === 'o2c' ? 'What will DSO be at month-end?' : 'Why do blocked invoices keep recurring?')} style={{ alignSelf: 'flex-start', border: `1px solid ${colors.accent}`, color: colors.textPrimary, padding: '9px 12px', fontSize: 13 }}>{proc === 'o2c' ? 'Ask what DSO will be at month-end' : 'Ask why these keep recurring'}</button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: spacing.gapCards, alignItems: 'start' }}>
@@ -124,7 +131,8 @@ export function RootCause() {
             <section style={cardStyle}>
               <Eyebrow style={typeScale.tableHeader}>{proc === 'o2c' ? 'By customer segment' : 'By plant'}</Eyebrow>
               {cause.plants.map((d) => (
-                <DriverRow key={d.name} name={d.name} pct={d.pct} />
+                // O2C rows are customer segments, not plants — only the P2P split drills on.
+                <DriverRow key={d.name} name={d.name} pct={d.pct} to={proc === 'p2p' ? plantRoute(entity.code, d.name) : undefined} />
               ))}
             </section>
 
@@ -139,12 +147,18 @@ export function RootCause() {
               <Eyebrow style={typeScale.tableHeader}>Recommended intervention</Eyebrow>
               {cause.actions.map((a) => (
                 <div key={a} style={{ display: 'flex', gap: 10, fontSize: 13, lineHeight: 1.45, color: colors.textSecondary }}>
-                  <span style={{ color: colors.accent }}>—</span>
+                  {/* accentText, not accent — the dash is text on a panel; raw accent fails AA in light */}
+                  <span style={{ color: colors.accentText }}>—</span>
                   <span>{a}</span>
                 </div>
               ))}
             </section>
           </div>
+
+          {proc === 'p2p' && cause.key === 'missing-gr' && (
+            // §8.10 — this screen is the first point of the cross-tower chain; the trace links out to the other three
+            <CrossProcessTrace code={entity.code} current="gr" />
+          )}
         </div>
       </div>
     </div>

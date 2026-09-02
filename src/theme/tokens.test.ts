@@ -31,6 +31,8 @@ const FROZEN_DARK = {
   chartArOld: '#B4551E',
   ageingBarAlt: '#1F5FB5',
   bgAccentHover: '#17304F',
+  bgWarnSoft: '#352D1E',
+  bgRiskSoft: '#372026',
   assistantBorder: '#1B2634',
   paletteScrim: 'rgba(4, 7, 11, 0.72)',
 } as const
@@ -160,5 +162,14 @@ describe('contrast floor (WCAG AA)', () => {
       const d = ratio(dark.textFaint, dark[surface])
       expect(l, `${light.textFaint} on ${surface}: light ${l.toFixed(2)} < dark ${d.toFixed(2)}`).toBeGreaterThanOrEqual(d)
     }
+  })
+
+  it('status-tinted messaging surfaces keep status text readable (§7.10.1, §7.8, §7.9)', () => {
+    // bgWarnSoft hosts statusAmber text in the UI (veto banner) — small mono type needs full AA in both themes.
+    expect(ratio(dark.statusAmber, dark.bgWarnSoft)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(light.statusAmber, light.bgWarnSoft)).toBeGreaterThanOrEqual(4.5)
+    // bgRiskSoft hosts statusRed text on the Risk & control screen (§7.8) — small mono type needs full AA in both themes.
+    expect(ratio(dark.statusRed, dark.bgRiskSoft)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(light.statusRed, light.bgRiskSoft)).toBeGreaterThanOrEqual(4.5)
   })
 })

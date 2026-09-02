@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getCause, getEntity, getException } from '../api'
-import { Eyebrow, StatusDot } from '../components'
+import { attributionReason, exceptionTimeline, getCause, getEntity, getException } from '../api'
+import type { TimelineEvent } from '../api'
+import { Eyebrow, FreshnessStamp, StatusDot } from '../components'
 import { formatCr } from '../lib/format'
 import { ageColor, controlColor } from '../theme/derive'
 import { colors, fonts, spacing, typeScale } from '../theme/tokens'
@@ -20,15 +21,9 @@ export function ExceptionDetail() {
   const entity = getEntity(code ?? '')
   const causeName = getCause(x.reasonKey)?.name ?? x.reasonKey
 
-  // Dots: green = done, red = failure, accent = the open row (last).
-  const lifecycle = [
-    { date: '02 Jul', dot: colors.statusGreen, label: 'PO released to vendor' },
-    { date: x.bookedOn.slice(0, 6), dot: colors.statusGreen, label: 'Invoice received via vendor portal' },
-    { date: '15 Jul', dot: colors.statusRed, label: 'Three-way match failed — no goods receipt' },
-    { date: '16 Jul', dot: colors.statusGreen, label: `Query raised with ${x.plant} stores` },
-    { date: '28 Jul', dot: colors.statusRed, label: 'Vendor follow-up, no GR posted' },
-    { date: 'Today', dot: colors.accent, label: 'Awaiting GR — escalation due in 6 hours' },
-  ]
+  // §7.6/§8.9 — the timeline is data-driven: seeded lifecycle + session action lines + today's status.
+  const timeline = exceptionTimeline(x)
+  const TONE_DOT: Record<TimelineEvent['tone'], string> = { ok: colors.statusGreen, bad: colors.statusRed, now: colors.accent }
 
   return (
     <div style={pageStyle}>
@@ -41,6 +36,8 @@ export function ExceptionDetail() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Eyebrow>Level 4 — Transaction</Eyebrow>
           <h1 style={titleStyle}>{x.vendor}</h1>
+          {/* §8.7 — the transaction is read from SAP ECC */}
+          <FreshnessStamp sources={['SAP ECC']} />
           <span style={{ fontFamily: fonts.mono, fontSize: 13, color: colors.textMuted }}>{`${x.id} · ${x.po} · booked ${x.bookedOn}`}</span>
         </div>
         <div style={{ display: 'flex', gap: 16 }}>
@@ -96,8 +93,8 @@ export function ExceptionDetail() {
               <span style={{ fontFamily: fonts.mono, color: colors.statusRed }}>{`Breached by ${Math.max(1, x.ageDays - 15)} days`}</span>
             </div>
             <div style={fieldRow}>
-              <span style={{ color: colors.textMuted }}>Control impact</span>
-              <span style={{ fontFamily: fonts.mono, fontSize: 12, color: controlColor(x.controlImpact) }}>{`${x.controlImpact} — payables completeness`}</span>
+              <span style={{ color: colors.textMuted }}>Control significance</span>
+              <span style={{ fontFamily: fonts.mono, fontSize: 12, color: controlColor(x.controlSignificance) }}>{`${x.controlSignificance} — payables completeness`}</span>
             </div>
           </div>
         </section>
@@ -106,14 +103,22 @@ export function ExceptionDetail() {
           <section style={{ ...cardStyle, padding: 20, gap: 16 }}>
             <Eyebrow style={typeScale.tableHeader}>Lifecycle</Eyebrow>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {lifecycle.map((r, i) => (
-                <div key={r.label} style={{ display: 'grid', gridTemplateColumns: '90px 14px 1fr', columnGap: 12, alignItems: 'center' }}>
-                  <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textMuted }}>{r.date}</span>
-                  <StatusDot size={8} color={r.dot} />
+              {timeline.map((r, i) => (
+                <div key={`${i}-${r.text}`} style={{ display: 'grid', gridTemplateColumns: '90px 14px 1fr', columnGap: 12, alignItems: 'center' }}>
+                  <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textMuted, display: 'flex', flexDirection: 'column', lineHeight: 1.35 }}>
+                    {r.dateLabel}
+                    {r.time && <span style={{ fontSize: 10, color: colors.textFaint }}>{r.time}</span>}
+                  </span>
+                  <StatusDot size={8} color={TONE_DOT[r.tone]} />
                   {/* The open (last) row reads primary; completed rows read secondary. */}
-                  <span style={{ fontSize: 13, color: i === lifecycle.length - 1 ? colors.textPrimary : colors.textSecondary }}>{r.label}</span>
+                  <span style={{ fontSize: 13, color: i === timeline.length - 1 ? colors.textPrimary : colors.textSecondary }}>{r.text}</span>
                 </div>
               ))}
+            </div>
+            {/* §7.6 — attribution and the reason for it sit with the lifecycle, not in a separate panel */}
+            <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={typeScale.tableHeader}>{`Attribution — ${x.attribution}`}</span>
+              <span style={{ fontSize: 13, color: colors.textSecondary }}>{attributionReason(x.reasonKey)}</span>
             </div>
           </section>
 

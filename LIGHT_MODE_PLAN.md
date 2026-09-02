@@ -83,7 +83,7 @@ Status colors double as text (e.g. `ageColor`) and as dots/bars, so the light va
 | accentText | #56A0FF | #1D5ED8 |
 | statusGreen | #35C48A | #178A5E |
 | statusAmber | #F2B23E | #A16207 |
-| statusRed | #FF6B6B | #D33C3C |
+| statusRed | #FF6B6B | #C22E2E |
 | chartArOld | #B4551E | unchanged (mid-tone reads on both) |
 | ageingBarAlt | #1F5FB5 | unchanged |
 | bgAccentHover | #17304F | #CFE0F8 |

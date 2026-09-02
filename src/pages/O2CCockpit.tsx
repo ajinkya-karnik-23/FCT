@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getO2cKpis, getO2cServiceControl, getReceivablesAgeing, listCauses, listStages } from '../api'
-import { AgeingChart, Bar, Eyebrow, StageFlow } from '../components'
+import { getEntity, getO2cKpis, getO2cServiceControl, getReceivablesAgeing, listCauses, listStages } from '../api'
+import { AgeingChart, Bar, Eyebrow, FreshnessStamp, Metric, StageFlow } from '../components'
 import { formatCr } from '../lib/format'
 import { colors, fonts, spacing, typeScale } from '../theme/tokens'
 
@@ -21,12 +21,16 @@ function Kpi({ label, value, color }: { label: string; value: string; color: str
   )
 }
 
+// §8.3 — DSO and unapplied cash trend per entity; the Kpi look (mono 26) is kept via valueStyle.
+const kpiValueStyle: CSSProperties = { fontFamily: fonts.mono, fontSize: 26 }
+
 export function O2CCockpit() {
   const { code } = useParams()
+  const entity = getEntity(code ?? '')
   const kpis = getO2cKpis()
-  const stages = listStages('o2c')
+  const stages = listStages('o2c', code)
   const causes = listCauses('o2c')
-  const ageing = getReceivablesAgeing()
+  const ageing = getReceivablesAgeing(code ?? '')
   const service = getO2cServiceControl()
 
   return (
@@ -36,11 +40,22 @@ export function O2CCockpit() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Eyebrow>Level 2 — Process · Order to Cash</Eyebrow>
           <h1 style={titleStyle}>Revenue to cash, as one flow</h1>
+          {/* §8.7 — the whole flow is read from SAP ECC */}
+          <FreshnessStamp sources={['SAP ECC']} />
         </div>
         <div style={{ display: 'flex', gap: 34 }}>
-          <Kpi label="DSO" value={`${kpis.dsoDays} d`} color={colors.statusAmber} />
+          {entity ? (
+            <Metric label="DSO" value={`${entity.metrics.dso.current} d`} trend={entity.metrics.dso} inverse={true} valueStyle={kpiValueStyle} />
+          ) : (
+            <Kpi label="DSO" value={`${kpis.dsoDays} d`} color={colors.statusAmber} />
+          )}
+          {/* Overdue AR has no prior period in §7.14 — stays a plain KPI */}
           <Kpi label="OVERDUE AR" value={formatCr(kpis.overdueArCr)} color={colors.textPrimary} />
-          <Kpi label="UNAPPLIED" value={formatCr(kpis.unappliedCr)} color={colors.statusRed} />
+          {entity ? (
+            <Metric label="UNAPPLIED" value={formatCr(entity.metrics.cashUnapplied.current)} trend={entity.metrics.cashUnapplied} inverse={true} valueStyle={kpiValueStyle} />
+          ) : (
+            <Kpi label="UNAPPLIED" value={formatCr(kpis.unappliedCr)} color={colors.statusRed} />
+          )}
         </div>
       </div>
 
@@ -92,7 +107,7 @@ export function O2CCockpit() {
             className="fct-blocked-btn"
             style={{ marginTop: 'auto', padding: '9px 12px', fontSize: 13, textAlign: 'center', color: colors.textPrimary, textDecoration: 'none' }}
           >
-            Open 41 overdue customers →
+            {entity ? `Open ${entity.metrics.arOver90Customers} overdue customers →` : 'Open overdue customers →'}
           </Link>
         </section>
       </div>

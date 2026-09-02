@@ -1,0 +1,1286 @@
+# Finance Control Tower — Prototype Specification
+
+Version 2.0 · Target state for the Jubilant Pharmova demo prototype
+
+---
+
+## §0. How to use this file
+
+This is the single source of truth for the prototype. **Do not read it end to end.**
+Each prompt in `PROMPTS.md` tells you which sections to read. Read only those.
+
+**§13 (codebase conventions) applies to every task. Read it once at the start of
+a session and treat it as always in force.**
+
+Rules that apply to every task in this project:
+
+- **Never invent numbers.** All figures come from the canonical dataset (§7). If a
+  number you need is not there, add it to the dataset module first, then use it.
+- **Never invent colours, fonts or spacing.** Use the existing design tokens (§10).
+- **Never add a runtime dependency** without being told to.
+- **Never refactor files outside the task's stated scope.**
+- **Never delete an existing screen** unless the task says to.
+- Keep the existing dark theme, layout grammar and component style.
+- Every figure displayed anywhere must be clickable and drill somewhere (§8.4).
+- A step is not done until `npm test`, `npm run verify:theme` and
+  `npm run verify:drills` all pass. Update affected tests in the same step.
+
+---
+
+## §1. Product framing
+
+The Finance Control Tower is a controllership platform for a finance managed
+services engagement. It reports the health of the client's finance operation
+across P2P, O2C and R2R; explains what is driving it down to the transaction;
+attributes every delay to its true owner; predicts where the position is heading;
+and tracks the actions that improve it.
+
+**What it is NOT** — do not build any of this:
+
+- Management reporting, P&L, or variance commentary generation
+- Close task orchestration or sign-off workflow (close *status* is read-only)
+- Any control that a source system already enforces (e.g. duplicate invoice
+  blocking). The platform monitors control **effectiveness and bypass**, never
+  re-runs the control.
+
+### 1.1 Naming
+
+One product name only: **Finance Control Tower**. Remove "Controller Cockpit"
+everywhere it appears as a competing brand. The sidebar wordmark becomes:
+
+```
+Finance Control Tower
+JUBILANT PHARMOVA
+```
+
+Individual screens may be called cockpits ("P2P cockpit"), but the product is the
+Control Tower.
+
+---
+
+## §2. Legal entities
+
+The current prototype lists entities that do not belong to this group. **Jubilant
+Ingrevia is a separately listed company and must be removed. "Jubilant Life
+Sciences NV" is a legacy name and must be removed.**
+
+Replace the entity list with exactly these six:
+
+| Code | Legal entity | Segment | Geography | Currency |
+|---|---|---|---|---|
+| JGL | Jubilant Generics Ltd | Generics | India | INR |
+| JBL | Jubilant Biosys Ltd | CRDMO | India | INR |
+| JPS | Jubilant Pharma Ltd | Holding | Singapore | SGD |
+| JCP | Jubilant Cadista Pharmaceuticals Inc | Generics | United States | USD |
+| JHS | Jubilant HollisterStier LLC | CDMO Sterile Injectables | United States | USD |
+| JRP | Jubilant Radiopharma | Radiopharma | US / Canada | USD |
+
+**Jubilant Ingrevia is a related party, not a group entity.** It was demerged into
+a separately listed company. It must not appear as a legal entity, an entity row,
+or an assistant answer — but references to it as an *intercompany counterparty*
+are correct and must be preserved (e.g. the cash opportunity "Clear intercompany
+netting with Ingrevia"). Removing those would be an error.
+
+> **Note for the human, not for the model:** confirm this list against the FY26
+> annual report before any client-facing use. Segment names are correct; exact
+> legal entity names may differ.
+
+Grouping values for the Group view toggle — these must produce real aggregation,
+not six groups of one:
+
+| Grouping | Values |
+|---|---|
+| Entity | the six above |
+| Segment | Generics (JGL, JCP) · CRDMO (JBL) · Holding (JPS) · CDMO Sterile Injectables (JHS) · Radiopharma (JRP) |
+| Geography | India (JGL, JBL) · Singapore (JPS) · North America (JCP, JHS, JRP) |
+
+**Plant is not a grouping at entity level.** Plant data does not exist yet and JPS
+has no manufacturing site. Plant views arrive in Step 11, built from exception-level
+`plant` fields. Do not add a Plant option to this toggle.
+
+All amounts display in INR crore (`₹NN.N cr`) regardless of entity functional
+currency. Assume conversion has already happened in the data layer.
+
+---
+
+## §3. The scoring model
+
+### 3.1 Six scored dimensions
+
+Every entity and every process is scored on the same six dimensions. These
+replace the five unlabelled colour bars in the current Group view.
+
+| # | Dimension | Key | What it covers |
+|---|---|---|---|
+| 1 | Operational | `operational` | Volume, throughput, exception rate, ageing, touchless / straight-through rate, first-time-right, rework, backlog |
+| 2 | Service & attribution | `service` | SLA and TAT performance, breaches, escalations, query resolution — split by originating cause |
+| 3 | Risk & control | `risk` | Control effectiveness and bypass, authority breaches, sensitive master data changes, SoD, cut-off integrity, undisclosed exposure |
+| 4 | Working capital | `workingCapital` | Value locked in exceptions, ageing profiles, DSO/DPO components under service control, releasable cash |
+| 5 | Data & MDM quality | `dataQuality` | Vendor and customer master completeness, duplicates, dormancy, tax registration validity, payment term integrity, interface health |
+| 6 | Compliance | `compliance` | Statutory obligations with deadlines and penalties — GST and ITC at risk, TDS, MSMED ageing, e-invoicing failures, certifications |
+
+**Cost-to-serve is deliberately excluded.** It is a provider margin metric, not a
+client-facing dimension. Do not add it. Touchless rate and first-time-right belong
+inside Operational.
+
+### 3.2 Weights
+
+Fixed and displayed to the user (they are contractual):
+
+```
+operational      0.20
+service          0.15
+risk             0.20
+workingCapital   0.20
+dataQuality      0.10
+compliance       0.15
+```
+
+### 3.3 Bands
+
+```
+score >= 85            green
+score >= 65 and < 85   amber
+score < 65             red
+```
+
+Banding already exists in `src/theme/derive.ts` as `scoreColor()` and
+`statusWord()`. **Reconcile with those functions — do not re-implement banding in
+a component or in the data layer.** If the existing thresholds differ from the
+table above, change them in `derive.ts` and fix any test that asserts the old
+values. There must be exactly one place in the codebase that decides a band.
+
+### 3.4 Score computation
+
+```
+raw = Σ (dimensionScore × weight)
+final = min(raw, ...all active veto caps)
+displayed = Math.round(final)
+```
+
+### 3.5 Veto rules
+
+A veto **caps** the score regardless of the weighted arithmetic. An additive score
+hides exactly the single failures a controller most needs to see.
+
+| Veto condition | Cap |
+|---|---|
+| Any statutory return filed late or overdue | 60 |
+| Unauthorised or unverified vendor bank detail change, unresolved | 55 |
+| Segregation-of-duties conflict open beyond 30 days | 65 |
+
+When a veto is active the UI must show a badge next to the score reading
+`CAPPED — <reason>` and, on hover or click, the raw uncapped score.
+
+### 3.6 Sensitivity
+
+Every score display must be able to answer "what moves it". Each entity carries a
+list of `sensitivity` items:
+
+```
+{ action: string, deltaScore: number, dimension: DimensionKey, effort: 'Low'|'Medium'|'High' }
+```
+
+Rendered as: *"Clearing GR compliance on 11 vendors: 74 → 81"*.
+
+### 3.7 Group score
+
+`groupScore = round(mean(entity.displayedScore))` — a simple mean across the six
+entities. Compute it; never hardcode it.
+
+The same rule applies to any aggregated row in the Group view (Segment, Geography):
+**scores and percentages aggregate as the mean of members' displayed integers;
+money and counts sum.** Meaning the mean is taken over what is on screen, so a user
+can verify an aggregate by averaging the rows above it.
+
+Note the deliberate choice: a simple mean means a small entity counts as much as a
+large one. That is correct for a *health* score, because assurance obligations
+attach to each legal entity regardless of its size — a controller cannot ignore a
+statutory breach in a small entity because it is small. Value-weighting (§3.8)
+applies to comparing exposure, not to weighting assurance.
+
+### 3.8 Normalisation rule
+
+Dimension scores are already normalised 0–100 in the dataset. Where the UI derives
+any comparison across entities, it must use **value-weighted, size-normalised**
+measures — e.g. blocked AP as a percentage of total AP, never absolute crore — so
+a small entity is not flattered by scale. Absolute crore is used only for
+displaying exposure, never for ranking entities against each other.
+
+---
+
+## §4. Health score vs Service scorecard
+
+These are **two separate objects** and must never be merged into one number.
+
+| Object | What it measures | Credits |
+|---|---|---|
+| **Health score** | The state of the client's finance operation, including problems the client's own organisation causes. Diagnostic. | None |
+| **Service scorecard** | Contractual SLA/TAT performance, net of client-caused and third-party delay. | Service credits attach here, and only here |
+
+They are joined by **attribution** (§5). Both are displayed side by side on the
+Service & attribution screen.
+
+---
+
+## §5. Attribution
+
+Every delay, SLA breach and ageing item carries an `attribution` field:
+
+```
+'provider' | 'client' | 'system' | 'thirdParty'
+```
+
+Group-level illustrative split of SLA breaches:
+
+```
+client      0.71
+provider    0.18
+system      0.07
+thirdParty  0.04
+```
+
+The UI shows this as a horizontal stacked bar. Every attributed item must expose
+an evidence trail (`evidence: string[]` — timestamps and events, e.g.
+`"Invoice received 04-Aug 09:12"`, `"GR posted 18-Aug 14:40"`).
+
+Purpose, in the demo narrative: it protects the provider's commercial position,
+gives the client a lever over its own organisation, and makes the platform
+credible because it publishes the provider's own failures.
+
+---
+
+## §6. Data model
+
+Put all of this in one module (see PROMPTS step 1). TypeScript interfaces below;
+if the project is plain JS, use JSDoc typedefs with the same shape.
+
+```ts
+type DimensionKey = 'operational' | 'service' | 'risk'
+                  | 'workingCapital' | 'dataQuality' | 'compliance';
+
+type Band = 'green' | 'amber' | 'red';
+type Attribution = 'provider' | 'client' | 'system' | 'thirdParty';
+type Mode = 'close' | 'bau' | 'preclose';
+type Trend = { current: number; previous: number; series: number[] }; // series = last 6 periods
+
+interface Entity {
+  code: string;                 // 'JGL'
+  name: string;                 // 'Jubilant Generics Ltd'
+  segment: string;
+  geography: string;
+  dimensions: Record<DimensionKey, number>;   // 0-100
+  vetoes: Veto[];
+  metrics: EntityMetrics;
+  sensitivity: SensitivityItem[];
+}
+
+interface Veto { rule: string; reason: string; cap: number; active: boolean; }
+
+interface EntityMetrics {
+  apBlocked: Trend;             // ₹ cr
+  apBlockedCount: number;
+  o2cExceptionCount: number;
+  arOver90: Trend;              // ₹ cr
+  arOver90Customers: number;
+  cashUnapplied: Trend;         // ₹ cr
+  cashUnappliedReceipts: number;
+  closePercent: Trend;
+  closeBlockers: number;
+  reconValue: Trend;            // ₹ cr
+  reconAgedBreaks: number;
+  controlBreaches: number;
+  highRiskJEs: number;
+  dso: Trend;
+  dpo: Trend;
+  releasableCash: number;       // ₹ cr
+  accrualExposure: number;      // ₹ cr — see §8.2
+}
+
+interface SensitivityItem {
+  action: string; deltaScore: number; dimension: DimensionKey;
+  effort: 'Low' | 'Medium' | 'High';
+}
+
+interface Exception {
+  id: string;                   // 'AP-104281'
+  entityCode: string;
+  process: 'P2P' | 'O2C' | 'R2R';
+  counterpartyId: string;       // vendor or customer id
+  counterpartyName: string;
+  amountCr: number;
+  ageDays: number;
+  cause: string;                // must exist in the taxonomy, §6.1
+  plant: string;
+  owner: string;
+  attribution: Attribution;
+  controlSignificance: 'High' | 'Medium' | 'Low';
+  evidence: string[];
+  status: 'open' | 'assigned' | 'chased' | 'released';
+}
+
+interface RootCause {
+  cause: string;
+  process: 'P2P' | 'O2C' | 'R2R';
+  sharePercent: number;
+  valueAtRiskCr: number;
+  avgDelayDays: number;
+  recurrenceMonths: number;
+  concentration: string;        // '11 vendors'
+  byPlant: { name: string; percent: number }[];
+  byGroup: { name: string; percent: number }[];
+  interventions: string[];
+  eliminationStatus: 'identified' | 'in-progress' | 'eliminated';
+  eliminationOwner?: string;
+  eliminationTargetDate?: string;
+}
+
+interface Counterparty {
+  id: string; name: string; type: 'vendor' | 'customer';
+  entityCode: string;
+  openCommitmentsCr: number;
+  blockedCr: number;
+  disputesCr: number;
+  ageingBuckets: { bucket: string; amountCr: number }[];
+  lastPaymentDate?: string;
+  ytdSpendCr?: number;          // vendors
+  exposureCr?: number;          // customers
+  creditBlocked?: boolean;      // customers
+  paymentBehaviour?: string;    // customers
+  openItems: string[];          // Exception ids
+}
+
+interface ControlSignal {
+  id: string;
+  category: 'payment' | 'authority' | 'system' | 'cutoff' | 'exposure';
+  title: string;
+  detail: string;
+  severity: 'High' | 'Medium' | 'Low';
+  valueCr?: number;
+  entityCode: string;
+  detectedOn: string;
+  status: 'open' | 'investigating' | 'cleared';
+  restricted: true;             // all control signals are restricted-access
+}
+
+interface ComplianceItem {
+  obligation: string;           // 'GSTR-3B — August'
+  entityCode: string;
+  dueDate: string;
+  status: 'filed' | 'due' | 'overdue';
+  valueAtRiskCr?: number;       // e.g. ITC at risk
+  evidenceRef?: string;
+}
+
+interface DataQualityItem {
+  check: string;                // 'Vendor master — missing PAN'
+  domain: 'vendor' | 'customer' | 'gl' | 'interface';
+  entityCode: string;
+  failCount: number;
+  totalCount: number;
+  impact: string;               // 'Blocks e-invoice validation'
+}
+
+interface Forecast {
+  metric: 'dso' | 'dpo' | 'closeDate' | 'accrualExposure';
+  entityCode: string;
+  current: number;
+  projected: number;
+  unit: string;
+  drivers: ForecastDriver[];
+  actions: RankedAction[];
+}
+
+interface ForecastDriver {
+  label: string; valueCr: number; impact: number;
+  assumptionEditable: true; assumptionNote?: string;
+}
+
+interface RankedAction {
+  rank: number; action: string; owner: string;
+  effort: 'Low' | 'Medium' | 'High'; improvement: number; unit: string;
+}
+
+interface ServiceMetric {
+  sla: string;                  // 'Invoice processing TAT'
+  process: 'P2P' | 'O2C' | 'R2R';
+  target: string;
+  achieved: number;             // percent
+  breaches: number;
+  attributionSplit: Record<Attribution, number>;
+  measurability: 'day-one' | 'needs-front-door' | 'needs-register';
+}
+
+interface Request {                 // the "front door" intake
+  id: string;
+  type: 'query' | 'dispute' | 'masterData' | 'fixedAsset'
+      | 'priceChange' | 'urgentPayment';
+  entityCode: string;
+  raisedBy: string;
+  raisedOn: string;               // ISO datetime — this is the SLA clock start
+  category: string;
+  owner: string;
+  status: 'open' | 'in-progress' | 'awaiting-client' | 'closed';
+  clockStoppedHours: number;      // stop-clock while awaiting client
+  resolvedOn?: string;
+}
+```
+
+### 6.1 Cause taxonomy — fixed, do not extend
+
+```
+P2P: PO · goods receipt · pricing · approval · vendor master · tax
+     · duplicate · invoice quality · interface
+O2C: billing · pricing · deduction · dispute · collection
+     · cash application · customer master
+R2R: source data · journal · reconciliation · intercompany
+     · master data · interface · close dependency · judgement
+```
+
+Causes are captured at the point of exception, never reconstructed later. The UI
+must never display a cause outside this list.
+
+---
+
+## §7. Canonical dataset
+
+All figures below are illustrative and must be used verbatim so screens stay
+internally consistent. A CA will add these up in the demo.
+
+### 7.1 Entity dimension scores
+
+| Entity | operational | service | risk | workingCapital | dataQuality | compliance |
+|---|---|---|---|---|---|---|
+| JGL | 74 | 78 | 62 | 58 | 90 | 96 |
+| JBL | 66 | 72 | 54 | 54 | 82 | 88 |
+| JPS | 82 | 84 | 75 | 73 | 88 | 90 |
+| JCP | 92 | 94 | 88 | 86 | 94 | 96 |
+| JHS | 88 | 88 | 86 | 84 | 92 | 94 |
+| JRP | 64 | 66 | 46 | 48 | 74 | 60 |
+
+Computed scores (use as acceptance tests — the code must produce these):
+
+```
+JGL 74   JBL 67   JPS 81   JCP 91   JHS 88   JRP 55 (capped from 58)
+groupScore = round((74+67+81+91+88+55)/6) = 76
+```
+
+JRP carries **two** active vetoes:
+
+| Veto | Cap |
+|---|---|
+| Statutory return filed late — GSTR-3B overdue (§7.9) | 60 |
+| Unauthorised vendor bank change, unresolved (§7.8) | 55 |
+
+Effective cap is the minimum, 55, so the displayed score is unchanged. Both must be
+present because clearing them one at a time is a demo path: resolve the bank change
+and the score rises to 58; file the return and it rises to its raw 57.9 → 58 with
+no cap. All other entities have no active veto.
+
+### 7.2 Entity metrics (current period)
+
+| Entity | AP blocked ₹cr | invoices | AR>90 ₹cr | customers | Unapplied ₹cr | receipts | Close % | blockers | Recon ₹cr | breaks | Breaches | High-risk JEs |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| JGL | 18.6 | 327 | 12.4 | 41 | 3.1 | 19 | 78 | 7 | 14.3 | 18 | 4 | 12 |
+| JBL | 11.3 | 214 | 8.9 | 28 | 2.4 | 14 | 61 | 9 | 9.8 | 21 | 6 | 15 |
+| JPS | 6.8 | 96 | 5.1 | 12 | 1.2 | 6 | 88 | 3 | 4.1 | 7 | 2 | 5 |
+| JCP | 2.1 | 41 | 1.9 | 7 | 0.3 | 2 | 96 | 1 | 1.4 | 2 | 0 | 2 |
+| JHS | 4.2 | 68 | 3.8 | 11 | 0.6 | 4 | 94 | 2 | 2.7 | 4 | 0 | 3 |
+| JRP | 14.7 | 268 | 10.6 | 34 | 4.0 | 23 | 52 | 11 | 12.6 | 26 | 7 | 19 |
+
+Derived group figures — **compute, never hardcode**:
+
+```
+Value at risk   = Σ (apBlocked + arOver90)                          = ₹100.4 cr
+Open exceptions = Σ (apBlockedCount + o2cExceptionCount + reconAgedBreaks)
+
+o2cExceptionCount by entity: JGL 284 · JBL 196 · JPS 84 · JCP 31 · JHS 52 · JRP 241
+```
+
+Previous-period values for trends: apply these deltas to derive `previous`
+(so every headline number can show direction of travel):
+
+```
+JGL  apBlocked 22.1 → 18.6 (improving)   arOver90 11.2 → 12.4 (worsening)
+JBL  apBlocked 10.4 → 11.3 (worsening)   arOver90  9.6 →  8.9 (improving)
+JPS  apBlocked  7.9 →  6.8 (improving)   arOver90  4.8 →  5.1 (worsening)
+JCP  apBlocked  2.4 →  2.1 (improving)   arOver90  2.1 →  1.9 (improving)
+JHS  apBlocked  4.0 →  4.2 (worsening)   arOver90  4.1 →  3.8 (improving)
+JRP  apBlocked 13.2 → 14.7 (worsening)   arOver90  9.8 → 10.6 (worsening)
+```
+
+For all other Trend fields, generate a 6-point series that ends on `current` and
+moves plausibly. Keep it deterministic — no `Math.random()` anywhere in this
+project.
+
+### 7.3 JGL working capital and forecast anchors
+
+```
+DSO   62 days today, 72 projected at month-end
+DPO   48 days (flag: inflated by blocked invoices — see §8.6)
+Releasable cash                     ₹4.2 cr, 38 items, low effort
+Accrual exposure at close           ₹6.3 cr
+```
+
+DSO forecast drivers (JGL):
+
+| Driver | Value ₹cr | Impact days |
+|---|---|---|
+| Customer A — pricing dispute | 9.4 | +4.1 |
+| Customer B — deduction unresolved | 6.2 | +2.7 |
+| Customer C — credit block | 4.8 | +2.1 |
+| Cash awaiting application | 3.1 | +1.1 |
+
+Ranked actions:
+
+| # | Action | Owner | Effort | Improvement |
+|---|---|---|---|---|
+| 1 | Settle two disputes under ₹10 lakh | Collections | Low | 6.0 days |
+| 2 | Apply matched receipts to open AR | Cash application | Low | 1.1 days |
+| 3 | Release credit block on Customer C | Entity controller | Medium | 2.1 days |
+| 4 | Escalate Customer A to commercial | Business partner | High | 4.1 days |
+
+### 7.4 Process stage counts — JGL
+
+**These are items IN FLIGHT at each stage, not period volumes.** See §8.1.
+
+Each stage carries four figures, not two. Exception % is **derived**
+(`inException / inFlight`), never stored — otherwise the numbers stop tying.
+
+P2P — JGL:
+
+| Stage | In flight | In-flight ₹cr | In exception | Exception ₹cr | Exception % |
+|---|---|---|---|---|---|
+| Requisition | 412 | 62.1 | 16 | 2.4 | 4 |
+| Purchase order | 386 | 58.4 | 23 | 3.5 | 6 |
+| Goods receipt | 349 | 51.2 | 66 | 9.7 | 19 |
+| Invoice | 1,258 | 71.5 | 327 | 18.6 | 26 |
+| Three-way match | 241 | 14.2 | 53 | 3.1 | 22 |
+| Approval | 178 | 8.9 | 21 | 1.1 | 12 |
+| Payment | 96 | 6.1 | 3 | 0.2 | 3 |
+
+The invoice stage is deliberately the largest pool: blocked invoices accumulate
+there. That is the story the screen should tell, not an error. Invoice exception
+value (₹18.6 cr) equals JGL's AP blocked figure — these must always match.
+
+O2C — JGL:
+
+| Stage | In flight | In-flight ₹cr | In exception | Exception ₹cr | Exception % |
+|---|---|---|---|---|---|
+| Order | 508 | 71.4 | 15 | 2.1 | 3 |
+| Credit check | 486 | 68.9 | 39 | 5.5 | 8 |
+| Delivery | 461 | 64.2 | 28 | 3.9 | 6 |
+| Billing | 437 | 61.8 | 61 | 8.7 | 14 |
+| Invoice dispatch | 421 | 59.6 | 38 | 5.4 | 9 |
+| Collection | 1,183 | 56.3 | 284 | 28.4 | 24 |
+| Cash application | 196 | 19.7 | 41 | 3.1 | 21 |
+
+Collection in-flight value (₹56.3 cr) equals total open AR and must equal the sum
+of the receivables ageing buckets. Cash application exception value (₹3.1 cr)
+equals unapplied cash — these must always match.
+
+JGL receivables ageing, which must sum to ₹56.3 cr:
+
+```
+0–30 d    ₹24.1 cr
+31–60 d   ₹11.6 cr
+61–90 d   ₹ 8.2 cr
+91–180 d  ₹ 7.4 cr
+> 180 d   ₹ 5.0 cr
+```
+
+AR > 90 days = 7.4 + 5.0 = ₹12.4 cr, which must equal the entity metric in §7.2.
+
+JGL blocked invoice ageing, which must sum to ₹18.6 cr:
+
+```
+0–15 d    ₹5.9 cr
+16–30 d   ₹4.2 cr
+31–60 d   ₹4.1 cr
+61–90 d   ₹2.6 cr
+> 90 d    ₹1.8 cr
+```
+
+### 7.5 Root causes — JGL P2P
+
+| Cause | Share | Value ₹cr | Avg delay | Recurrence | Concentration |
+|---|---|---|---|---|---|
+| goods receipt | 34% | 6.4 | 8.4 d | 5 months | 11 vendors |
+| pricing | 22% | 4.1 | 6.1 d | 3 months | 4 vendors |
+| approval | 18% | 3.3 | 5.2 d | 2 months | 2 plants |
+| vendor master | 11% | 2.0 | 9.7 d | 4 months | 7 vendors |
+| duplicate | 8% | 1.5 | 3.1 d | 1 month | — |
+| tax | 7% | 1.3 | 4.4 d | 2 months | 3 vendors |
+
+Shares and values must tie: they sum to 100% and to ₹18.6 cr, which is JGL's
+blocked AP. Every value equals its share of that total.
+
+By plant (goods receipt cause): Nanjangud 43%, Roorkee 29%, Ambernath 18%, Noida 10%.
+By vendor group: consignment chemicals 38%, packaging 27%, logistics 21%, other 14%.
+
+Cause elimination backlog, group-wide: **34 causes identified, 11 eliminated,
+6 in progress, 17 identified but not started.**
+
+### 7.6 Blocked invoice worklist — JGL (extend the existing 12 rows)
+
+Keep the existing rows. Every row must additionally carry: `attribution`,
+`evidence[]`, `controlSignificance`, `status`. Suggested attribution for the
+existing rows: Missing GR → `client`; PO price mismatch → `client`;
+Approval pending → `client`; Vendor master → `provider`;
+Duplicate suspicion → `system`; Tax mismatch → `provider`.
+
+### 7.7 Service metrics — JGL
+
+| SLA | Target | Achieved | Breaches | Measurability |
+|---|---|---|---|---|
+| Invoice processing TAT | 3 business days | 93.1% | 22 | day-one |
+| Urgent invoice TAT | 1 business day | 96.4% | 4 | day-one |
+| Payment processing | 2 business days | 98.2% | 3 | day-one |
+| Sub-ledger close TAT | Day 2 | 91.0% | 2 | day-one |
+| Bank reconciliation TAT | Day 3 | 97.5% | 1 | day-one |
+| Vendor master creation | 2 business days | — | — | needs-front-door |
+| Query resolution | 5 business days | — | — | needs-front-door |
+| Dispute resolution | 10 business days | — | — | needs-front-door |
+| Invoice processing accuracy | 99.5% | — | — | needs-register |
+| Audit findings | Zero high severity | — | — | needs-register |
+
+SLAs marked `needs-front-door` or `needs-register` must render greyed with a
+tooltip explaining why they are not yet measurable. **This honesty is a feature —
+do not fabricate values for them.**
+
+### 7.8 Control signals — sample set
+
+At least eight, spread across the five categories, with JRP carrying the
+unauthorised bank change that triggers its veto. Examples:
+
+```
+payment    Vendor bank detail changed 3 days before payment run   High   JRP  ₹2.4 cr
+payment    First-time payee above ₹50 lakh threshold              Medium JGL  ₹0.8 cr
+authority  PO split into 3 below approval threshold               High   JBL  ₹1.9 cr
+authority  Retrospective PO — dated after invoice                 Medium JGL  ₹0.6 cr
+system     SoD conflict: same user creates vendor and releases payment  High JBL
+system     Payment terms changed on 7 vendors without approval     Medium JRP
+cutoff     14 goods receipts posted across period end             High   JGL  ₹3.1 cr
+exposure   Goods received not invoiced, ageing beyond 90 days     High   JRP  ₹5.2 cr
+```
+
+### 7.9 Compliance — sample set
+
+Include at least one `overdue` item on JRP (this is what makes its compliance
+score 60). Cover GSTR-1, GSTR-3B, GSTR-2B reconciliation with ITC at risk, TDS
+deposit, TDS return, MSMED 45-day ageing, and e-invoice IRN failures.
+
+### 7.10 Sensitivity — what moves each score
+
+**Deltas are computed, never stored.** Store what the action does — a movement on a
+dimension, or the veto it clears — and recompute the score with it applied. A stored
+delta goes stale the moment a veto changes, and produces figures that are simply
+wrong (see the JRP case below).
+
+Each item stores: `action`, `dimension`, `dimensionMovement` (points), `clearsVeto`
+(veto id, optional), `effort`. `deltaScore` is derived at render.
+
+| Entity | Action | Dimension | Movement | Clears veto | Effort |
+|---|---|---|---|---|---|
+| JGL | Clear GR compliance on 11 consignment vendors | workingCapital | +35 | — | Low |
+| JGL | Close 18 aged reconciliation breaks | risk | +15 | — | Medium |
+| JGL | Apply matched receipts to open AR | workingCapital | +5 | — | Low |
+| JGL | Resolve 12 high-risk manual journals | risk | +10 | — | Low |
+| JBL | Clear SoD conflict on vendor creation and payment release | risk | +25 | — | Medium |
+| JBL | Reduce approval cycle at Ambernath | operational | +15 | — | Medium |
+| JBL | Settle 9 open close blockers | operational | +10 | — | High |
+| JPS | Complete intercompany matching with JGL | workingCapital | +20 | — | Medium |
+| JPS | Clear 7 aged reconciliation breaks | risk | +10 | — | Low |
+| JCP | Close 2 open reconciliation breaks | risk | +5 | — | Low |
+| JCP | Apply 2 unapplied receipts | workingCapital | +5 | — | Low |
+| JHS | Clear 4 aged reconciliation breaks | risk | +10 | — | Low |
+| JHS | Resolve GR timing on the sterile line | operational | +10 | — | Medium |
+| JRP | Resolve the unauthorised vendor bank change | — | 0 | bankChange | High |
+| JRP | File the overdue GSTR-3B return | compliance | +40 | gstOverdue | Low |
+| JRP | Clear 26 aged reconciliation breaks | risk | +20 | — | Medium |
+
+Constraint, testable: `currentDimensionScore + movement <= 100`, per item and
+cumulatively per dimension. The table above satisfies both.
+
+JGL's headline case still computes as promised: working capital +35 × weight 0.20
+= +7, so 74 → 81.
+
+#### 7.10.1 A capped entity is the point, not a bug
+
+JRP's raw score is 57.9 with two caps active, 60 and 55, so it displays 55. Work
+through what each action actually delivers:
+
+| Action | New raw | Binding cap | Displayed | Gain |
+|---|---|---|---|---|
+| File the overdue GSTR-3B | 63.9 | 55 (bank change) | 55 | **0** |
+| Clear 26 reconciliation breaks | 61.9 | 55 (bank change) | 55 | **0** |
+| Resolve the bank change | 57.9 | none binding | 58 | +3 |
+
+**While the bank-change cap binds, nothing else moves the score.** That is the veto
+rule working exactly as intended, and it is the most persuasive thing on the screen:
+it says an unresolved control failure cannot be offset by good performance
+elsewhere. A weighted average would have quietly absorbed it.
+
+The UI must say this plainly on a capped entity — a banner reading *"While the
+bank-change cap binds, no other action moves this score"* — rather than listing
+actions with a zero next to them.
+
+The cascade, which is the scripted demo path:
+
+```
+55  →  resolve the bank change        →  58   (cap lifted to 60, raw 57.9 now binds)
+58  →  file the overdue GSTR-3B       →  64   (last cap gone, compliance +40)
+64  →  clear 26 reconciliation breaks →  68   (ordinary movement, now visible)
+```
+
+Order matters and must be honoured: filing the return *first* delivers nothing,
+because the bank-change cap still binds. That ordering effect is worth demonstrating
+live.
+
+### 7.11 SLA breaches and attribution
+
+Breach totals by entity:
+
+```
+JGL 32 · JBL 41 · JPS 12 · JCP 3 · JHS 6 · JRP 48    total 142
+```
+
+Group attribution counts — the stacked bar in §5 is **group-level, across all six
+entities**, and must be computed from these, not hardcoded:
+
+```
+client      101   (71%)
+provider     25   (18%)
+system       10   ( 7%)
+thirdParty    6   ( 4%)
+              142
+```
+
+JGL's own per-SLA breach attribution — store as counts, derive percentages:
+
+| SLA | Breaches | client | provider | system | thirdParty |
+|---|---|---|---|---|---|
+| Invoice processing TAT | 22 | 18 | 3 | 1 | 0 |
+| Urgent invoice TAT | 4 | 3 | 1 | 0 | 0 |
+| Payment processing | 3 | 1 | 1 | 0 | 1 |
+| Sub-ledger close TAT | 2 | 1 | 1 | 0 | 0 |
+| Bank reconciliation TAT | 1 | 0 | 0 | 1 | 0 |
+| **Total** | **32** | **23** | **6** | **2** | **1** |
+
+JGL's split (72/19/6/3) deliberately differs from the group's (71/18/7/4). An entity
+is not the group — do not force them to match.
+
+### 7.12 Narrative and display conventions
+
+- Recurrence is **stored as an integer** number of months and **displayed as an
+  ordinal** — store `5`, display "5th consecutive month".
+- Narrative strings in `causes.ts` must be generated from, or manually reconciled
+  with, the figures in §7.5. Any prose that contradicts the data is a defect. The
+  existing `po-price-mismatch` narrative claiming "four contracts account for 71%"
+  is stale — pricing is 22% of ₹18.6 cr across 4 vendors.
+- Tile sub-labels ("19 receipts", "327 invoices") come from the data layer, never
+  hardcoded in a page component.
+- **Policy thresholds live in one config object**, not scattered through prose and
+  components — the ₹10 lakh dispute settlement threshold, the ₹50 lakh first-time
+  payee threshold (§7.8), delegation limits. They are parameters, not derived
+  figures, and they must be consistent wherever they appear.
+- **A narrative may not contain a quantitative claim that is not derivable from
+  stored data.** A controller will test any number on screen, and a figure with
+  nothing behind it is worse than no figure. Where a claim is worth keeping, store
+  the data behind it rather than deleting the sentence. Specifically: the
+  approval-pending narrative's "seven approvers hold 64%" is worth keeping —
+  store it as a `byGroup` split on that cause (7 approvers, 64% of the ₹3.3 cr) so
+  the sentence derives from data.
+
+### 7.13 Narrative backing data
+
+Every quantitative claim in a cause narrative must resolve to a stored field
+(§7.12). These are the figures behind the claims that currently have none.
+
+| Cause | Claim to keep | Store as |
+|---|---|---|
+| pricing-disputes | Nine customers hold 64% of disputed value; 41% of it sits in Distribution | `concentrationCount: 9`, `concentrationPctOfValue: 64`, existing segment split unchanged. **These are two different cuts and must read as two different cuts** — the narrative becomes "Nine customers account for 64% of disputed value, 41% of it in Distribution." The current wording conflates them and is a contradiction on screen. |
+| vendor-master | 23 vendor records created last quarter, 7 of them behind the ₹2.0 cr blocked | `recordsCreatedQuarter: 23`; concentration already 7 vendors |
+| duplicate-suspicion | Nine invoice pairs flagged | `concentrationCount: 9`, and set concentration from `'—'` to "9 invoice pairs" |
+| deductions | 71% of deductions are eventually accepted | `acceptanceRatePct: 71` |
+| tax-mismatch | Concentrated in two states | `byGroup` split with two states, summing to the cause's value |
+| cash-application | Oldest unapplied receipt 22 days | `cashUnappliedOldestDays` on the entity (below) |
+
+**Oldest-item ageing.** The original prototype showed an "oldest N d" figure beside
+each headline exposure and it is worth restoring — ageing is what turns an amount
+into a controllership problem. Add to `EntityMetrics`:
+
+| Entity | apBlockedOldestDays | arOver90OldestDays | cashUnappliedOldestDays | reconOldestDays |
+|---|---|---|---|---|
+| JGL | 52 | 148 | 22 | 61 |
+| JBL | 61 | 172 | 31 | 79 |
+| JPS | 34 | 96 | 14 | 38 |
+| JCP | 18 | 61 | 8 | 16 |
+| JHS | 27 | 78 | 11 | 22 |
+| JRP | 74 | 210 | 44 | 94 |
+
+These must order consistently with entity health: JCP best, JRP worst on every
+measure. An ageing figure that contradicts the score is a defect.
+
+### 7.14 Trend series
+
+Sparklines need six points per metric. §7.2 gives prior-period values for AP blocked
+and AR over 90 days only; the remaining metrics are below. Nothing about the series
+is invented at render time.
+
+Prior-period values, current → previous:
+
+| Entity | cashUnapplied | closePercent | reconValue | DSO | DPO |
+|---|---|---|---|---|---|
+| JGL | 3.1 ← 2.6 | 78 ← 74 | 14.3 ← 15.8 | 62 ← 59 | 48 ← 45 |
+| JBL | 2.4 ← 2.9 | 61 ← 66 | 9.8 ← 8.9 | 68 ← 71 | 52 ← 50 |
+| JPS | 1.2 ← 1.5 | 88 ← 85 | 4.1 ← 4.6 | 54 ← 52 | 41 ← 42 |
+| JCP | 0.3 ← 0.4 | 96 ← 95 | 1.4 ← 1.6 | 47 ← 49 | 38 ← 39 |
+| JHS | 0.6 ← 0.5 | 94 ← 91 | 2.7 ← 2.5 | 51 ← 50 | 40 ← 40 |
+| JRP | 4.0 ← 3.4 | 52 ← 58 | 12.6 ← 11.2 | 74 ← 69 | 56 ← 52 |
+
+Two more metrics that were left scalar for want of a prior period:
+
+| Entity | Touchless rate % | SLA breaches |
+|---|---|---|
+| JGL | 54 ← 49 | 32 ← 38 |
+| JBL | 46 ← 44 | 41 ← 39 |
+| JPS | 62 ← 58 | 12 ← 14 |
+| JCP | 78 ← 74 | 3 ← 4 |
+| JHS | 71 ← 68 | 6 ← 5 |
+| JRP | 41 ← 39 | 48 ← 48 |
+
+Touchless rate must order consistently with the operational dimension: JCP highest,
+JRP lowest. Group breaches move 148 → 142.
+
+**Group header KPIs carry trends too.** Group score, value at risk and open
+exceptions are all derived from entity data, so their trends are derived the same
+way — aggregating entity trends is not invention. The group header is the first
+thing anyone sees and a bare number there is the most visible possible gap.
+
+DSO and DPO were previously defined for JGL only (§7.3). The full set above must
+order consistently with the working capital dimension: JCP best, JRP worst.
+
+**Adjusted DPO** (§8.6) — headline DPO is inflated by blocked invoices, and the
+platform says so rather than reporting the flattering number:
+
+```
+JGL 48 → 41   JBL 52 → 46   JPS 41 → 38
+JCP 38 → 37   JHS 40 → 38   JRP 56 → 50
+```
+
+#### Series generation
+
+The six-point series is generated deterministically, not stored point by point:
+
+- `series[5] === current` and `series[4] === previous`. Test both.
+- Points 0–3 come from a seeded walk — seed from `entityCode + metricKey`, so the
+  same series is produced on every run and across machines. No `Math.random()`.
+- **Every point stays within `max(25% of current, absolute floor)`.** The plain ±25%
+  rule breaks on small denominators — JCP's cash unapplied moving ₹0.3 cr to ₹0.4 cr
+  is a trivial movement in rupees and a 33% swing in percent. Floors: **₹0.5 cr** for
+  money, **5 points** for percentages, **5 days** for day counts, **5** for raw
+  counts. The guard exists to
+  stop a metric appearing from nowhere, not to police rounding noise.
+- **The series must not contradict a stated recurrence.** The checkable form is: for
+  a down-is-good metric, the last N points must not be **monotonically decreasing**,
+  where N is the recurrence of the cause mapped to that metric. **Apply only for
+  N ≥ 3.** At N = 2 the rule reduces to "the metric must not have improved last
+  month", which contradicts the pinned priors in §7.2 and is not what recurrence
+  means — a cause recurring two months running says nothing about direction. Compare
+  with a 1e-9 tolerance; the value grid is 0.1, so anything smaller is float
+  representation noise. A chart showing
+  steady resolution while the narrative says the cause has recurred five months is
+  telling the opposite story to the words beside it. "Elevated" was too vague to
+  test — monotonicity is not.
+
+  Cause → metric mapping for that assertion:
+
+```
+P2P  goods receipt · pricing · approval · vendor master · duplicate · tax
+                                                       →  apBlocked
+O2C  pricing-disputes · deductions · billing-errors · credit-block · customer-master
+                                                       →  arOver90
+O2C  cash-application                                  →  cashUnapplied
+R2R  all causes                                        →  reconValue
+```
+
+### 7.15 Prior-period dimension scores
+
+Without these, the group score and the six dimension bars are the only figures on
+the product's first two screens with no direction of travel. They also unlock the
+most useful single line on the entity view: *"Risk & control 62, down from 58 last
+period"* — which dimension is deteriorating is a controllership question, and the
+composite score hides it.
+
+| Entity | operational | service | risk | workingCapital | dataQuality | compliance | → prior score |
+|---|---|---|---|---|---|---|---|
+| JGL | 71 | 74 | 58 | 60 | 89 | 96 | 72 |
+| JBL | 69 | 74 | 58 | 55 | 82 | 88 | 69 |
+| JPS | 80 | 82 | 73 | 74 | 87 | 90 | 80 |
+| JCP | 91 | 93 | 87 | 85 | 93 | 96 | 90 |
+| JHS | 88 | 90 | 88 | 86 | 92 | 94 | 89 |
+| JRP | 66 | 68 | 52 | 51 | 75 | 60 | 60 |
+
+Movement: JGL +2 · JBL −2 · JPS +1 · JCP +1 · JHS −1 · JRP **−5**. Group 77 → 76.
+
+**JRP's prior period had only one veto active — the overdue GSTR-3B, cap 60. The
+unauthorised bank change was detected this period.** So JRP's prior displayed score
+is 60 (capped) and its current is 55 (capped lower by the new veto). Its raw score
+barely moved: 60.5 → 57.9.
+
+That is the whole argument for veto rules rendered as a trend. A five-point drop
+that a weighted average would have shown as one point, because one control failure
+appeared. The demo line: *"nothing much changed in the numbers — a control failure
+appeared, and that is the point."*
+
+Each dimension trend must be directionally consistent with the metrics beneath it —
+JGL's operational rising alongside touchless 49 → 54 and close 74 → 78, JBL's
+working capital falling alongside AP blocked 10.4 → 11.3. Assert a few of these.
+
+### 7.16 Prior-period exception counts
+
+Enables a trend on the group's open-exceptions KPI. Counts move with their value
+counterparts in §7.2.
+
+| Entity | apBlockedCount | o2cExceptionCount | reconAgedBreaks |
+|---|---|---|---|
+| JGL | 327 ← 389 | 284 ← 301 | 18 ← 21 |
+| JBL | 214 ← 197 | 196 ← 188 | 21 ← 19 |
+| JPS | 96 ← 112 | 84 ← 92 | 7 ← 8 |
+| JCP | 41 ← 47 | 31 ← 34 | 2 ← 2 |
+| JHS | 68 ← 65 | 52 ← 49 | 4 ← 4 |
+| JRP | 268 ← 241 | 241 ← 220 | 26 ← 23 |
+
+Group open exceptions: 2,012 → 1,980. Each count's direction must match its value
+counterpart — JGL's blocked count falls as its blocked value falls; JBL's rises as
+its value rises.
+
+---
+
+## §8. Cross-cutting UI rules
+
+### 8.1 Funnels show in-flight work
+
+The P2P and O2C stage cards currently read as a period funnel, which makes it look
+as though 2,000 invoices went missing between stages. Relabel the section header to
+**"In flight at each stage"** and add the caption *"Open work in progress, not
+period volumes"*. Use the counts in §7.4.
+
+### 8.2 Every operational metric carries a financial consequence
+
+No indicator without a rupee value and a stated consequence. On the entity view add
+a **Financial consequence** strip, derived from the trial balance extract:
+
+```
+Accrual exposure at close    ₹6.3 cr    blocked payables not yet accrued
+Revenue at risk              ₹8.7 cr    open disputes and credit blocks
+Provision adequacy           92%        provision vs actual utilisation
+FX / intercompany exposure   ₹3.6 cr    unmatched intercompany with related parties
+```
+
+The headline connection to make visible: *"₹18.6 cr blocked → ₹6.3 cr not accrued
+at Day 4 → COGS understated."*
+
+### 8.3 Trends everywhere
+
+Every headline number shows a delta versus prior period and a small sparkline.
+A snapshot is a dashboard; a trend is a control tower. Direction colour: improving
+= positive colour, worsening = negative colour, regardless of whether the metric
+is "up is good" — the Trend helper must take an `inverse` flag.
+
+### 8.4 Everything drills
+
+Every displayed figure is a link. The drill hierarchy:
+
+```
+L0 Group → L1 Entity → L2 Process → L3 Sub-process → L4 Transaction → L5 Root cause
+```
+
+No dead-end numbers. If a number cannot drill (e.g. Close %, which is read-only
+from an external tracker), it must show a `read-only · source: close tracker` tag
+rather than be silently unclickable.
+
+### 8.5 Mode-aware header
+
+The header currently always says "DAY 4 OF CLOSE", which is only true for six days
+a month. Introduce three modes with a toggle (demo control):
+
+| Mode | Period | Header shows | Top panel foregrounds |
+|---|---|---|---|
+| `close` | Day 1–6 | `DAY N OF CLOSE` | Close status, blockers, exposure at close |
+| `bau` | Day 7–20 | `BUSINESS AS USUAL · DAY N` | Exception clearance, cash opportunity, cause elimination |
+| `preclose` | Day 21–month end | `PRE-CLOSE READINESS · N DAYS TO CLOSE` | Unposted GRs, unapplied cash, aged breaks, open disputes |
+
+Pre-close readiness is the most valuable mode because it is preventive.
+
+### 8.5.1 Direction is not always defined
+
+`Metric` takes `inverse: true | false | null`. **DPO is `null` — direction-neutral,
+rendered in `textMuted` whatever way it moves.**
+
+Rising DPO is good when it comes from negotiated terms and bad when it comes from
+invoices you cannot process. This platform cannot tell those apart from the data, so
+colouring the delta green or red asserts something indefensible. Show the movement,
+show the adjusted figure beside it (§8.6), and let the controller judge. A metric
+whose direction we cannot defend gets no colour — that restraint is itself a
+credibility signal.
+
+Reconciliation value, AP blocked, AR over 90 days, cash unapplied and DSO are all
+down-is-good (`inverse: true`). Close % and touchless rate are up-is-good
+(`inverse: false`).
+
+### 8.6 Honest metrics
+
+Where a favourable-looking metric is distorted, say so inline. Specifically: DPO of
+48 days is partly inflated by blocked invoices. Show a footnote flag on DPO:
+*"Includes ₹18.6 cr of blocked invoices; adjusted DPO 41 days."*
+
+### 8.7 Data freshness
+
+Every screen header carries: `SAP ECC · as of 06:00 IST` (source + timestamp).
+Where a screen mixes sources, list them.
+
+### 8.8 Restricted access
+
+Risk & control content (§7.8) is restricted. Render behind a visible
+`RESTRICTED — Financial Controller and above` marker and a demo-only toggle. SoD
+conflicts and bank change alerts must not appear on any screen a plant manager
+would open (i.e. not on counterparty or process cockpits).
+
+### 8.9 Worklists are actionable
+
+A worklist without a closed loop is a report. Every exception row supports:
+`Assign`, `Chase`, `Release`, and multi-select for bulk actions. Actions mutate
+local state and append to the item's `evidence[]`. Sort by **value** by default,
+never by count.
+
+### 8.10 Cross-process traceability
+
+At least one demo path must cross towers, to prove the platform is not three silos:
+a missing goods receipt in P2P → blocks an invoice → understates the accrual in
+R2R → appears in the close exposure figure. Wire this as a clickable chain.
+
+---
+
+## §9. Screen inventory
+
+Existing screens to keep and modify:
+
+| Screen | Change |
+|---|---|
+| Group view | Six named dimensions, computed scores, veto badges, trends, correct entities, segment toggle |
+| Entity health | Six dimensions, sensitivity, financial consequence strip, mode-aware panel |
+| P2P cockpit | In-flight relabel, trends, attribution column |
+| O2C cockpit | In-flight relabel, trends, attribution column |
+| Worklist | Actions, attribution, evidence trail, control significance |
+| Root cause | Add elimination status, owner, target date |
+| Working capital | Trends, DPO honesty flag, link to forecast |
+
+New screens to build:
+
+| Screen | Section |
+|---|---|
+| Service & attribution | §4, §5, §7.7 |
+| Risk & control | §7.8, §8.8 |
+| Predictive | §7.3 |
+| Counterparty (vendor / customer / cost centre / plant) | §6 `Counterparty` |
+| Front door (request intake) | §6 `Request` |
+| Compliance | §7.9 |
+| Data & MDM quality | §6 `DataQualityItem` |
+| Cause elimination backlog | §7.5 |
+| Ask the Control Tower (answer panel) | §11 |
+
+### 9.1 Navigation grouping
+
+Reorganise the left rail into labelled groups rather than a flat list:
+
+```
+OVERVIEW      Group view · Entity health
+PROCESS       P2P cockpit · O2C cockpit · R2R cockpit
+EXPLAIN       Worklist · Root cause · Cause elimination
+ASSURE        Risk & control · Compliance · Data quality
+FORWARD       Working capital · Predictive
+SERVICE       Service & attribution · Front door
+```
+
+Counterparty pages are reached by drill, not from the rail.
+
+The rail is `src/app/Rail.tsx`, driven by the nav item list in
+`src/app/routes.tsx`. That list currently carries **literal counts**; per §0 those
+must be derived from the API accessors instead. Adding a screen means touching
+four things in `routes.tsx`: the route table, the nav item list, the breadcrumb
+builder, and the active-nav resolver.
+
+---
+
+## §10. Design constraints
+
+- **All tokens live in `src/theme/tokens.ts`.** Components consume them as
+  `colors.*` CSS variables. **Never write a literal hex value in a component.**
+- If a new colour is genuinely unavoidable, add it to **both** the dark and light
+  palettes in `tokens.ts` in the same edit. `npm run verify:theme` enforces this.
+- The palette has `bgAccentSoft` and `bgAccentPanel` for blue but **no status-tinted
+  surface**, which forces amber and red messaging onto transparent backgrounds. Add
+  `bgWarnSoft` and `bgRiskSoft` to both palettes, standing in the same relationship
+  to `statusAmber` and `statusRed` as `bgAccentSoft` does to `accent`. These are
+  needed by the veto banner (§7.10.1), risk and control (§7.8) and overdue
+  compliance (§7.9) — add them once, deliberately, rather than improvising per step.
+- **Light-theme `statusRed` is under-darkened and must be corrected to `#C22E2E`.**
+  The light palette darkens green to `#14764F` (5.62:1 on white) and amber to
+  `#A16207` (4.92:1), but leaves red at `#D33C3C` (4.69:1) — the outlier. On
+  `bgRiskSoft` it drops to 4.30 and fails AA for small text, which would force every
+  red-on-tint element in risk, control and compliance to carry a size or weight
+  exemption. `#C22E2E` gives 5.64 on white and 5.17 on `bgRiskSoft`, clears AA
+  everywhere, and brings red into family with the other two. Change the token, not
+  the tint. Dark-theme `statusRed` is unaffected.
+- **Never append an alpha suffix to a CSS variable** — `${colors.x}55` is invalid
+  CSS and silently renders nothing. Use `color-mix(in srgb, var(--x) 33%,
+  transparent)` or an existing border token.
+- Prefer existing tokens. For the attribution stacked bar (§5) use, in order:
+  `accent` → `ageingBarAlt` → `borderAccent` → `textFaintest`. No new tokens needed.
+- **Radii are zero everywhere.** `radii.dot: 50%` on `StatusDot` is the only round
+  shape in the product. No rounded cards, chips, pills or buttons.
+- **One shadow exists** (`paletteShadow`, on the command palette). Do not add another.
+- Money is formatted with `formatCr()` from `src/lib/format.ts`. Do not write a
+  second money formatter.
+- Global CSS is only for hover/active/focus states and keyframes, in
+  `src/index.css`, referencing CSS variables. Everything else is an inline style
+  object built from tokens.
+- Dark theme stays. The existing type pairing (sans for prose, mono for numbers
+  and small-caps labels) stays.
+- Colour must never be the only carrier of meaning — always pair a RAG colour with
+  a text label (`74 AMBER`).
+- Label every colour bar. The five unlabelled bars in the current Group view are a
+  defect: after §3.1 they become six named dimensions with visible names.
+- No `Math.random()`. All data deterministic.
+- No new runtime dependencies unless a prompt explicitly authorises one.
+- Numbers use `₹NN.N cr` for value, `NN d` for days, `NN%` for rates.
+- Fix known layout collisions: age column colliding with blocking reason on the
+  worklist; effort and owner columns merged on the working capital view.
+
+---
+
+## §11. Ask the Control Tower
+
+A conversational panel with four modes — **ask, explain, investigate, recommend**.
+
+For the prototype, hardcode a small set of question → answer pairs against the
+canonical dataset. Requirements:
+
+- Every answer must cite the transactions, owners or service records behind it,
+  rendered as clickable chips that drill to the relevant screen.
+- Every answer offers 2–3 follow-up actions (`Show the journal`, `Assign owner`,
+  `Notify Entity B`).
+- Never assert anything the dataset does not contain. If no answer exists, say so.
+
+Seed questions:
+
+1. "Why is this entity amber?"
+2. "What lifts it fastest?"
+3. "Why do blocked invoices keep recurring?"
+4. "What is our exposure at close?"
+5. "Whose delay is driving the SLA breach?"
+6. "What will DSO be at month-end?"
+
+---
+
+## §12. Explicitly out of scope
+
+Do not build, and reject any instruction to build:
+
+- P&L, MIS, or variance commentary generation
+- Close task orchestration, sequencing or sign-off workflow
+- Duplicate payment checking, three-way match enforcement, or any other control
+  the source system already runs
+- Cost-to-serve or provider margin metrics on client-facing screens
+- Any authentication, backend, or database. This is a front-end prototype with a
+  static dataset module.
+
+---
+
+## §13. Codebase conventions
+
+The prototype is React 18 + TypeScript on Vite 5, with react-router-dom 6. There is
+no CSS framework. Read `PROJECT-MAP.md` for the full file inventory.
+
+### 13.1 The data layer — extend it, never bypass it
+
+```
+src/api/types.ts      domain interfaces
+src/api/mock/*.ts     static datasets
+src/api/index.ts      the ONLY public accessor surface
+```
+
+- Components import from `../api` (or `../../api`). **They never import from
+  `src/api/mock/*` directly.** This is an existing rule of the codebase; preserve it.
+- **Do not create a parallel data module** such as `src/data/`. All new datasets go
+  into `src/api/mock/` and are exposed through new accessors in `src/api/index.ts`.
+- **Extend the existing type names rather than introducing parallel ones.** The
+  interfaces in §6 are a description of the data shape, not a mandate to rename:
+
+| §6 name | Existing type to extend |
+|---|---|
+| `Entity` | `Entity` in `src/api/types.ts` — currently has five dimension scores |
+| `Exception` | `Exception` — add attribution, evidence, control significance, status |
+| `RootCause` | `CauseNode` — keep this name, add elimination fields |
+| stage counts | `ProcessStage` — add in-flight vs exception split |
+| `Counterparty`, `ControlSignal`, `ComplianceItem`, `DataQualityItem`, `Forecast`, `ServiceMetric`, `Request`, `Trend`, `Veto`, `SensitivityItem` | new types, add to `src/api/types.ts` |
+
+- Accessors are synchronous and return static arrays. Keep it that way — no
+  network layer, no async, no state management library.
+
+### 13.2 Derivations
+
+`src/theme/derive.ts` holds every number-to-colour and number-to-word derivation
+(`scoreColor`, `statusWord`, `statusColor`, `ageColor`, `controlColor`,
+`breachColor`). It contains no hex values — it reads `colors.*`.
+
+New derivations (attribution colour, veto badge state, trend direction) belong
+here, not in a page component.
+
+### 13.3 Shared components
+
+`src/components/` with a barrel export in `index.ts`. Existing set: `Card`,
+`Eyebrow`, `StatusDot`, `Bar`, `AgeingChart`, `StageFlow`, `DataTable`,
+`CommandPalette`.
+
+Reuse before building. In particular: `DataTable` for any new table, `Bar` for any
+meter, `Card` + `Eyebrow` for any panel. New shared components get added to the
+barrel.
+
+### 13.4 Routing and navigation
+
+`src/app/routes.tsx` owns four things that must stay in sync: the route table
+(`AppRoutes`), the nav item list, the breadcrumb builder, and the active-nav
+resolver. `src/app/paths.ts` holds link resolvers such as `defaultRootCauseTo()`.
+
+Every new screen requires all four, plus:
+- registration in `CommandPalette`'s result set
+- a drill path entry in `scripts/verify-drills.mjs`
+
+### 13.5 The assistant already exists
+
+`src/features/assistant/` contains `AssistantDrawer.tsx` (the 470px right-hand
+drawer, message list, streaming bubble, follow-up chips, preset questions,
+free-text input) and `provider.ts` (`AssistantProvider` interface +
+`MockAssistantProvider` streaming canned answers in ~4-char chunks every 18ms).
+
+`AssistantContext.ask()` lets any screen open the drawer with a question — this is
+how "Ask why this entity is amber" on `EntityHome` works.
+
+**Extend `MockAssistantProvider` behind the existing interface.** Do not rebuild
+the drawer, do not change the provider interface, do not integrate a real LLM.
+
+### 13.6 Tests and verification
+
+```
+npm test                  Vitest — tests/ plus co-located *.test.ts(x)
+npm run verify:theme      token/palette parity check
+npm run verify:drills     drill-path check
+npm run dev               Vite, port 5200 (strict)
+```
+
+Existing suites cover the data layer, shell, routes and every page. **Changing the
+Entity shape, the score model or the nav will break tests — fix them in the same
+step, do not leave them red.** Report the test result at the end of every step.

@@ -68,7 +68,7 @@ describe('App shell end to end (spec/02)', () => {
     fireEvent.click(within(rail).getByRole('link', { name: /Root cause/ }))
     expect(main().getByRole('heading', { level: 1, name: 'Why blocked invoices keep recurring' })).toBeTruthy()
     const bc = breadcrumbText()
-    expect(bc).toContain('JBS')
+    expect(bc).toContain('JBL')
     expect(bc).toContain('P2P')
     expect(bc).toContain('Root cause')
     expect(activeNavLabel()).toContain('Root cause')
@@ -76,13 +76,13 @@ describe('App shell end to end (spec/02)', () => {
 
   it('working capital route renders with its breadcrumb and nav state', () => {
     render(<App />)
-    fireEvent.click(main().getByRole('link', { name: /Jubilant Ingrevia Ltd/ }))
+    fireEvent.click(main().getByRole('link', { name: /Jubilant HollisterStier LLC/ }))
 
     const rail = screen.getByRole('navigation', { name: 'Primary' })
     fireEvent.click(within(rail).getByRole('link', { name: /Working capital/ }))
     expect(main().getByRole('heading', { level: 1, name: 'Cash locked in exceptions' })).toBeTruthy()
     const bc = breadcrumbText()
-    expect(bc).toContain('JIL')
+    expect(bc).toContain('JHS')
     expect(bc).toContain('Working capital')
     expect(activeNavLabel()).toContain('Working capital')
   })
@@ -98,5 +98,23 @@ describe('App shell end to end (spec/02)', () => {
 
     fireEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: /Ask the cockpit/ }))
     expect(screen.queryByText(/cockpit intelligence/i)).toBeNull()
+  })
+
+  it('switches cockpit modes from the header demo control and rewrites the period text (§8.5)', () => {
+    render(<App />)
+    const banner = screen.getByRole('banner')
+
+    // Default is pre-close — the preventive mode worth demonstrating; labelled as a demo control.
+    expect(within(banner).getByText('DEMO MODE')).toBeTruthy()
+    expect(within(banner).getByText('PERIOD AUG-2026 · PRE-CLOSE READINESS · 3 DAYS TO CLOSE')).toBeTruthy()
+
+    fireEvent.click(within(banner).getByRole('button', { name: 'CLOSE' }))
+    expect(within(banner).getByText('PERIOD AUG-2026 · DAY 4 OF CLOSE')).toBeTruthy()
+
+    fireEvent.click(within(banner).getByRole('button', { name: 'BAU' }))
+    expect(within(banner).getByText('PERIOD AUG-2026 · BUSINESS AS USUAL · DAY 12')).toBeTruthy()
+
+    fireEvent.click(within(banner).getByRole('button', { name: 'PRE-CLOSE' }))
+    expect(within(banner).getByText('PERIOD AUG-2026 · PRE-CLOSE READINESS · 3 DAYS TO CLOSE')).toBeTruthy()
   })
 })

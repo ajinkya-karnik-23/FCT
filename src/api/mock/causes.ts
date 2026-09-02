@@ -9,12 +9,12 @@ export const causes: CauseNode[] = [
     key: 'missing-gr',
     name: 'Missing GR',
     sharePct: 34,
-    valueAtRisk: 6.3,
+    valueAtRisk: 6.4,
     avgDelayDays: 8.4,
-    recurrence: '5th month',
+    recurrence: 5,
     concentration: '11 vendors',
     narrative:
-      'Invoices for Nanjangud and Roorkee remain blocked because goods receipts are posted after invoice receipt. 62% of affected invoices relate to 11 vendors on consignment terms; average GR lag is 8.4 days and the pattern has repeated for five consecutive months.',
+      'Invoices at Nanjangud and Roorkee remain blocked because goods receipts are posted after invoice receipt; the two plants account for 72% of affected value. Eleven vendors drive the pattern, led by consignment chemicals at 38%; average GR lag is 8.4 days and it has repeated for five consecutive months.',
     plants: [
       { name: 'Nanjangud', pct: 43 },
       { name: 'Roorkee', pct: 29 },
@@ -40,10 +40,10 @@ export const causes: CauseNode[] = [
     sharePct: 22,
     valueAtRisk: 4.1,
     avgDelayDays: 6.1,
-    recurrence: '3rd month',
-    concentration: '4 contracts',
+    recurrence: 3,
+    concentration: '4 vendors',
     narrative:
-      'Price differences arise where contract escalations were signed but not loaded into the purchasing info record. Four contracts account for 71% of the variance value; buyers resolve them manually each cycle.',
+      'Price differences arise where contract escalations were signed but not loaded into the purchasing info record. Four vendors account for all of the ₹4.1 cr; buyers resolve them manually each cycle and the pattern has repeated for three consecutive months.',
     plants: [
       { name: 'Roorkee', pct: 41 },
       { name: 'Noida', pct: 27 },
@@ -67,12 +67,13 @@ export const causes: CauseNode[] = [
     key: 'approval-pending',
     name: 'Approval pending',
     sharePct: 18,
-    valueAtRisk: 3.2,
-    avgDelayDays: 5.3,
-    recurrence: '2nd month',
-    concentration: '7 approvers',
+    valueAtRisk: 3.3,
+    avgDelayDays: 5.2,
+    recurrence: 2,
+    concentration: '2 plants',
+    byGroup: [{ name: 'Approvers', count: 7, pct: 64 }],
     narrative:
-      'Approvals stall with seven approvers who hold 64% of pending items, concentrated in indirect spend above ₹10 lakh. Delegation is not maintained during travel.',
+      'Approvals stall with seven approvers who hold 64% of the ₹3.3 cr value, concentrated in indirect spend above ₹10 lakh. Delegation is not maintained during travel.',
     plants: [
       { name: 'Ambernath', pct: 36 },
       { name: 'Noida', pct: 31 },
@@ -96,10 +97,11 @@ export const causes: CauseNode[] = [
     key: 'vendor-master',
     name: 'Vendor master',
     sharePct: 11,
-    valueAtRisk: 1.8,
-    avgDelayDays: 4.2,
-    recurrence: '4th month',
-    concentration: '23 records',
+    valueAtRisk: 2.0,
+    avgDelayDays: 9.7,
+    recurrence: 4,
+    concentration: '7 vendors',
+    recordsCreatedQuarter: 23, // §7.13 — backs "23 vendor records created in the last quarter"
     narrative:
       'Bank and GST details fail validation on 23 vendor records created in the last quarter, mostly for one-time service vendors onboarded outside the standard workflow.',
     plants: [
@@ -125,10 +127,11 @@ export const causes: CauseNode[] = [
     key: 'duplicate-suspicion',
     name: 'Duplicate suspicion',
     sharePct: 8,
-    valueAtRisk: 0.9,
-    avgDelayDays: 3.6,
-    recurrence: '1st month',
-    concentration: '9 pairs',
+    valueAtRisk: 1.5,
+    avgDelayDays: 3.1,
+    recurrence: 1,
+    concentration: '9 invoice pairs', // §7.13 — was '—'; count stored in concentrationCount
+    concentrationCount: 9,
     narrative:
       'Nine invoice pairs are flagged where the same document is submitted through both the vendor portal and email intake. All are held pending manual confirmation.',
     plants: [
@@ -154,10 +157,15 @@ export const causes: CauseNode[] = [
     key: 'tax-mismatch',
     name: 'Tax mismatch',
     sharePct: 7,
-    valueAtRisk: 0.7,
-    avgDelayDays: 4.9,
-    recurrence: '2nd month',
-    concentration: '2 states',
+    valueAtRisk: 1.3,
+    avgDelayDays: 4.4,
+    recurrence: 2,
+    concentration: '3 vendors',
+    // §7.13 — backs "two states"; shares normalized from the plant split (Roorkee 46 + Noida 24), summing to the ₹1.3 cr value
+    byGroup: [
+      { name: 'Uttarakhand', pct: 66 },
+      { name: 'Uttar Pradesh', pct: 34 },
+    ],
     narrative:
       'GST place-of-supply is misapplied on interstate service invoices in two states, requiring credit notes before booking.',
     plants: [
@@ -185,10 +193,13 @@ export const causes: CauseNode[] = [
     sharePct: 31,
     valueAtRisk: 5.4,
     avgDelayDays: 11.2,
-    recurrence: '6th month',
+    recurrence: 6,
     concentration: '9 customers',
+    // §7.13 — the customer cut (9 @ 64%) is a different cut from the Distribution segment share (41% in plants)
+    concentrationCount: 9,
+    concentrationPctOfValue: 64,
     narrative:
-      'Customers short-pay against contracted rates that were revised mid-quarter but not reflected on the invoice. Nine distribution customers account for 64% of disputed value; each dispute takes an average of 11.2 days to resolve because pricing evidence sits outside the billing system.',
+      'Customers short-pay against contracted rates that were revised mid-quarter but not reflected on the invoice. Nine customers account for 64% of disputed value, 41% of it in Distribution; each dispute takes an average of 11.2 days to resolve because pricing evidence sits outside the billing system.',
     plants: [
       { name: 'Distribution', pct: 41 },
       { name: 'Institutional', pct: 28 },
@@ -214,8 +225,9 @@ export const causes: CauseNode[] = [
     sharePct: 24,
     valueAtRisk: 4.1,
     avgDelayDays: 9.6,
-    recurrence: '5th month',
+    recurrence: 5,
     concentration: '14 customers',
+    acceptanceRatePct: 71, // §7.13 — backs "71% of deductions are eventually accepted"
     narrative:
       'Customers deduct scheme, damage and freight claims at payment without reference to an approved credit note. 71% of deductions are eventually accepted, meaning the dispute cycle adds cost without changing the outcome.',
     plants: [
@@ -243,7 +255,7 @@ export const causes: CauseNode[] = [
     sharePct: 17,
     valueAtRisk: 2.9,
     avgDelayDays: 6.8,
-    recurrence: '3rd month',
+    recurrence: 3,
     concentration: '4 order types',
     narrative:
       'Invoices are rejected on receipt for missing purchase order references, incorrect GST registration or wrong ship-to detail. Four order types created outside the standard flow generate most of the rework.',
@@ -272,7 +284,7 @@ export const causes: CauseNode[] = [
     sharePct: 12,
     valueAtRisk: 2.1,
     avgDelayDays: 4.4,
-    recurrence: '2nd month',
+    recurrence: 2,
     concentration: '18 orders',
     narrative:
       'Orders sit on credit block awaiting manual review because exposure limits were last reviewed a year ago. Eighteen orders are currently held, most for customers with a clean payment record.',
@@ -300,7 +312,7 @@ export const causes: CauseNode[] = [
     sharePct: 9,
     valueAtRisk: 3.1,
     avgDelayDays: 5.1,
-    recurrence: '4th month',
+    recurrence: 4,
     concentration: '19 receipts',
     narrative:
       'Receipts arrive without remittance advice or covering multiple invoices, leaving ₹3.1 cr unapplied. Nineteen receipts are currently open, the oldest for 22 days.',
@@ -328,7 +340,7 @@ export const causes: CauseNode[] = [
     sharePct: 7,
     valueAtRisk: 1.2,
     avgDelayDays: 3.9,
-    recurrence: '3rd month',
+    recurrence: 3,
     concentration: '16 records',
     narrative:
       'Sixteen customer records carry incomplete tax registration or credit terms, blocking clean billing and distorting the ageing view.',
