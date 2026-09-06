@@ -177,15 +177,28 @@ const AUDIT_JS = `(() => {
   const pairs = {}   // "fg|bg" -> count (text elements only)
   const fills = {}   // backgroundColor value -> element count (census of surfaces)
   const borders = {} // borderTopColor value -> element count (census of border colors)
+  // main-scoped census: page content only. The rail and top bar sit outside <main> and carry
+  // their own fills, borders and text on every route, so a document-wide census would let the
+  // chrome satisfy per-route presence checks for the wrong reason.
+  const mainPairs = {}
+  const mainFills = {}
+  const mainBorders = {}
   const els = Array.from(document.querySelectorAll('body *'))
   for (const el of els) {
+    const inMain = !!el.closest('main')
     let txt = ''
     for (const n of el.childNodes) if (n.nodeType === 3 && n.textContent.trim()) txt += n.textContent
     const cs = getComputedStyle(el)
     const bg = cs.backgroundColor
-    if (bg && bg !== transparent) fills[bg] = (fills[bg] || 0) + 1
+    if (bg && bg !== transparent) {
+      fills[bg] = (fills[bg] || 0) + 1
+      if (inMain) mainFills[bg] = (mainFills[bg] || 0) + 1
+    }
     const bc = cs.borderTopColor
-    if (bc && bc !== transparent && cs.borderTopWidth !== '0px') borders[bc] = (borders[bc] || 0) + 1
+    if (bc && bc !== transparent && cs.borderTopWidth !== '0px') {
+      borders[bc] = (borders[bc] || 0) + 1
+      if (inMain) mainBorders[bc] = (mainBorders[bc] || 0) + 1
+    }
     if (!txt.trim()) continue
     const fg = cs.color
     if (!fg || fg === transparent || fg === 'transparent') continue
@@ -198,8 +211,9 @@ const AUDIT_JS = `(() => {
     if (!resolvedBg) resolvedBg = getComputedStyle(document.body).backgroundColor || 'rgb(255, 255, 255)'
     const k = fg + '|' + resolvedBg
     pairs[k] = (pairs[k] || 0) + 1
+    if (inMain) mainPairs[k] = (mainPairs[k] || 0) + 1
   }
-  return { pairs, fills, borders }
+  return { pairs, fills, borders, mainPairs, mainFills, mainBorders }
 })()`
 
 const FIND_BY_TEXT_JS = `(text) => {
@@ -281,6 +295,12 @@ const ROUTES = [
   ['/entity/JGL/plant/jgl-nanjangud', 'plant-page'],
   // The capped entity — the walk must reach JRP so the veto pairing is audited in situ, not only by unit test
   ['/entity/JRP', 'jrp-entity-home'],
+  // §15 — the agent workforce; the never-automate box makes it a contrast-audit target too
+  ['/agents', 'agents'],
+  // §15.7 — the per-agent record page; reuses the roster's record block, so its pairs are already audited there
+  ['/agents/follow-up', 'agent-detail'],
+  // §15.3/§15.4 — touch economics; mono stat labels and raised stage cards are the audit targets
+  ['/touch-economics', 'touch-economics'],
 ]
 
 // colors each route must show somewhere (evidence from source grep) — resolved via palette
@@ -293,8 +313,8 @@ const EXPECTED_PRESENT = {
   'exception-detail': ['statusGreen', 'statusRed'],
   'root-cause-p2p': ['accentText', 'textFaint'],
   'root-cause-o2c': ['accentText', 'textFaint'],
-  'working-capital': ['statusAmber', 'statusGreen', 'chartArOld', 'accent'],
-  'risk-control': ['statusRed', 'bgRiskSoft'],
+  'working-capital': ['statusGreen', 'chartArOld', 'accent'], // no amber on the page itself — statusAmber was only ever in the top-bar score chip
+  'risk-control': ['statusRed', 'bgRiskSoft', 'accentText'], // + agent governance rows drill into the record via accent links
   compliance: ['statusGreen', 'statusAmber', 'statusRed'], // filed / due / overdue tags
   'data-quality': ['statusGreen', 'statusAmber', 'statusRed'], // DQ-score header colours + interface health tags
   'service-desk': ['statusRed', 'statusGreen', 'textFaint', 'borderDefault'], // queue SLA words (breached/met) + measuring-since line
@@ -306,6 +326,9 @@ const EXPECTED_PRESENT = {
   'cost-centre-page': ['statusRed', 'accent', 'statusAmber', 'textFaint'], // Nanjangud Operations runs over budget; booked/committed bars
   'plant-page': ['accentText', 'statusRed', 'statusAmber', 'textFaint'], // Nanjangud items at 41d/52d red, 21d amber
   'jrp-entity-home': ['statusRed', 'statusAmber', 'accentText', 'textFaint', 'bgWarnSoft'], // capped entity: RED score + CAPPED badge, warn-soft cap strips
+  agents: ['accentText', 'statusAmber', 'bgRiskSoft', 'borderDefault'], // type chips (preventive/reactive), never-automate items, sim tags
+  'agent-detail': ['bgPanel', 'bgRaised', 'borderDefault', 'textMuted', 'textFaint', 'accentText'], // §15.7 record page: card + raised record block, sim tag, field labels, action-log links
+  'touch-economics': ['textFaint', 'textMuted', 'borderDefault', 'bgRaised'], // mono stat/section labels, sim tag + touches-per-thousand captions, card borders, raised lever-stage cards
 }
 
 async function themePass(themeName, palette) {
@@ -419,10 +442,12 @@ async function themePass(themeName, palette) {
   for (const [route, name] of ROUTES) {
     await navigate(BASE + route)
     const audit = await evaluate(AUDIT_JS)
+    // Presence is judged on page content only (<main>): the rail and top bar carry their own
+    // colors on every route, so a document-wide census would pass these checks for chrome.
     const present = new Set()
-    for (const v of Object.keys(audit.fills)) present.add(v)
-    for (const v of Object.keys(audit.borders)) present.add(v)
-    for (const k of Object.keys(audit.pairs)) present.add(k.split('|')[0]) // fg colors also count as "present"
+    for (const v of Object.keys(audit.mainFills)) present.add(v)
+    for (const v of Object.keys(audit.mainBorders)) present.add(v)
+    for (const k of Object.keys(audit.mainPairs)) present.add(k.split('|')[0]) // fg colors also count as "present"
     const missing = (EXPECTED_PRESENT[name] || []).filter((tok) => !Array.from(present).some((v) => sameColor(v, palette[tok])))
     check(`${themeName}/${name}: expected colors present`, missing.length === 0, 'missing: ' + missing.join(', '))
     routeReports.push({ theme: themeName, name, pairs: audit.pairs })

@@ -26,12 +26,18 @@ import {
   transformationHealth,
 } from './mock/misc';
 import { deflectedSelfServed, requests } from './mock/requests';
+import { agents, agentActionLog, COVERAGE_STRIP, sessionOverrideCount } from './mock/agents';
+import { jglLeverStages, touchFunnel } from './mock/touchEconomics';
 
 import { computeScore, DIMENSION_KEYS, groupScore, groupScorePrevious, openExceptions, openExceptionsPrevious, valueAtRisk } from './score';
 import { requestSlaStatusWord, type RequestSlaWord } from '../theme/derive';
 
 import type {
   AgeingBucket,
+  Agent,
+  AgentAction,
+  AgentGovernanceSummary,
+  AgentWorkforceSummary,
   Attribution,
   CashOpportunity,
   CauseBacklogRow,
@@ -41,6 +47,7 @@ import type {
   CostCentre,
   Counterparty,
   ControlSignal,
+  CoverageStrip,
   DataQualityItem,
   DimensionKey,
   DriverAssumption,
@@ -64,11 +71,23 @@ import type {
   ServiceControl,
   ServiceMetric,
   TimelineEvent,
+  TouchFunnelRow,
+  TouchLeverStage,
   Trend,
 } from './types';
 
 export type {
   AgeingBucket,
+  Agent,
+  AgentAction,
+  AgentCheck,
+  AgentGovernanceSummary,
+  AgentLane,
+  AgentMetrics,
+  AgentProcess,
+  AgentStatus,
+  AgentType,
+  AgentWorkforceSummary,
   ApControlEffectiveness,
   Attribution,
   CashOpportunity,
@@ -79,10 +98,13 @@ export type {
   ControlCategory,
   ControlSignal,
   ControlSignificance,
+  CoverageStage,
+  CoverageStrip,
   CauseElimination,
   CauseNode,
   ComplianceItem,
   DataQualityItem,
+  Delegation,
   DimensionKey,
   DriverAssumption,
   Effort,
@@ -108,9 +130,14 @@ export type {
   ServiceMetric,
   Status,
   TimelineEvent,
+  TouchFunnelRow,
+  TouchLeverStage,
   TransformationHealth,
   Trend,
   Veto,
+  WalkthroughEvent,
+  WalkthroughStep,
+  WorklistAgentCounts,
 } from './types';
 
 export { applySensitivity, computeScore, DIMENSION_DEFINITIONS, DIMENSION_KEYS, DIMENSION_LABELS, DIMENSION_WEIGHTS, groupScore, GROUP_SCORE_DEFINITION, groupScorePrevious, openExceptions, OPEN_EXCEPTIONS_DEFINITION, openExceptionsPrevious, pointDirection, priorScore, stageExceptionPct, trendDelta, valueAtRisk, VALUE_AT_RISK_DEFINITION } from './score';
@@ -247,7 +274,8 @@ export function exceptionTimeline(x: Exception): TimelineEvent[] {
   }
   if ((x.status ?? 'open') !== 'released') {
     // §7.19 — a resolvable-today item reads as one action away (green), not as still waiting.
-    events.push({ dateLabel: 'Today', text: closingLine(x.reasonKey, x.resolvableToday), tone: x.resolvableToday ? 'ok' : 'now' });
+    // The open line carries the item's own escalation timer — the same figure the worklist lane shows.
+    events.push({ dateLabel: 'Today', text: closingLine(x.reasonKey, x.resolvableToday, x.ageDays), tone: x.resolvableToday ? 'ok' : 'now' });
   }
   return events;
 }
@@ -647,4 +675,133 @@ export function listDataQuality(entityCode?: string, domain?: DataQualityItem['d
 // §7.27 — interface health per entity (failed IDocs come from the interface check above).
 export function getInterfaceHealth(entityCode: string): InterfaceHealth | undefined {
   return interfaceHealth.find((h) => h.entityCode === entityCode);
+}
+
+// §15.2 — the agent workforce; eighteen roles, nine live in this prototype.
+export function listAgents(): Agent[] {
+  return agents;
+}
+
+export function getAgent(id: string): Agent | undefined {
+  return agents.find((a) => a.id === id);
+}
+
+// §15.5 — an agent's own action log, most recent first. Designed agents have none (honest absence).
+export function agentActions(agentId: string): AgentAction[] {
+  return agentActionLog.filter((x) => x.agentId === agentId).sort((a, b) => (a.takenAt < b.takenAt ? 1 : -1));
+}
+
+// §15.7/§15.1 — the worklist's agent lane: per-row state, pool counts and the one demo cycle control; the detail
+// screen's decision record with its override exit (§15.1.2). Session-local, reset by tests like the worklist store.
+export { agentCycleRan, creditBlockDecisionFor, decisionOverridden, decisionRecordFor, exceptionWalkthrough, laneForException, overrideDecision, resetAgentLaneStore, runNextAgentCycle, worklistAgentCounts } from './mock/agents';
+
+// §15.2.0 — the lifecycle coverage strip: seven P2P and seven O2C stages with agents positioned where they act.
+export function coverageStrip(): CoverageStrip {
+  return COVERAGE_STRIP;
+}
+
+// §15.5.1 — workforce summary line, computed at read time from live metrics (never stored).
+export function agentWorkforceSummary(): AgentWorkforceSummary {
+  const live = agents.filter((a) => a.status === 'live');
+  let actionsThisPeriod = 0;
+  let resolvedWithoutHuman = 0;
+  let escalated = 0;
+  let overriddenByHuman = 0;
+  let reversed = 0;
+  for (const a of live) {
+    const m = a.metrics!;
+    actionsThisPeriod += m.actionsThisPeriod;
+    resolvedWithoutHuman += m.resolvedWithoutHuman;
+    escalated += m.escalated;
+    overriddenByHuman += m.overriddenByHuman;
+    reversed += m.reversed;
+  }
+  return {
+    liveRoles: live.length,
+    totalRoles: agents.length,
+    preventive: agents.filter((a) => a.type === 'preventive').length,
+    actionsThisPeriod,
+    resolvedWithoutHuman,
+    escalated,
+    overriddenByHuman,
+    reversed,
+  };
+}
+
+// §15.5.1 — the rates that find a mis-set delegation (integer %); nulls for designed agents. Session overrides from
+// the detail screen's override control feed the numerator (§15.6).
+export function agentRates(a: Agent): { escalationPct: number | null; overridePct: number | null; resolvedSharePct: number | null } {
+  if (!a.metrics) return { escalationPct: null, overridePct: null, resolvedSharePct: null };
+  const m = a.metrics;
+  const overriddenByHuman = m.overriddenByHuman + sessionOverrideCount(a.id);
+  return {
+    escalationPct: Math.round((m.escalated / m.actionsThisPeriod) * 100),
+    overridePct: Math.round((overriddenByHuman / m.resolvedWithoutHuman) * 100),
+    resolvedSharePct: Math.round((m.resolvedWithoutHuman / m.actionsThisPeriod) * 100),
+  };
+}
+
+// §15.6 — the governance slice on Risk & control carries only what needs attention: delegation breaches, reversals,
+// overrides and value acted on without human review (the figure an auditor asks for first). Volume and resolution
+// rates stay on the Agents screen — they are performance, not exposure. Raw metrics, no session overrides: this is
+// the period's record, not a live demo state.
+export function agentGovernanceSummary(): AgentGovernanceSummary {
+  const live = agents.filter((a) => a.status === 'live');
+  let delegationBreaches = 0;
+  let reversed = 0;
+  let overriddenByHuman = 0;
+  let valueActedOnWithoutReviewCr = 0;
+  let actionsThisPeriod = 0;
+  let resolvedWithoutHuman = 0;
+  let valueActedOnCr = 0;
+  for (const a of live) {
+    const m = a.metrics!;
+    delegationBreaches += m.delegationBreaches;
+    reversed += m.reversed;
+    overriddenByHuman += m.overriddenByHuman;
+    valueActedOnWithoutReviewCr += m.valueActedOnWithoutReviewCr;
+    actionsThisPeriod += m.actionsThisPeriod;
+    resolvedWithoutHuman += m.resolvedWithoutHuman;
+    valueActedOnCr += m.valueActedOnCr;
+  }
+  return { delegationBreaches, reversed, overriddenByHuman, valueActedOnWithoutReviewCr, actionsThisPeriod, resolvedWithoutHuman, valueActedOnCr };
+}
+
+// §15.6 — interpret the rates rather than just displaying them: a rising override or reversal rate means a
+// delegation is set wrong; a rising escalation rate means the policy needs updating, not that the agent is failing.
+// A rise of two points or more across the six-period trend counts as rising.
+export function governanceInterpretation(a: Agent): string | null {
+  const m = a.metrics;
+  if (!m) return null;
+  const rise = (t?: number[]) => (t && t.length === 6 ? t[5] - t[0] : 0);
+  if (rise(m.overrideRateTrend) >= 2) {
+    const t = m.overrideRateTrend!;
+    return `override rate has risen from ${t[0]}% to ${t[5]}% — the delegation may be set wrong`;
+  }
+  if (rise(m.reversalRateTrend) >= 2) {
+    const t = m.reversalRateTrend!;
+    return `reversal rate has risen from ${t[0]}% to ${t[5]}% — the delegation may be set wrong`;
+  }
+  if (rise(m.escalationRateTrend) >= 2) {
+    const t = m.escalationRateTrend!;
+    return `escalation rate has risen from ${t[0]}% to ${t[5]}% — the policy needs updating, not the agent`;
+  }
+  return null;
+}
+
+// §15.2 — whether an agent's actions are reversible, stated per card; advisory agents change nothing at all.
+export function agentReversibility(a: Agent): string {
+  if (a.advisoryOnly) return 'changes nothing';
+  if (a.proposesOnly) return 'proposes only — a human releases the run';
+  return 'reversible';
+}
+
+// §15.4 — the per-entity touch funnel; the commit is to touches per thousand, not an automation percentage.
+export function listTouchFunnel(): TouchFunnelRow[] {
+  return touchFunnel;
+}
+
+// §15.3 — JGL's illustrative glide path with the two levers separate; no other entity carries lever-stage figures.
+export function getTouchLeverStages(code: string): TouchLeverStage[] | undefined {
+  return code === 'JGL' ? jglLeverStages : undefined;
 }

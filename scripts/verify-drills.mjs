@@ -179,10 +179,10 @@ const FIND_BY_TEXT_JS = `(text) => {
   return { x: r.x + r.width / 2, y: r.y + r.height / 2, text: el.textContent.trim().slice(0, 60) }
 }`
 
-// Scoped to the breadcrumb nav (the one holding Group + JGL), exact label match —
+// Scoped to the breadcrumb nav by its aria-label, exact label match —
 // a global substring search would hit the rail's "O2C cockpit" first.
 const CRUMB_CLICK_JS = `(text) => {
-  const bc = Array.from(document.querySelectorAll('nav')).find((n) => n.textContent.includes('Group') && n.textContent.includes('JGL'))
+  const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
   if (!bc) return null
   const el = Array.from(bc.querySelectorAll('a')).find((e) => e.textContent.trim() === text)
   if (!el) return null
@@ -229,7 +229,7 @@ const STATE_JS = `(() => {
   const h1 = document.querySelector('main h1')
   const leaves = Array.from(document.querySelectorAll('main *')).filter((e) => e.children.length === 0)
   const eb = leaves.find((e) => /taxonomy/i.test(e.textContent))
-  const bc = Array.from(document.querySelectorAll('nav')).find((n) => n.textContent.includes('Group') && n.textContent.includes('JGL'))
+  const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
   const sel = Array.from(document.querySelectorAll('.fct-tax-row--selected')).map((e) => e.textContent.trim().replace(/\\s+/g, ' '))
   return {
     path: location.pathname,
@@ -406,7 +406,6 @@ async function drillPass(themeName, palette) {
   await navigate(BASE + '/entity/JGL/o2c')
   await clickByText('Pricing disputes')
   await waitForPath((p) => p === '/entity/JGL/root-cause/o2c/pricing-disputes', 'the O2C pricing-disputes cause')
-  check(`${themeName}/item1: Pricing disputes row opens the O2C cause`, true)
 
   await clickRail('Worklist')
   await waitForPath((p) => p === '/entity/JGL/p2p/invoices', 'the worklist')
@@ -525,7 +524,8 @@ async function drillPass(themeName, palette) {
   await clickStripFigure('₹6.4 cr') // accrual exposure → blocked worklist filtered to missing GR
   await waitForPath((p) => p === '/entity/JGL/p2p/invoices', 'the blocked invoice worklist from the strip')
   check(`${themeName}/item6: accrual drill lands on the worklist with ?cause=missing-gr`, (await evaluate('location.search')) === '?cause=missing-gr', `search=${await evaluate('location.search')}`)
-  check(`${themeName}/item6: worklist is filtered to the four missing-GR invoices`, await evaluate(`document.querySelector('main').textContent.includes('4 of 111 shown')`), '')
+  // A drill from a financial figure shows everything behind that figure — all four missing-GR rows, the two agents resolved included (the needs-you default applies to navigation, not to figure drills). The 111 denominator still proves the cause filter applied.
+  check(`${themeName}/item6: worklist is filtered to missing GR — the full figure, agent-resolved rows included`, await evaluate(`document.querySelector('main').textContent.includes('4 of 111 shown')`), '')
   await screenshot(`${themeName}-item6-missing-gr-worklist.png`)
 
   await navigate(BASE + '/entity/JGL') // fresh load per drill — the strip lives on the entity home
@@ -533,14 +533,12 @@ async function drillPass(themeName, palette) {
   await waitForPath((p) => p === '/entity/JGL/o2c', 'the O2C cockpit from the strip')
   check(`${themeName}/item6: revenue drill carries #fct-stage-COL`, (await evaluate('location.hash')) === '#fct-stage-COL', `hash=${await evaluate('location.hash')}`)
   await waitForInView('fct-stage-COL', 'the Collection stage card after the hash scroll')
-  check(`${themeName}/item6: Collection stage card is in view`, true)
 
   await navigate(BASE + '/entity/JGL')
   await clickStripFigure('₹3.6 cr') // FX/intercompany → working capital, intercompany netting row anchor
   await waitForPath((p) => p === '/entity/JGL/working-capital', 'the working capital view from the strip')
   check(`${themeName}/item6: FX drill carries #fct-ic-netting`, (await evaluate('location.hash')) === '#fct-ic-netting', `hash=${await evaluate('location.hash')}`)
   await waitForInView('fct-ic-netting', 'the intercompany netting row after the hash scroll')
-  check(`${themeName}/item6: intercompany netting row is in view`, true)
   await screenshot(`${themeName}-item6-ic-netting.png`)
 
   // ---- item 7: service & attribution — per-entity bar + group comparison, gross/net scorecard, greyed unmeasurable SLAs, breadcrumb + active nav ----
@@ -552,7 +550,7 @@ async function drillPass(themeName, palette) {
     const unmeasured = Array.from(document.querySelectorAll('.fct-sla-unmeasured')).map((e) => e.textContent.trim())
     const pending = Array.from(document.querySelectorAll('.fct-sla-pending')).map((e) => ({ t: e.textContent.trim(), title: e.getAttribute('title') || '' }))
     const measuringLines = (document.querySelector('main').textContent.match(/measuring since /g) || []).length
-    const bc = Array.from(document.querySelectorAll('nav')).find((n) => n.textContent.includes('Group') && n.textContent.includes('JGL'))
+    const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
     const mainText = document.querySelector('main').textContent
     const scoreCard = Array.from(document.querySelectorAll('main section')).find((s) => s.textContent.includes('Service scorecard'))
     const cardText = scoreCard ? scoreCard.textContent : ''
@@ -570,14 +568,12 @@ async function drillPass(themeName, palette) {
       deltaLine: cardText.includes('for JGL the two readings differ by 0.6 points.'),
       grossValue: cardText.includes('95.2%'),
       netValue: cardText.includes('98.6%'),
-      sentence: cardText.includes('We met 95.2% against the contract; 98.6% of what we control.'),
     }
   })()`)
   check(`${themeName}/item7: page title is the service & attribution one`, svc.h1 === 'Where the delays come from', `h1=${JSON.stringify(svc.h1)}`)
   check(`${themeName}/item7: bar renders three segments (third party merged into system)`, svc.segCount === 3, `segs=${svc.segCount}`)
   check(`${themeName}/item7: entity vs group comparison line is present (§7.22)`, svc.compareLine, '')
   check(`${themeName}/item7: scorecard shows gross and net side by side with unambiguous labels (§4)`, svc.grossLabel && svc.netLabel && svc.grossValue && svc.netValue, JSON.stringify(svc))
-  check(`${themeName}/item7: the attribution sentence states both figures`, svc.sentence, '')
   check(`${themeName}/item7: scorecard names the exclusion set and sizes the two readings' delta (§4)`, svc.exclusionNote && svc.deltaLine, JSON.stringify(svc))
   check(`${themeName}/item7: every unmeasurable SLA cell is a dash — no fabricated value`, svc.unmeasured.length > 0 && svc.unmeasured.every((t) => t === '—'), JSON.stringify(svc.unmeasured))
   // §7.29 — the three desk SLAs left the greyed state: live to-date figures, no achievement %, exact transition wording ×3.
@@ -595,11 +591,10 @@ async function drillPass(themeName, palette) {
     const h1 = document.querySelector('main h1')
     const mainText = document.querySelector('main').textContent
     const sections = Array.from(document.querySelectorAll('main section')).map((s) => s.textContent.trim())
-    const bc = Array.from(document.querySelectorAll('nav')).find((n) => n.textContent.includes('Group'))
+    const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
     return {
       h1: h1 ? h1.textContent : null,
       banner: mainText.includes('RESTRICTED — Financial Controller and above'),
-      noDuplication: mainText.includes('Control of the control, not a second control.'),
       categories: ['Payment integrity', 'Authority integrity', 'System integrity', 'Cut-off integrity', 'Undisclosed exposure'].filter((c) => sections.some((s) => s.startsWith(c))),
       titles: [
         'Vendor bank detail changed 3 days before payment run',
@@ -617,9 +612,8 @@ async function drillPass(themeName, palette) {
       breadcrumb: bc ? bc.textContent.trim().replace(/\\s+/g, ' ') : null,
     }
   })()`)
-  check(`${themeName}/item8: framing statement is the page title`, rc.h1 === 'Everything the auditor will find, ninety days earlier.', `h1=${JSON.stringify(rc.h1)}`)
+  check(`${themeName}/item8: page title is Risk & control`, rc.h1 === 'Risk & control', `h1=${JSON.stringify(rc.h1)}`)
   check(`${themeName}/item8: RESTRICTED banner with demo access toggle is visible (§8.8)`, rc.banner, '')
-  check(`${themeName}/item8: no-duplication note explains control of the control (§1)`, rc.noDuplication, '')
   check(`${themeName}/item8: all five categories render in spec order`, rc.categories.length === 5, JSON.stringify(rc.categories))
   check(`${themeName}/item8: all eight §7.8 signal titles render`, rc.titles.length === 8, `titles=${rc.titles.length}`)
   check(`${themeName}/item8: quantified values at risk render; the two system rows carry none (dashes)`, rc.values && rc.valuelessDashes === 2, JSON.stringify({ values: rc.values, valuelessDashes: rc.valuelessDashes }))
@@ -642,6 +636,51 @@ async function drillPass(themeName, palette) {
   const rcRestored = await evaluate(`document.querySelector('main').textContent.includes('Vendor bank detail changed 3 days before payment run')`)
   check(`${themeName}/item8: FC AND ABOVE restores the sections`, rcRestored === true, '')
   await screenshot(`${themeName}-risk-control.png`)
+
+  // §15.6 — the agent governance slice carries only what needs attention (breaches, reversals, overrides, value acted on
+  // without human review); volume and resolution rates stay on the Agents screen. Each row drills into the agent's record.
+  const gov = await evaluate(`(() => {
+    const sec = document.querySelector('[data-fct-agent-governance]')
+    if (!sec) return null
+    const txt = sec.textContent
+    const statValue = (label) => {
+      const els = Array.from(sec.querySelectorAll('span')).filter((s) => s.textContent === label)
+      for (const el of els) if (el.nextElementSibling && el.nextElementSibling.textContent.trim()) return el.nextElementSibling.textContent.trim()
+      return null
+    }
+    const rows = Array.from(sec.querySelectorAll('[data-fct-gov-row]'))
+    return {
+      caption: txt.includes('exceptions and exposure only · source: agent action logs'),
+      simulated: txt.includes('Simulated data'),
+      breaches: statValue('Delegation breaches'),
+      reversals: statValue('Reversals'),
+      overrides: statValue('Overrides by human'),
+      noReview: statValue('Value acted on without human review'),
+      reversalSub: txt.includes('17 of 1427 actions this period'),
+      overrideSub: txt.includes('30 of 1081 resolved without human'),
+      noReviewSub: txt.includes('of ₹316.6 cr acted on this period'),
+      rows: rows.length,
+      firstHref: (() => { const a = rows[0] && rows[0].querySelector('a'); return a ? a.getAttribute('href') : null })(),
+      zeroDash: txt.includes('without review —'),
+      interpretations: [
+        'override rate has risen from 0% to 3% — the delegation may be set wrong',
+        'reversal rate has risen from 0% to 3% — the delegation may be set wrong',
+        'escalation rate has risen from 10% to 15% — the policy needs updating, not the agent',
+      ].filter((s) => txt.includes(s)),
+    }
+  })()`)
+  check(`${themeName}/item8: the governance slice carries only what needs attention — breaches, reversals, overrides, value without review (§15.6)`, !!gov && gov.breaches === '0' && gov.reversals === '17' && gov.overrides === '30' && gov.noReview === '₹252.8 cr', JSON.stringify(gov))
+  check(`${themeName}/item8: the slice states its denominators, names its source and carries the §15.1 label`, !!gov && gov.reversalSub && gov.overrideSub && gov.noReviewSub && gov.caption && gov.simulated, '')
+  check(`${themeName}/item8: all nine live agents appear in the register, ordered by value without review (match resolution first)`, !!gov && gov.rows === 9 && gov.firstHref === '/agents/match-resolution', JSON.stringify({ rows: gov ? gov.rows : -1, firstHref: gov ? gov.firstHref : null }))
+  check(`${themeName}/item8: agents with no unreviewed value render an honest dash, not a fabricated figure`, !!gov && gov.zeroDash, '')
+  check(`${themeName}/item8: the three rising rates are interpreted on screen — delegation vs policy (§15.6)`, !!gov && gov.interpretations.length === 3, JSON.stringify(gov ? gov.interpretations : null))
+
+  // Each row drills into that agent's own record.
+  const govDrill = await evaluate(`(() => { const r = document.querySelector('[data-fct-gov-row="match-resolution"]'); if (!r) return false; const a = r.querySelector('a'); if (!a) return false; a.click(); return true })()`)
+  check(`${themeName}/item8: a governance row drills into the agent's record`, govDrill === true, '')
+  await waitForPath((p) => p === '/agents/match-resolution', 'the agent record from the governance slice')
+  const govDetail = await evaluate(`(() => { const h1 = document.querySelector('main h1'); return { h1: h1 ? h1.textContent : null, delegation: document.querySelector('main').textContent.includes('Delegation of authority') } })()`)
+  check(`${themeName}/item8: the drill lands on Match resolution's record with its delegation`, govDetail.h1 === 'Match resolution' && govDetail.delegation, JSON.stringify(govDetail))
 
   // §8.8 — SoD conflicts and bank-change alerts must not appear on the counterparty / process cockpit screens
   for (const [route, name] of [
@@ -666,7 +705,7 @@ async function drillPass(themeName, palette) {
   const pred = await evaluate(`(() => {
     const h1 = document.querySelector('main h1')
     const mainText = document.querySelector('main').textContent
-    const bc = Array.from(document.querySelectorAll('nav')).find((n) => n.textContent.includes('Group'))
+    const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
     return {
       h1: h1 ? h1.textContent : null,
       dpoFootnote: /Includes ₹18.6 cr of blocked invoices; adjusted DPO 41 days/.test(mainText),
@@ -786,7 +825,7 @@ async function drillPass(themeName, palette) {
     const mainText = document.querySelector('main').textContent
     const tags = Array.from(document.querySelectorAll('main .fct-status-tag')).map((el) => el.textContent.trim())
     const links = Array.from(document.querySelectorAll('main a'))
-    const bc = Array.from(document.querySelectorAll('nav')).find((n) => n.textContent.includes('Group'))
+    const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
     return {
       h1: h1 ? h1.textContent : null,
       jurisdictions: ['India', 'Singapore', 'United States', 'US / Canada'].filter((j) => mainText.includes(j)),
@@ -818,7 +857,7 @@ async function drillPass(themeName, palette) {
     const h1 = document.querySelector('main h1')
     const mainText = document.querySelector('main').textContent
     const links = Array.from(document.querySelectorAll('main a'))
-    const bc = Array.from(document.querySelectorAll('nav')).find((n) => n.textContent.includes('Group'))
+    const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
     return {
       h1: h1 ? h1.textContent : null,
       domains: ['Vendor master', 'Customer master', 'General ledger', 'Interfaces'].filter((d) => mainText.includes(d)),
@@ -868,10 +907,9 @@ async function drillPass(themeName, palette) {
       const el = Array.from(document.querySelectorAll('main span')).find((s) => s.textContent === label)
       return el && el.nextElementSibling ? el.nextElementSibling.textContent : null
     }
-    const bc = Array.from(document.querySelectorAll('nav')).find((n) => n.textContent.includes('Group'))
+    const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
     return {
       h1: h1 ? h1.textContent : null,
-      pitch: mainText.includes('a single structured intake for every request into the service'),
       hasWindow: mainText.includes(${JSON.stringify(sdWindowLine)}),
       measuringCount: (mainText.match(/measuring since /g) || []).length,
       queueRows: queueSec ? queueSec.querySelectorAll('.fct-table-row').length : -1,
@@ -886,8 +924,7 @@ async function drillPass(themeName, palette) {
       breadcrumb: bc ? bc.textContent.trim().replace(/\\s+/g, ' ') : null,
     }
   })()`)
-  check(`${themeName}/item13: h1 is "The clock starts here."`, sd.h1 === 'The clock starts here.', JSON.stringify(sd.h1))
-  check(`${themeName}/item13: the §7.29 pitch phrase renders`, sd.pitch, 'pitch missing')
+  check(`${themeName}/item13: h1 is Finance Service Desk`, sd.h1 === 'Finance Service Desk', JSON.stringify(sd.h1))
   check(`${themeName}/item13: exactly one measuring-since line on this page (the header honesty line)`, sd.measuringCount === 1, `count=${sd.measuringCount}`)
   check(`${themeName}/item13: the honesty line carries the window — ${measuringSince} → first report from ${nextPeriod}`, sd.hasWindow, 'window line missing')
   check(`${themeName}/item13: the queue lists all 58 seeded requests`, sd.queueRows === 58, `rows=${sd.queueRows}`)
@@ -959,11 +996,9 @@ async function drillPass(themeName, palette) {
       for (const el of els) if (el.nextElementSibling && /^\\d+$/.test(el.nextElementSibling.textContent || '')) return el.nextElementSibling.textContent
       return null
     }
-    const bc = Array.from(document.querySelectorAll('nav')).find((n) => n.textContent.includes('Group'))
+    const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
     return {
       h1: h1 ? h1.textContent : null,
-      eyebrow: h1 && h1.previousElementSibling ? h1.previousElementSibling.textContent : null,
-      pitch: mainText.includes('every identified root cause with a named owner and an elimination status'),
       stats: { identified: statValue('IDENTIFIED'), eliminated: statValue('ELIMINATED'), inProgress: statValue('IN PROGRESS'), notStarted: statValue('NOT STARTED') },
       regRows: regSec ? regSec.querySelectorAll('.fct-table-row').length : -1,
       statuses: ['ELIMINATED', 'IN-PROGRESS', 'IDENTIFIED'].filter((s) => regSec && regSec.textContent.includes(s)),
@@ -974,9 +1009,7 @@ async function drillPass(themeName, palette) {
       breadcrumb: bc ? bc.textContent.trim().replace(/\\s+/g, ' ') : null,
     }
   })()`)
-  check(`${themeName}/item14: h1 is "Continuous improvement, evidenced."`, cb.h1 === 'Continuous improvement, evidenced.', JSON.stringify(cb.h1))
-  check(`${themeName}/item14: eyebrow is Cause elimination`, cb.eyebrow === 'Cause elimination', JSON.stringify(cb.eyebrow))
-  check(`${themeName}/item14: the §7.30 pitch phrase renders`, cb.pitch, 'pitch missing')
+  check(`${themeName}/item14: h1 is Cause elimination`, cb.h1 === 'Cause elimination', JSON.stringify(cb.h1))
   check(`${themeName}/item14: headline counts are 34 / 11 / 6 / 17`, cb.stats.identified === '34' && cb.stats.eliminated === '11' && cb.stats.inProgress === '6' && cb.stats.notStarted === '17', JSON.stringify(cb.stats))
   check(`${themeName}/item14: the register lists all 34 causes`, cb.regRows === 34, `rows=${cb.regRows}`)
   check(`${themeName}/item14: all three elimination statuses appear in the register`, cb.statuses.length === 3, JSON.stringify(cb.statuses))
@@ -1011,6 +1044,392 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item14: the palette closes after picking`, (await evaluate(`!document.querySelector('.fct-palette-scrim')`)) === true, '')
   await screenshot(`${themeName}-cause-backlog.png`)
 
+  // ---- item 15: agent workforce (§15) — roster, coverage strip, authority, records, sort ----
+  console.log('\n-- item 15: agent workforce screen')
+  await navigate(BASE + '/agents')
+  const ag = await evaluate(`(() => {
+    const h1 = document.querySelector('main h1')
+    const mainText = document.querySelector('main').textContent
+    // Stat labels repeat in the roster cards, so scope to the summary section and resolve label → value sibling.
+    const statValue = (label) => {
+      const els = Array.from(document.querySelectorAll('[data-fct-summary] span')).filter((s) => s.textContent === label)
+      for (const el of els) if (el.nextElementSibling && el.nextElementSibling.textContent.trim()) return el.nextElementSibling.textContent.trim()
+      return null
+    }
+    const stageChips = (code) => {
+      const cell = document.querySelector('[data-fct-stage="' + code + '"]')
+      return cell ? cell.querySelectorAll('span[title]').length : -1
+    }
+    const invCell = document.querySelector('[data-fct-stage="INV"]')
+    const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
+    return {
+      h1: h1 ? h1.textContent : null,
+      eyebrow: h1 && h1.previousElementSibling ? h1.previousElementSibling.textContent : null,
+      simulated: mainText.includes('Simulated data'),
+      cycle: mainText.includes('agents last ran 06:42 · next cycle 07:00'),
+      stats: {
+        liveRoles: statValue('ACTIVE ROLES'),
+        actions: statValue('ACTIONS THIS PERIOD'),
+        resolved: statValue('RESOLVED WITHOUT HUMAN'),
+        escalated: statValue('ESCALATED'),
+        overridden: statValue('OVERRIDDEN'),
+        reversed: statValue('REVERSED'),
+        preventive: statValue('PREVENTIVE'),
+      },
+      stages: document.querySelectorAll('[data-fct-stage]').length,
+      poChips: stageChips('PO'),
+      dlvChips: stageChips('DLV'),
+      dspChips: stageChips('DSP'),
+      preCloseNote: invCell ? invCell.textContent.includes('(pre-close)') : false,
+      legend: mainText.includes('+ 1, 2 across all stages'),
+      r2r: mainText.includes('Record to report — in the roadmap'),
+      cards: document.querySelectorAll('[data-fct-agent]').length,
+      drillLinks: document.querySelectorAll('[data-fct-agent-link]').length,
+      liveBadges: Array.from(document.querySelectorAll('[data-fct-agent]')).filter((c) => Array.from(c.querySelectorAll('span')).some((s) => s.textContent === 'Active')).length,
+      designedBadges: Array.from(document.querySelectorAll('[data-fct-agent]')).filter((c) => Array.from(c.querySelectorAll('span')).some((s) => s.textContent === 'Not active')).length,
+      ppCard: (() => { const c = document.querySelector('[data-fct-agent="payment-proposal"]'); return c ? (c.textContent.includes('never acts on releasing a payment run') && c.textContent.includes('WOULD HOLD')) : false })(),
+      neverItems: document.querySelectorAll('[data-fct-never-item]').length,
+      neverTexts: ['Vendor bank detail changes', 'Provisions requiring judgment', 'Anything outside a stated tolerance', 'Cut-off decisions at period end', 'Novel cases with no precedent', 'Statutory sign-off', 'Credit release against exposure', 'Anything an agent has already escalated twice'].every((t) => mainText.includes(t)),
+      breadcrumb: bc ? bc.textContent.trim().replace(/\\s+/g, ' ') : null,
+    }
+  })()`)
+  check(`${themeName}/item15: h1 is "The agent workforce"`, ag.h1 === 'The agent workforce', JSON.stringify(ag.h1))
+  check(`${themeName}/item15: eyebrow is Agents`, ag.eyebrow === 'Agents', JSON.stringify(ag.eyebrow))
+  check(`${themeName}/item15: the §15.1 simulated label renders`, ag.simulated, 'simulated tag missing')
+  check(`${themeName}/item15: spec-pinned cycle line renders (last ran 06:42 · next 07:00)`, ag.cycle, 'cycle line missing')
+  check(`${themeName}/item15: active roles read "9 of 18"`, ag.stats.liveRoles === '9 of 18', JSON.stringify(ag.stats.liveRoles))
+  check(`${themeName}/item15: preventive reads "7 of 18"`, ag.stats.preventive === '7 of 18', JSON.stringify(ag.stats.preventive))
+  const agNum = (s) => Number(String(s).replace(/,/g, ''))
+  check(`${themeName}/item15: workforce totals are consistent (resolved + escalated ≤ actions; overridden and reversed ≤ resolved)`,
+    !!ag.stats.actions && !!ag.stats.resolved &&
+    agNum(ag.stats.resolved) + agNum(ag.stats.escalated) <= agNum(ag.stats.actions) &&
+    agNum(ag.stats.overridden) <= agNum(ag.stats.resolved) &&
+    agNum(ag.stats.reversed) <= agNum(ag.stats.resolved),
+    JSON.stringify(ag.stats))
+  check(`${themeName}/item15: the coverage strip has fourteen stages (seven P2P + seven O2C)`, ag.stages === 14, `stages=${ag.stages}`)
+  check(`${themeName}/item15: the PO stage positions three agents`, ag.poChips === 3, `chips=${ag.poChips}`)
+  check(`${themeName}/item15: DLV and DSP are visible gaps — no agent acts there`, ag.dlvChips === 0 && ag.dspChips === 0, JSON.stringify({ dlv: ag.dlvChips, dsp: ag.dspChips }))
+  check(`${themeName}/item15: provisioning sits at INV as a pre-close action`, ag.preCloseNote, 'pre-close note missing')
+  check(`${themeName}/item15: the legend names agents 1 and 2 across all stages`, ag.legend, 'legend missing')
+  check(`${themeName}/item15: record-to-report is named in the roadmap`, ag.r2r, 'roadmap line missing')
+  // Authority fields live inside the expanded record — open each card, let React flush, then read it back.
+  // The roster holds one expandedId at a time, so each record must be read before the next card opens.
+  let agAuthority = true
+  for (const id of ['payment-proposal', 'buying-compliance', 'receipt-discipline', 'credit-watch', 'billing-readiness']) {
+    const opened = await evaluate(`(() => { const t = document.querySelector('[data-fct-agent-toggle="${id}"]'); if (!t) return false; t.click(); return true })()`)
+    await new Promise((r) => setTimeout(r, 200))
+    const want = id === 'payment-proposal' ? 'proposes only' : 'advisory'
+    const has = await evaluate(`(() => { const r = document.querySelector('[data-fct-record="${id}"]'); return r ? (r.textContent.includes('AUTHORITY') && r.textContent.includes('${want}')) : false })()`)
+    if (!opened || !has) agAuthority = false
+  }
+  check(`${themeName}/item15: restricted authority sits on each agent's own record — proposes only / advisory (§10.1)`, agAuthority, 'authority fields missing')
+  check(`${themeName}/item15: the roster lists all eighteen roles`, ag.cards === 18, `cards=${ag.cards}`)
+  check(`${themeName}/item15: every card carries a drill into that agent's own record (§15.7)`, ag.drillLinks === 18, `links=${ag.drillLinks}`)
+  check(`${themeName}/item15: nine cards are Active and nine Not active (§15.2)`, ag.liveBadges === 9 && ag.designedBadges === 9, JSON.stringify({ live: ag.liveBadges, designed: ag.designedBadges }))
+  check(`${themeName}/item15: payment proposal is designed and would never act on releasing a run`, ag.ppCard, 'payment-proposal card wrong')
+  check(`${themeName}/item15: §15.8 lists all eight never-automate items prominently`, ag.neverItems === 8 && ag.neverTexts, `items=${ag.neverItems}`)
+  check(`${themeName}/item15: breadcrumb shows Agents`, !!ag.breadcrumb && ag.breadcrumb.includes('Agents'), JSON.stringify(ag.breadcrumb))
+  const agNav = await evaluate(NAV_ACTIVE_JS)
+  check(`${themeName}/item15: active nav item is Agents`, !!agNav && agNav.label.startsWith('Agents'), JSON.stringify(agNav))
+
+  // Default order: Shared → P2P → O2C, preventive before reactive within each (Shared has none).
+  const AG_SECTIONS_JS = `(() => {
+    const roster = document.querySelector('[data-fct-roster]')
+    if (!roster) return null
+    const out = []
+    for (const g of Array.from(roster.children)) {
+      const labelEl = g.firstElementChild
+      if (!labelEl || !/^(SHARED|P2P|O2C)$/.test(labelEl.textContent.trim())) continue
+      out.push({ group: labelEl.textContent.trim(), subs: Array.from(g.children).slice(1).map((sub) => ({ type: sub.firstElementChild ? sub.firstElementChild.textContent.trim() : null, statuses: Array.from(sub.querySelectorAll('[data-fct-agent]')).map((c) => { const b = Array.from(c.querySelectorAll('span')).find((s) => s.textContent === 'Active' || s.textContent === 'Not active'); return b ? b.textContent : '?' }) })) })
+    }
+    return out
+  })()`
+  const agOrder = await evaluate(AG_SECTIONS_JS)
+  check(`${themeName}/item15: the roster groups Shared → P2P → O2C with preventive before reactive`, JSON.stringify(agOrder.map((g) => ({ group: g.group, types: g.subs.map((s) => s.type) }))) === JSON.stringify([
+    { group: 'SHARED', types: ['REACTIVE'] },
+    { group: 'P2P', types: ['PREVENTIVE', 'REACTIVE'] },
+    { group: 'O2C', types: ['PREVENTIVE', 'REACTIVE'] },
+  ]), JSON.stringify(agOrder))
+
+  // Sort by escalation rate: active agents rank first within their section; not-active sink to the bottom.
+  const agSortClick = await evaluate(`(() => { const b = document.querySelector('[data-fct-sort="escalation"]'); if (!b) return false; b.click(); return true })()`)
+  check(`${themeName}/item15: the escalation-rate sort control responds`, agSortClick === true, '')
+  await new Promise((r) => setTimeout(r, 200))
+  const agSections = await evaluate(AG_SECTIONS_JS)
+  let agSortOk = Array.isArray(agSections) && agSections.length === 3
+  for (const g of agSections ?? []) {
+    for (const s of g.subs) {
+      const firstNotActive = s.statuses.indexOf('Not active')
+      const lastActive = s.statuses.lastIndexOf('Active')
+      if (firstNotActive !== -1 && lastActive !== -1 && lastActive >= firstNotActive) agSortOk = false
+    }
+  }
+  check(`${themeName}/item15: under escalation sort, live agents precede designed ones in every section`, agSortOk, JSON.stringify(agSections))
+  const agSortBtnBg = await evaluate(`(() => { const b = document.querySelector('[data-fct-sort="escalation"]'); return b ? getComputedStyle(b).backgroundColor : null })()`)
+  check(`${themeName}/item15: the escalation sort control shows its active state`, sameColor(agSortBtnBg, palette.bgSelected), `got=${agSortBtnBg} want=${palette.bgSelected}`)
+
+  // Clicking an agent opens its record inline: full delegation, supervisor, action log.
+  const agExpand = await evaluate(`(() => { const t = document.querySelector('[data-fct-agent-toggle="follow-up"]'); if (!t) return false; t.click(); return true })()`)
+  check(`${themeName}/item15: clicking follow-up opens its record`, agExpand === true, '')
+  await new Promise((r) => setTimeout(r, 200))
+  const agRecord = await evaluate(`(() => {
+    const rec = document.querySelector('[data-fct-record="follow-up"]')
+    if (!rec) return null
+    const txt = rec.textContent
+    return {
+      delegation: txt.includes('Delegation of authority'),
+      supervisor: /SUPERVISED BY/.test(txt),
+      actions: rec.querySelectorAll('[data-fct-action]').length,
+      targetLink: !!rec.querySelector('a[href*="/p2p/invoices/"]'),
+      simulated: txt.includes('Simulated data'),
+    }
+  })()`)
+  check(`${themeName}/item15: the record carries full delegation and a named supervisor`, !!agRecord && agRecord.delegation && agRecord.supervisor, JSON.stringify(agRecord))
+  check(`${themeName}/item15: follow-up's action log lists its actions with openable targets`, !!agRecord && agRecord.actions >= 3 && agRecord.targetLink, `actions=${agRecord ? agRecord.actions : -1}`)
+  check(`${themeName}/item15: the record repeats the §15.1 simulated label`, !!agRecord && agRecord.simulated, 'simulated tag missing in record')
+
+  // Commitments is live and has a performance record now — six actions, each opening the invoice it amended (§15.2.1). The honest-absence case sits with payment-proposal below.
+  const agCommit = await evaluate(`(() => { const t = document.querySelector('[data-fct-agent-toggle="commitments"]'); if (!t) return false; t.click(); return true })()`)
+  check(`${themeName}/item15: clicking commitments opens its record`, agCommit === true, '')
+  await new Promise((r) => setTimeout(r, 200))
+  const agCommitRec = await evaluate(`(() => { const rec = document.querySelector('[data-fct-record="commitments"]'); return rec ? (rec.querySelectorAll('[data-fct-action]').length === 6 && !!rec.querySelector('a[href*="/p2p/invoices/"]')) : false })()`)
+  check(`${themeName}/item15: commitments is live with a performance record — six actions, each opening its invoice`, agCommitRec === true, '')
+  const agPp = await evaluate(`(() => { const t = document.querySelector('[data-fct-agent-toggle="payment-proposal"]'); if (!t) return false; t.click(); return true })()`)
+  check(`${themeName}/item15: clicking payment proposal opens its record`, agPp === true, '')
+  await new Promise((r) => setTimeout(r, 200))
+  const agPpRec = await evaluate(`(() => { const rec = document.querySelector('[data-fct-record="payment-proposal"]'); return rec ? (rec.textContent.includes('not built; no performance record') && rec.textContent.includes('No action log yet.')) : false })()`)
+  check(`${themeName}/item15: a designed agent's record shows dashes, not invented metrics`, agPpRec === true, '')
+
+  // §15.7 — the per-agent drill from the roster into that agent's own record; breadcrumb and rail carry it back.
+  const agDrill = await evaluate(`(() => { const l = document.querySelector('[data-fct-agent-link="follow-up"]'); if (!l) return false; l.click(); return true })()`)
+  check(`${themeName}/item15: clicking the drill opens follow-up's record page`, agDrill === true, '')
+  await waitForPath((p) => p === '/agents/follow-up', 'the agent record from the roster')
+  const agDetail = await evaluate(`(() => {
+    const h1 = document.querySelector('main h1')
+    const mainText = document.querySelector('main').textContent
+    // The rail precedes the top bar in DOM order and carries a "Group view" item, so scope to the breadcrumb nav by label.
+    const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
+    return {
+      h1: h1 ? h1.textContent : null,
+      simulated: mainText.includes('Simulated data'),
+      delegation: mainText.includes('Delegation of authority'),
+      supervisor: /SUPERVISED BY/.test(mainText),
+      actions: document.querySelectorAll('[data-fct-action]').length,
+      breadcrumb: bc ? bc.textContent.trim().replace(/\\s+/g, ' ') : null,
+    }
+  })()`)
+  check(`${themeName}/item15: the record page shows the agent's name, delegation and supervisor`, !!agDetail && agDetail.h1 === 'Follow-up & escalation' && agDetail.delegation && agDetail.supervisor, JSON.stringify(agDetail))
+  check(`${themeName}/item15: the record page carries the action log and the §15.1 label`, !!agDetail && agDetail.actions === 14 && agDetail.simulated, `actions=${agDetail ? agDetail.actions : -1}`)
+  check(`${themeName}/item15: the breadcrumb carries the record back to the roster`, !!agDetail && !!agDetail.breadcrumb && agDetail.breadcrumb.includes('Agents') && agDetail.breadcrumb.includes('Follow-up & escalation'), JSON.stringify(agDetail ? agDetail.breadcrumb : null))
+  const agDetailNav = await evaluate(NAV_ACTIVE_JS)
+  check(`${themeName}/item15: the Agents rail entry stays active on the record page`, !!agDetailNav && agDetailNav.label.startsWith('Agents'), JSON.stringify(agDetailNav))
+
+  // ⌘K finds the screen by name; its count comes from the dataset, never a literal.
+  await new Promise((r) => setTimeout(r, 400))
+  await ctrlK()
+  await new Promise((r) => setTimeout(r, 400))
+  check(`${themeName}/item15: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('agents')`)) === true)
+  await new Promise((r) => setTimeout(r, 200))
+  const agPalette = await evaluate(PALETTE_ROWS_JS)
+  // "agents" also matches the vendor "Aravalli Reagents"; assert on the screen row's meta, not the total row count.
+  const agScreenRows = agPalette.filter((t) => /\d+ of \d+ roles active/.test(t))
+  check(`${themeName}/item15: "agents" lists exactly one screen with a live role count`, agScreenRows.length === 1 && agScreenRows[0].includes('Agents'), JSON.stringify(agPalette))
+  const agPick = await evaluate(`(() => { const r = Array.from(document.querySelectorAll('.fct-palette-row')).find((x) => x.textContent.includes('Agents')); if (!r) return false; r.click(); return true })()`)
+  check(`${themeName}/item15: picking the row opens the agent workforce`, agPick === true, '')
+  await waitForPath((p) => p === '/agents', 'the agent workforce from the palette')
+  await new Promise((r) => setTimeout(r, 300))
+  check(`${themeName}/item15: the palette closes after picking`, (await evaluate(`!document.querySelector('.fct-palette-scrim')`)) === true, '')
+  await screenshot(`${themeName}-agents.png`)
+
+  // ---- item 16: touch economics (§15.3/§15.4) — funnel, the two levers, cause mix, reconciliation ----
+  console.log('\n-- item 16: touch economics screen')
+  await navigate(BASE + '/touch-economics')
+  const te = await evaluate(`(() => {
+    const h1 = document.querySelector('main h1')
+    const mainText = document.querySelector('main').textContent
+    // Stat labels are unique, but scope to the summary section and resolve label → value sibling.
+    const statValue = (label) => {
+      const els = Array.from(document.querySelectorAll('[data-fct-summary] span')).filter((s) => s.textContent === label)
+      for (const el of els) if (el.nextElementSibling && el.nextElementSibling.textContent.trim()) return el.nextElementSibling.textContent.trim()
+      return null
+    }
+    // Each table row renders as a grid: entity, touchless %, manual %, agent-resolved %, human %, touches/1,000.
+    const funnelRows = Array.from(document.querySelectorAll('[data-fct-funnel] .fct-table-row')).map((r) => Array.from(r.children).map((c) => c.textContent.trim()))
+    const causeRows = Array.from(document.querySelectorAll('[data-fct-causes] .fct-table-row')).map((r) => Array.from(r.children).map((c) => c.textContent.trim()))
+    const stageText = (slug) => { const el = document.querySelector('[data-fct-lever-stage="' + slug + '"]'); return el ? el.textContent : null }
+    const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
+    return {
+      h1: h1 ? h1.textContent : null,
+      eyebrow: h1 && h1.previousElementSibling ? h1.previousElementSibling.textContent : null,
+      simulated: mainText.includes('Simulated data'),
+      headline: statValue('TOUCHES PER 1,000 INVOICES'),
+      manualShare: statValue('MANUAL SHARE OF INVOICES'),
+      funnelRows,
+      causeRows,
+      levers: Array.from(document.querySelectorAll('[data-fct-lever]')).map((l) => l.getAttribute('data-fct-lever')),
+      today: stageText('today'),
+      afterCause: stageText('after-cause-elimination'),
+      effective: stageText('effective-agents'),
+      funnelLabel: document.querySelector('[data-fct-funnel]').textContent.includes('agents alone, on today’s exception volume'),
+      summaryLabel: document.querySelector('[data-fct-summary]').textContent.includes('JGL · agents alone, on today’s exception volume'),
+      breadcrumb: bc ? bc.textContent.trim().replace(/\\s+/g, ' ') : null,
+    }
+  })()`)
+  check(`${themeName}/item16: h1 is "Touch economics"`, te.h1 === 'Touch economics', JSON.stringify(te.h1))
+  check(`${themeName}/item16: eyebrow is Agents`, te.eyebrow === 'Agents', JSON.stringify(te.eyebrow))
+  check(`${themeName}/item16: the §15.1 simulated label renders`, te.simulated, 'simulated tag missing')
+  // The commit is to touches per thousand, not an automation percentage — it headlines the screen.
+  check(`${themeName}/item16: the headline is the touch rate — JGL reads 460 → 138 per thousand`, te.headline === '460 → 138', JSON.stringify(te.headline))
+  check(`${themeName}/item16: the manual share follows it, 46% → 13.8%`, te.manualShare === '46% → 13.8%', JSON.stringify(te.manualShare))
+
+  const pct = (t) => Number(String(t).replace('%', ''))
+  const splitArrow = (t) => String(t).split('→').map((s) => Number(s.trim()))
+  check(`${themeName}/item16: the funnel lists all six entities`, te.funnelRows.length === 6, `rows=${te.funnelRows.length}`)
+  let reconOk = true
+  for (const r of te.funnelRows) {
+    const [ , touchless, manual, agentResolved, human, touches] = r
+    const [tToday, tAfter] = splitArrow(touches)
+    if (Math.abs(pct(agentResolved) + pct(human) - pct(manual)) > 0.05) reconOk = false
+    if (tToday !== Math.round(pct(manual) * 10) || tAfter !== Math.round(pct(human) * 10)) reconOk = false
+    if (Math.abs(pct(touchless) + pct(manual) - 100) > 0.05) reconOk = false
+  }
+  check(`${themeName}/item16: every row reconciles — agent-resolved + human = manual, touches = share × 10, touchless + manual = 100`, reconOk, JSON.stringify(te.funnelRows))
+  const jglRow = te.funnelRows.find((r) => r[5] === '460 → 138')
+  check(`${themeName}/item16: JGL reads 54 / 46 / 32.2 / 13.8`, !!jglRow && jglRow[1] === '54%' && jglRow[2] === '46%' && jglRow[3] === '32.2%' && jglRow[4] === '13.8%', JSON.stringify(jglRow))
+
+  // §15.3 — the two levers shown separately: they compound, and they cost differently.
+  check(`${themeName}/item16: both levers are named between stages`, JSON.stringify(te.levers) === JSON.stringify(['fewer exceptions arising', 'agents on the residue']), JSON.stringify(te.levers))
+  const stageHas = (txt, touches, touchless) => !!txt && txt.includes(String(touches)) && txt.includes(`${touchless}% touchless`)
+  check(`${themeName}/item16: today reads 460 per thousand at 54% touchless`, stageHas(te.today, 460, 54), JSON.stringify(te.today))
+  check(`${themeName}/item16: after cause elimination reads 380 at 62%`, stageHas(te.afterCause, 380, 62), JSON.stringify(te.afterCause))
+  check(`${themeName}/item16: effective — agents on the residue reads 114 at 89%`, stageHas(te.effective, 114, 89), JSON.stringify(te.effective))
+
+  // §15.3 — the two end states are different scenarios; the screen labels them apart so they don't read as one error.
+  check(`${themeName}/item16: the funnel and headline are labelled "agents alone, on today's exception volume" (§15.3)`, te.funnelLabel && te.summaryLabel, JSON.stringify({ f: te.funnelLabel, s: te.summaryLabel }))
+  check(`${themeName}/item16: the final stage is labelled "causes eliminated first, then agents on the residue" (§15.3)`, !!te.effective && te.effective.includes('causes eliminated first, then agents on the residue'), JSON.stringify(te.effective))
+
+  // §15.4 — JGL's per-cause resolvable shares reconcile to the entity total: Σ(share × resolvable) × manual ≈ agent-resolved.
+  let causeMix = null
+  if (te.causeRows.length === 6 && jglRow) {
+    const weighted = te.causeRows.reduce((s, r) => s + (pct(r[1]) / 100) * (pct(r[2]) / 100), 0)
+    causeMix = weighted * pct(jglRow[2])
+  }
+  check(`${themeName}/item16: the per-cause resolvable shares reconcile to JGL's agent-resolved total (≈32.2)`, te.causeRows.length === 6 && causeMix !== null && Math.abs(causeMix - pct(jglRow[3])) <= 0.1, JSON.stringify({ causeMix, want: jglRow ? jglRow[3] : null }))
+
+  check(`${themeName}/item16: breadcrumb shows Touch economics`, !!te.breadcrumb && te.breadcrumb.includes('Touch economics'), JSON.stringify(te.breadcrumb))
+  const teNav = await evaluate(NAV_ACTIVE_JS)
+  check(`${themeName}/item16: active nav item is Touch economics`, !!teNav && teNav.label.startsWith('Touch economics'), JSON.stringify(teNav))
+
+  // ⌘K finds the screen by name; its meta states JGL's touch rate from the dataset, never a literal.
+  await new Promise((r) => setTimeout(r, 400))
+  await ctrlK()
+  await new Promise((r) => setTimeout(r, 400))
+  check(`${themeName}/item16: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('touch')`)) === true)
+  await new Promise((r) => setTimeout(r, 200))
+  const tePalette = await evaluate(PALETTE_ROWS_JS)
+  // "touch" may match other rows; assert on the screen row's meta.
+  const teScreenRows = tePalette.filter((t) => /JGL \d+ → \d+ \/ 1,000/.test(t))
+  check(`${themeName}/item16: "touch" lists exactly one screen with JGL's touch rate`, teScreenRows.length === 1 && teScreenRows[0].includes('Touch economics'), JSON.stringify(tePalette))
+  const tePick = await evaluate(`(() => { const r = Array.from(document.querySelectorAll('.fct-palette-row')).find((x) => x.textContent.includes('Touch economics')); if (!r) return false; r.click(); return true })()`)
+  check(`${themeName}/item16: picking the row opens touch economics`, tePick === true, '')
+  await waitForPath((p) => p === '/touch-economics', 'touch economics from the palette')
+  await new Promise((r) => setTimeout(r, 300))
+  check(`${themeName}/item16: the palette closes after picking`, (await evaluate(`!document.querySelector('.fct-palette-scrim')`)) === true, '')
+  await screenshot(`${themeName}-touch-economics.png`)
+
+  // ---- item 17: one exception, end to end (§15.2) — the missing-GR walkthrough and both credit-block records ----
+  console.log('\n-- item 17: one exception, end to end')
+  await navigate(BASE + '/entity/JGL/p2p/invoices/AP-104402')
+  const wt0 = await evaluate(`(() => {
+    const wt = document.querySelector('[data-fct-walkthrough]')
+    if (!wt) return null
+    const m = /Step (\\d+) of (\\d+)/.exec(wt.textContent)
+    const body = wt.querySelector('[data-fct-step]')
+    const dec = document.querySelector('[data-fct-decision]')
+    const passSpans = dec ? Array.from(dec.querySelectorAll('span')).filter((s) => s.textContent === 'PASS').length : -1
+    const failSpans = dec ? Array.from(dec.querySelectorAll('span')).filter((s) => s.textContent === 'FAIL').length : -1
+    return {
+      counter: m ? m[0] : null,
+      stepAttr: body ? body.getAttribute('data-fct-step') : null,
+      decisionId: dec ? dec.getAttribute('data-fct-decision') : null,
+      passSpans, failSpans,
+      accrualAction: dec ? dec.textContent.includes('Posted a reversing accrual rather than a Service Entry Sheet') : false,
+      declined: dec ? dec.textContent.includes('Declined') : false,
+    }
+  })()`)
+  check(`${themeName}/item17: AP-104402 carries the walkthrough at step 1 of 8`, !!wt0 && wt0.counter === 'Step 1 of 8' && wt0.stepAttr === '1', JSON.stringify(wt0))
+  check(`${themeName}/item17: its decision record passes all five checks with no FAIL`, !!wt0 && wt0.passSpans === 5 && wt0.failSpans === 0, `pass=${wt0 ? wt0.passSpans : -1} fail=${wt0 ? wt0.failSpans : -1}`)
+  check(`${themeName}/item17: the record posts a reversing accrual and states what it declined`, !!wt0 && wt0.accrualAction && wt0.declined, JSON.stringify(wt0))
+
+  // Stepped, not animated — advance by hand; agent rows carry the AGENT tag (§15.7).
+  const wtSeen = []
+  for (let i = 0; i < 7; i++) {
+    const clicked = await evaluate(`(() => { const b = document.querySelector('[data-fct-wt-next]'); if (!b || b.disabled) return false; b.click(); return true })()`)
+    if (!clicked) break
+    await new Promise((r) => setTimeout(r, 150))
+    wtSeen.push(
+      await evaluate(`(() => { const wt = document.querySelector('[data-fct-walkthrough]'); if (!wt) return null; const m = /Step (\\d+) of (\\d+)/.exec(wt.textContent); const body = wt.querySelector('[data-fct-step]'); return { n: m ? Number(m[1]) : null, agentTag: body ? body.textContent.includes('AGENT') : false } })()`)
+    )
+  }
+  check(`${themeName}/item17: stepping by hand walks all eight steps and the chase step is tagged AGENT`, wtSeen.length === 7 && wtSeen.every((s, i) => s && s.n === i + 2) && !!wtSeen[0] && wtSeen[0].agentTag === true, JSON.stringify(wtSeen))
+  const wtLast = await evaluate(`(() => {
+    const wt = document.querySelector('[data-fct-walkthrough]')
+    if (!wt) return null
+    const next = wt.querySelector('[data-fct-wt-next]')
+    return {
+      nextDisabled: next ? next.disabled : null,
+      logLink: !!wt.querySelector('a[href="/agents/provisioning"]'),
+      auditLink: !!wt.querySelector('a[href="/risk-control"]'),
+    }
+  })()`)
+  check(`${themeName}/item17: the final step disables Next and points to supervision — agent log and audit sampling`, !!wtLast && wtLast.nextDisabled === true && wtLast.logLink && wtLast.auditLink, JSON.stringify(wtLast))
+  const wtReset = await evaluate(`(() => { const b = document.querySelector('[data-fct-wt-reset]'); if (!b) return false; b.click(); return true })()`)
+  await new Promise((r) => setTimeout(r, 150))
+  const wtAfterReset = await evaluate(`(() => { const wt = document.querySelector('[data-fct-walkthrough]'); if (!wt) return null; const m = /Step (\\d+) of (\\d+)/.exec(wt.textContent); return m ? m[0] : null })()`)
+  check(`${themeName}/item17: "Start over" returns to step 1`, wtReset === true && wtAfterReset === 'Step 1 of 8', JSON.stringify(wtAfterReset))
+  await screenshot(`${themeName}-exception-walkthrough.png`)
+
+  // The walkthrough is earned, not decorative — a sibling missing-GR row without the full arc has none.
+  await navigate(BASE + '/entity/JGL/p2p/invoices/AP-104281')
+  const wtNeg = await evaluate(`(() => ({ walkthrough: !!document.querySelector('[data-fct-walkthrough]'), decision: !!document.querySelector('[data-fct-decision]') }))()`)
+  check(`${themeName}/item17: AP-104281 has a decision record but no walkthrough — only the full arc earns one`, wtNeg.walkthrough === false && wtNeg.decision === true, JSON.stringify(wtNeg))
+
+  // ---- item 17b: O2C beat — release against policy, never against exposure (§15.2.1) ----
+  await navigate(BASE + '/entity/JGL/customer/jgl-deccan')
+  const decJgl = await evaluate(`(() => {
+    const dec = document.querySelector('[data-fct-decision]')
+    if (!dec) return null
+    const passSpans = Array.from(dec.querySelectorAll('span')).filter((s) => s.textContent === 'PASS').length
+    const failSpans = Array.from(dec.querySelectorAll('span')).filter((s) => s.textContent === 'FAIL').length
+    return {
+      released: dec.textContent.includes('Released the policy-defect block — invoice not yet due'),
+      passSpans, failSpans,
+      neverActsOn: dec.textContent.includes('credit release against exposure'),
+      escalatesWhen: dec.textContent.includes('block caused by exposure over limit'),
+    }
+  })()`)
+  check(`${themeName}/item17: Deccan's block is released — policy defect, both checks pass`, !!decJgl && decJgl.released && decJgl.passSpans === 2 && decJgl.failSpans === 0, JSON.stringify(decJgl))
+  check(`${themeName}/item17: its delegation names the line it never crosses — release against exposure`, !!decJgl && decJgl.neverActsOn && decJgl.escalatesWhen, JSON.stringify(decJgl))
+
+  await navigate(BASE + '/entity/JPS/customer/jps-pasir')
+  const decJps = await evaluate(`(() => {
+    const dec = document.querySelector('[data-fct-decision]')
+    if (!dec) return null
+    const passSpans = Array.from(dec.querySelectorAll('span')).filter((s) => s.textContent === 'PASS').length
+    const failSpans = Array.from(dec.querySelectorAll('span')).filter((s) => s.textContent === 'FAIL').length
+    return {
+      escalated: dec.textContent.includes('Escalated: block caused by exposure over limit'),
+      passSpans, failSpans,
+    }
+  })()`)
+  check(`${themeName}/item17: Pasir is NOT released — the record escalates with its cause check failing`, !!decJps && decJps.escalated && decJps.passSpans === 1 && decJps.failSpans === 1, JSON.stringify(decJps))
+
+  // A blocked customer with no logged decision shows the block but no record — nothing invented to fill the space.
+  await navigate(BASE + '/entity/JCP/customer/jcp-lakeshore')
+  const decNeg = await evaluate(`(() => ({ badge: document.querySelector('main').textContent.includes('CREDIT BLOCKED'), decision: !!document.querySelector('[data-fct-decision]') }))()`)
+  check(`${themeName}/item17: a blocked customer with no logged decision shows the block but no record`, decNeg.badge === true && decNeg.decision === false, JSON.stringify(decNeg))
+  await screenshot(`${themeName}-credit-block-records.png`)
+
   // ---- theme legibility: status colors + ageing-bar fills on the three views ----
   console.log(`\n-- legibility (${themeName}): O2C cockpit + both root-cause variants`)
   const fillTargets = [palette.accent, palette.ageingBarAlt, palette.statusGreen, palette.statusAmber, palette.statusRed].map(hexToRgb)
@@ -1022,6 +1441,8 @@ async function drillPass(themeName, palette) {
     await navigate(BASE + route)
     reports.push({ theme: themeName, name, pairs: await evaluate(AUDIT_JS) })
     const fills = await evaluate(`(${FILL_AUDIT_JS})(${JSON.stringify(fillTargets)})`)
+    // Harness guard: an empty census would let a whole route's fills go unaudited while the run stays green.
+    check(`${themeName}/${name}: fill audit found at least one fill pair`, Object.keys(fills).length >= 1, `pairs=${Object.keys(fills).length}`)
     for (const [k, count] of Object.entries(fills)) {
       const [fill, bg] = k.split('|')
       const ratio = contrast(fill, bg)

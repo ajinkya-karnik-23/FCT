@@ -1,4 +1,4 @@
-# DEMO.md — the eleven-beat walk
+# DEMO.md — the thirteen-beat walk
 
 Run `npm run dev` and open http://localhost:5200. The app opens on the Group view in
 pre-close mode (the default), so beat 1 needs no toggle. Every figure below was verified
@@ -140,9 +140,7 @@ own split merged to three categories — client **23 · 72%** / provider **6 · 
 & third party **3 · 9%** — with the group beneath as comparison in the unmerged four-number
 form, footnote "JGL 72 / 19 / 6 / 3 · group 71 / 18 / 7 / 4" (§7.22: an entity page shows
 the entity's split; the group is the comparison). SERVICE SCORECARD: Gross achievement
-**95.2%** · Net of client,
-system and third-party delay **98.6%** — "We met 95.2% against the contract; 98.6% of what
-we control." SLA table: five measurable SLAs with achieved % and attribution split (e.g.
+**95.2%** · Net of client, system and third-party delay **98.6%**. SLA table: five measurable SLAs with achieved % and attribution split (e.g.
 Invoice processing TAT, 3 business days, 93.1%, 22 breaches — client 18 · provider 3 ·
 system 1); three desk SLAs "measuring since 27 Aug 2026 · first full-period report from
 OCT-2026" with live to-date lines; two greyed (Invoice processing accuracy, target 99.5% ·
@@ -170,7 +168,7 @@ days, +6.7% — "Includes ₹18.6 cr of blocked invoices; adjusted DPO 41 days."
 
 **Click path:** /risk-control (rail → ASSURE).
 
-**Figures (verified):** h1 "Everything the auditor will find, ninety days earlier." Banner
+**Figures (verified):** h1 "Risk & control". Banner
 RESTRICTED — Financial Controller and above (DEMO ACCESS toggle: FC AND ABOVE / PLANT
 MANAGER). Five integrity categories with findings: PAYMENT INTEGRITY · AUTHORITY
 INTEGRITY · SYSTEM INTEGRITY · CUT-OFF INTEGRITY · UNDISCLOSED EXPOSURE. CONTROL
@@ -184,7 +182,7 @@ not a second control; everything the auditor will find, ninety days earlier.
 
 **Click path:** /service-desk (rail → SERVICE).
 
-**Figures (verified):** h1 "The clock starts here."; honesty line "measuring since 27 Aug
+**Figures (verified):** h1 "Finance Service Desk"; honesty line "measuring since 27 Aug
 2026 · first full-period report from OCT-2026" (date-relative per §7.21 — the values for
 this run). Stat strip: OPEN REQUESTS **45** · OLDEST EFFECTIVE AGE 25 d · STOP-CLOCK HOURS
 416 · SELF-SERVE SHARE **37%**. Queue "58 requests · 45 open" with RAISED ON → AGE D /
@@ -196,6 +194,88 @@ is measured, not asserted. The pitch phrase "eight SLAs given a clock start" is 
 rendered: on screen the mechanism appears as this queue's RAISED ON column (the SLA clock
 start) plus the three desk SLAs measuring to date on /entity/JGL/service — eight = five
 already-measurable + three newly so.
+
+## Beat 12 — One exception, end to end (missing GR, pre-close)
+
+**Click path:** from beat 5's filtered worklist (/entity/JGL/p2p/invoices?cause=missing-gr),
+click the AP-104402 Kaveri Solvents Ltd row → /entity/JGL/p2p/invoices/AP-104402. The
+exception detail page carries a **Walkthrough** section between the lifecycle cards and the
+agent decision record — stepped, not animated: one step at a time, advanced by hand with
+"Next step" (and "Start over"). Only this row has the walkthrough; it is the one that
+carries the full arc.
+
+**Figures (verified):** eight steps, agent rows tagged AGENT with an accent dot, system
+rows neutral (date-relative per §7.21 — the values for this run):
+
+1. **Exception raised** — 16 Jul "Invoice received via vendor portal"; 17 Jul "Three-way
+   match failed — no goods receipt".
+2. **Follow-up chases plant stores** — AGENT 31 Aug 2026 "Chased plant stores, 1st nudge".
+3. **No response at 48 hours** — AGENT 02 Sep 2026 "Escalated to the plant controller
+   after the chase timer expired".
+4. **The pre-close window opens** — system row (no date) "Pre-close readiness — 3 days to
+   close".
+5. **Provisioning tests the case** — caption: "Recurring service; Existing purchase order
+   on file; Price within tolerance; Prior-period delivery pattern; Value inside the agent
+   cap".
+6. **A reversing accrual is posted** — AGENT 05 Sep 2026 "Posted a reversing accrual
+   rather than a Service Entry Sheet".
+7. **Logged for audit** — caption: "Flagged agent-posted for audit sampling. Accrual
+   exposure falls ₹1.28 cr."
+8. **Supervision** — two links only: "Agent action log →" (/agents/provisioning) and
+   "Audit sampling →" (/risk-control). The human sees the case here, not in a workflow.
+
+Below it, the agent decision record (Provisioning · 05 Sep 2026): trigger "Service invoice
+blocked with no goods receipt, inside the pre-close window"; five checks, all PASS —
+Recurring service ("same vendor and service line posted in prior periods") · Existing
+purchase order on file ("PO-4470553 on file, released before booking") · Price within
+tolerance ("invoice price measured inside the band") · Prior-period delivery pattern
+("prior-period accrual found for the same vendor and service") · Value inside the agent cap
+(₹1.28 cr against "≤ ₹6.80 cr (agent cap)"). Precedent AP-104281 opens as a link to that
+invoice. Delegation: value cap ₹6.80 cr · dual control not required · never acts on
+"Service Entry Sheets outside the narrow band, provisions requiring judgment" · escalates
+when "value above the cap; no prior-period precedent". Action: "Posted a reversing accrual
+rather than a Service Entry Sheet". Declined (the line that matters more): "I posted an
+accrual rather than a Service Entry Sheet because an SES would assert the service was
+delivered." Reversibility: "The accrual carries a scheduled reversal for the next period —
+if the read is wrong it unwinds itself."
+
+**The line:** one exception, raised to resolved without a human touching it — and every
+step of the way is logged, tested against a cap, reversible, and openable. The accounting
+outcome at close is identical; nothing irreversible was posted.
+
+## Beat 13 — O2C: what the credit agent releases, and what it does not
+
+**Click path:** /entity/JGL/predictive (beat 9) → click the driver row "Deccan Pharma
+Retail — credit block" (₹4.8 cr, +2.1 days) → /entity/JGL/customer/jgl-deccan. For the
+case it would NOT release: /entity/JPS/predictive → "Pasir Distribution — credit block"
+(₹3.6 cr, +1.9 days) → /entity/JPS/customer/jps-pasir.
+
+**Figures (verified):** both customer pages carry an agent decision record below the
+credit-block card (Credit release). The page header keeps its SAP state — Deccan still
+reads CREDIT BLOCKED with the human release path ("Release credit block on Deccan Pharma
+Retail — Entity controller"); the record beneath is how the credit agent handled that
+block, and it is the releasable-set boundary the beat is about. Deccan: trigger "Credit
+block on an open customer order"; checks — Cause inside the releasable set PASS ("block
+caused by an uncleared invoice that is not yet due") · Policy cited in the record PASS
+("policy cited — uncleared invoice, not yet due"). Action: "Released the policy-defect
+block — invoice not yet due". Precedent jps-pasir opens as a link to Pasir's page.
+Declined: "I did not raise the customer's limit or clear any exposure — I released only
+the block whose cause sits inside the releasable set." Reversibility: "A release lifts the
+block; if the read was wrong it can be re-applied and nothing has been paid or written
+off."
+
+Pasir, same record shape, different outcome: Cause inside the releasable set **FAIL**
+("block caused by exposure over the customer limit") · Policy cited in the record PASS
+("policy cited — credit release against exposure is never automated"). Action: "Escalated:
+block caused by exposure over limit". Precedent jgl-deccan links back to Deccan's page.
+Declined: "I did not release the block against exposure — over-limit is a credit judgment,
+never the agent's call." Reversibility: "An escalation posts nothing; it only moves the
+item up the human chain."
+
+**The line:** the releasable set is codified, not judged. A policy defect (an uncleared
+invoice that is not yet due) releases with the policy cited in the record; a customer over
+its limit never does — that one escalates. Same block shape, different cause, different
+outcome, and both are readable in the record.
 
 ---
 

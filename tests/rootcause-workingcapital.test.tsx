@@ -183,7 +183,6 @@ describe('Working capital (spec/06)', () => {
     const m = main()
 
     expect(m.getByRole('heading', { level: 1, name: 'Cash locked in exceptions' })).toBeTruthy()
-    expect(m.getByText(/working capital/i)).toBeTruthy()
 
     // Header KPIs — DSO amber, DPO plain, releasable green.
     for (const [label, value] of [

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { causeBacklogCounts, computeScore, getControlSignals, getEntity, getForecast, listCauses, listCompliance, listCostCentres, listCounterparties, listDataQuality, listEntities, listExceptions, listPlants, listRequests, slaBreachSplit } from '../api'
+import { agentWorkforceSummary, causeBacklogCounts, computeScore, getControlSignals, getEntity, getForecast, listAgents, listCauses, listCompliance, listCostCentres, listCounterparties, listDataQuality, listEntities, listExceptions, listPlants, listRequests, listTouchFunnel, slaBreachSplit } from '../api'
 import { formatCr } from '../lib/format'
 import { colors, fonts, layout, paletteShadow } from '../theme/tokens'
 import { DEFAULT_ENTITY, entityCodeFromPath } from '../app/routes'
@@ -55,6 +55,16 @@ function buildItems(entityCode: string): PaletteItem[] {
   // §7.30 — the elimination backlog is group-scoped like the desk; counts derive from the register, never literals.
   const cb = causeBacklogCounts()
   items.push({ kind: 'SCREEN', label: 'Cause elimination', meta: `${cb.eliminated} of ${cb.identified} causes eliminated`, to: '/cause-backlog' })
+  // §15 — the agent workforce is group-scoped; the row states live vs total so the palette never claims what isn't built.
+  const wf = agentWorkforceSummary()
+  items.push({ kind: 'SCREEN', label: 'Agents', meta: `${wf.liveRoles} of ${wf.totalRoles} roles active`, to: '/agents' })
+  // §15.7 — each agent's record is reachable from the palette, like counterparties (§9.1); query-filtered and capped as all rows are.
+  for (const a of listAgents()) {
+    items.push({ kind: 'AGENT', label: a.name, meta: `#${a.number} · ${a.type}`, to: `/agents/${a.id}` })
+  }
+  // §15.3/§15.4 — the commercial conversation is group-scoped; the row states JGL's touch rate, the screen's headline figure.
+  const te = listTouchFunnel().find((r) => r.code === 'JGL')!
+  items.push({ kind: 'SCREEN', label: 'Touch economics', meta: `JGL ${te.touchesTodayPer1000} → ${te.touchesAfterPer1000} / 1,000`, to: '/touch-economics' })
   // §7.23 — every entity carries its own forecast; the row follows the entity in context, as the other screens do.
   const fc = getForecast(entityCode)
   if (fc) items.push({ kind: 'SCREEN', label: 'Predictive', meta: `DSO ${fc.current} → ${fc.projected} at month-end`, to: `/entity/${entityCode}/predictive` }) // unknown codes render the fallback page, which has no forecast

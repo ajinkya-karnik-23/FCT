@@ -38,13 +38,14 @@ describe('App shell end to end (spec/02)', () => {
     expect(activeNavLabel()).toContain('Entity health')
 
     fireEvent.click(main().getByRole('link', { name: /327 invoices/ }))
-    expect(main().getByRole('heading', { level: 1, name: 'End-to-end flow, not seven separate reports' })).toBeTruthy()
+    expect(main().getByRole('heading', { level: 1, name: 'Procure to pay' })).toBeTruthy()
     expect(breadcrumbText()).toContain('P2P')
     expect(activeNavLabel()).toContain('P2P cockpit')
 
     fireEvent.click(main().getByRole('link', { name: /Open 327 blocked invoices/ }))
     const rows = main().getAllByRole('link').filter((l) => (l.textContent ?? '').startsWith('AP-'))
-    expect(rows).toHaveLength(12)
+    // §15.7 — the worklist opens on the needs-you view; the agents have already resolved six of JGL's twelve.
+    expect(rows).toHaveLength(6)
     expect(activeNavLabel()).toContain('Worklist')
 
     fireEvent.click(rows[0])
@@ -56,7 +57,8 @@ describe('App shell end to end (spec/02)', () => {
     expect(activeNavLabel()).toContain('Worklist')
 
     fireEvent.click(main().getByRole('link', { name: /Back to worklist/ }))
-    expect(main().getAllByRole('link').filter((l) => (l.textContent ?? '').startsWith('AP-'))).toHaveLength(12)
+    // Back on the needs-you view — still six rows, not the full twelve.
+    expect(main().getAllByRole('link').filter((l) => (l.textContent ?? '').startsWith('AP-'))).toHaveLength(6)
   })
 
   it('rail keeps the current entity in context when drilling to root cause', () => {
@@ -94,7 +96,6 @@ describe('App shell end to end (spec/02)', () => {
 
     fireEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: /Ask the cockpit/ }))
     expect(screen.getByText(/cockpit intelligence/i)).toBeTruthy()
-    expect(screen.getByText(/grounded on the finance semantic model/i)).toBeTruthy()
 
     fireEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: /Ask the cockpit/ }))
     expect(screen.queryByText(/cockpit intelligence/i)).toBeNull()

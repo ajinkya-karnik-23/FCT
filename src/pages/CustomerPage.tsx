@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getEntity, listCounterparties } from '../api'
+import { creditBlockDecisionFor, getEntity, listCounterparties } from '../api'
 import { AgeingChart, Eyebrow, FreshnessStamp } from '../components'
+import { AgentDecision } from './ExceptionDetail'
 import { formatCr } from '../lib/format'
 import { colors, fonts, spacing, typeScale } from '../theme/tokens'
 
@@ -45,6 +46,9 @@ export function CustomerPage() {
     { label: 'EXPOSURE', value: formatCr(customer.exposureCr ?? 0) },
     { label: 'DISPUTES & DEDUCTIONS', value: formatCr(customer.disputesCr) },
   ]
+
+  // Step 22 — O2C beat: the credit agent's handling of this block, same decision-record shape as P2P.
+  const blockDecision = customer.creditBlocked ? creditBlockDecisionFor(customer.id) : undefined
 
   return (
     <div style={pageStyle}>
@@ -90,6 +94,9 @@ export function CustomerPage() {
           )}
         </section>
       </div>
+
+      {/* Step 22 — O2C beat: how the credit agent handled this block; only customers with a logged decision get it. */}
+      {blockDecision && <AgentDecision record={blockDecision} />}
     </div>
   )
 }

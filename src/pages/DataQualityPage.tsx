@@ -35,8 +35,7 @@ export function DataQualityPage() {
     <div style={pageStyle}>
       {/* Plain div, not <header> — a nested header would register as a second banner landmark */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <Eyebrow>Data & MDM quality</Eyebrow>
-        <h1 style={titleStyle}>Where master data fails — and the working capital it becomes.</h1>
+        <h1 style={titleStyle}>Data quality</h1>
         {/* §8.7 — MDM checks and IDoc interface health, both read from SAP ECC */}
         <FreshnessStamp sources={['SAP ECC']} />
       </div>

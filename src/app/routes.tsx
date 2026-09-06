@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { defaultRootCauseTo } from './paths'
-import { getCounterparty, getEntity, listCostCentres, listEntities, listExceptions, listPlants } from '../api'
+import { getAgent, getCounterparty, getEntity, listAgents, listCostCentres, listEntities, listExceptions, listPlants } from '../api'
+import { AgentDetail } from '../pages/AgentDetail'
+import { Agents } from '../pages/Agents'
 import { CauseBacklog } from '../pages/CauseBacklog'
 import { CompliancePage } from '../pages/CompliancePage'
 import { CostCentrePage } from '../pages/CostCentrePage'
@@ -17,6 +19,7 @@ import { RiskControl } from '../pages/RiskControl'
 import { RootCause } from '../pages/RootCause'
 import { ServiceAttribution } from '../pages/ServiceAttribution'
 import { ServiceDesk } from '../pages/ServiceDesk'
+import { TouchEconomics } from '../pages/TouchEconomics'
 import { VendorPage } from '../pages/VendorPage'
 import { Worklist } from '../pages/Worklist'
 import { WorkingCapital } from '../pages/WorkingCapital'
@@ -38,6 +41,10 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
   if (parts.length === 1 && parts[0] === 'data-quality') return [{ label: 'Group', to: '/' }, { label: 'Data quality' }]
   if (parts.length === 1 && parts[0] === 'service-desk') return [{ label: 'Group', to: '/' }, { label: 'Finance Service Desk' }]
   if (parts.length === 1 && parts[0] === 'cause-backlog') return [{ label: 'Group', to: '/' }, { label: 'Cause elimination' }]
+  if (parts.length === 1 && parts[0] === 'agents') return [{ label: 'Group', to: '/' }, { label: 'Agents' }]
+  if (parts.length === 1 && parts[0] === 'touch-economics') return [{ label: 'Group', to: '/' }, { label: 'Touch economics' }]
+  // §9.1 — the agent record is reached by drill only; the breadcrumb carries it back to the roster.
+  if (parts.length === 2 && parts[0] === 'agents') return [{ label: 'Group', to: '/' }, { label: 'Agents', to: '/agents' }, { label: getAgent(parts[1])?.name ?? parts[1] }]
   if (parts.length === 0 || parts[0] !== 'entity' || !parts[1]) return [{ label: 'Group' }]
 
   const code = parts[1]
@@ -84,7 +91,7 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
   return [{ label: 'Group' }]
 }
 
-export type NavKey = 'group' | 'entityHealth' | 'p2pCockpit' | 'o2cCockpit' | 'worklist' | 'rootCause' | 'causeBacklog' | 'riskControl' | 'compliance' | 'dataQuality' | 'workingCapital' | 'predictive' | 'serviceAttribution' | 'serviceDesk'
+export type NavKey = 'group' | 'entityHealth' | 'p2pCockpit' | 'o2cCockpit' | 'worklist' | 'rootCause' | 'causeBacklog' | 'riskControl' | 'compliance' | 'dataQuality' | 'workingCapital' | 'predictive' | 'serviceAttribution' | 'serviceDesk' | 'agents' | 'touchEconomics'
 
 // Worklist stays active while an exception detail page is open (spec/02).
 export function activeNavKey(pathname: string): NavKey {
@@ -94,6 +101,10 @@ export function activeNavKey(pathname: string): NavKey {
   if (parts.length === 1 && parts[0] === 'data-quality') return 'dataQuality'
   if (parts.length === 1 && parts[0] === 'service-desk') return 'serviceDesk'
   if (parts.length === 1 && parts[0] === 'cause-backlog') return 'causeBacklog'
+  if (parts.length === 1 && parts[0] === 'agents') return 'agents'
+  // §9.1 — the agent record keeps the Agents rail entry active, like exception detail keeps Worklist.
+  if (parts.length === 2 && parts[0] === 'agents') return 'agents'
+  if (parts.length === 1 && parts[0] === 'touch-economics') return 'touchEconomics'
   if (parts.length === 0 || parts[0] !== 'entity') return 'group'
   if (parts.length === 2) return 'entityHealth'
   switch (parts[2]) {
@@ -129,10 +140,10 @@ export interface NavItem {
   to: (entityCode?: string) => string
 }
 
-export type RailGroup = 'OVERVIEW' | 'PROCESS' | 'EXPLAIN' | 'ASSURE' | 'FORWARD' | 'SERVICE'
+export type RailGroup = 'OVERVIEW' | 'PROCESS' | 'EXPLAIN' | 'ASSURE' | 'FORWARD' | 'SERVICE' | 'AGENTS'
 
-// §9.1 — the six rail groups, in render order.
-export const RAIL_GROUPS: RailGroup[] = ['OVERVIEW', 'PROCESS', 'EXPLAIN', 'ASSURE', 'FORWARD', 'SERVICE']
+// §9.1 — the rail groups, in render order; AGENTS is its own block at the foot of the rail (§15).
+export const RAIL_GROUPS: RailGroup[] = ['OVERVIEW', 'PROCESS', 'EXPLAIN', 'ASSURE', 'FORWARD', 'SERVICE', 'AGENTS']
 
 // §0/§9.1 — counts derive from the API accessors (no literals); the rail shows the default entity's figures.
 const DEFAULT_ENTITY_METRICS = getEntity(DEFAULT_ENTITY)!.metrics
@@ -153,6 +164,10 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'predictive', label: 'Predictive', group: 'FORWARD', to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/predictive` },
   { key: 'serviceAttribution', label: 'Service & attribution', group: 'SERVICE', to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/service` },
   { key: 'serviceDesk', label: 'Finance Service Desk', group: 'SERVICE', to: () => '/service-desk' }, // §9.1
+  // §15 — the agent workforce; count is the live roles (the rail never claims what isn't built).
+  { key: 'agents', label: 'Agents', group: 'AGENTS', count: listAgents().filter((a) => a.status === 'live').length, to: () => '/agents' },
+  // §15.3/§15.4 — the commercial conversation; group-scoped, so no entity in `to`.
+  { key: 'touchEconomics', label: 'Touch economics', group: 'AGENTS', to: () => '/touch-economics' },
 ]
 
 export function entityCodeFromPath(pathname: string): string | undefined {
@@ -183,6 +198,10 @@ export function AppRoutes() {
       <Route path="/data-quality" element={<DataQualityPage />} />
       <Route path="/service-desk" element={<ServiceDesk />} />
       <Route path="/cause-backlog" element={<CauseBacklog />} />
+      <Route path="/agents" element={<Agents />} />
+      {/* §9.1 — the agent record: drill-only, no rail entry */}
+      <Route path="/agents/:agentId" element={<AgentDetail />} />
+      <Route path="/touch-economics" element={<TouchEconomics />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

@@ -50,6 +50,12 @@ const crumbCases: [string, Crumb[]][] = [
     '/entity/JIL/working-capital',
     [{ label: 'Group', to: '/' }, { label: 'JIL', to: '/entity/JIL' }, { label: 'Working capital' }],
   ],
+  ['/agents', [{ label: 'Group', to: '/' }, { label: 'Agents' }]],
+  // §15.7 — the per-agent record drills in under Agents; the last crumb is the agent's display name.
+  [
+    '/agents/follow-up',
+    [{ label: 'Group', to: '/' }, { label: 'Agents', to: '/agents' }, { label: 'Follow-up & escalation' }],
+  ],
 ]
 
 describe('buildBreadcrumb (spec/02)', () => {
@@ -82,6 +88,9 @@ const navCases: [string, NavKey][] = [
   ['/entity/JGL/root-cause/p2p/missing-gr', 'rootCause'],
   ['/entity/JGL/root-cause/o2c/pricing-disputes', 'rootCause'],
   ['/entity/JGL/working-capital', 'workingCapital'],
+  ['/agents', 'agents'],
+  // §15.7 — the record page keeps the Agents rail item active.
+  ['/agents/follow-up', 'agents'],
 ]
 
 describe('activeNavKey (spec/02)', () => {

@@ -107,9 +107,7 @@ describe('Cause elimination screen (spec §7.30)', () => {
     window.history.pushState(null, '', '/cause-backlog')
     render(<App />)
     const m = main()
-    expect(m.getByRole('heading', { level: 1, name: 'Continuous improvement, evidenced.' })).toBeTruthy()
-    // The eyebrow sits above the h1; read it via DOM order.
-    expect(m.getByRole('heading', { level: 1 }).previousElementSibling?.textContent).toBe('Cause elimination')
+    expect(m.getByRole('heading', { level: 1, name: 'Cause elimination' })).toBeTruthy()
     // Status words repeat in the register below, so resolve each stat label to its numeric sibling.
     const stat = (label: string) => m.getAllByText(label).map((el) => el.nextElementSibling?.textContent ?? null).find((v) => v !== null && /^\d+$/.test(v))
     expect(stat('IDENTIFIED')).toBe('34')

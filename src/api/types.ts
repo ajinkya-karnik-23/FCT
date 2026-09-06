@@ -153,6 +153,7 @@ export interface CauseNode {
   concentrationPctOfValue?: number; // §7.13 — % of value held by that count; a different cut from the segment split
   recordsCreatedQuarter?: number; // §7.13 — vendor-master: records created last quarter
   acceptanceRatePct?: number; // §7.13 — deductions: % eventually accepted
+  agentResolvablePct?: number; // §15.4 — share of this cause an agent can resolve without a human (JGL mix)
   byGroup?: { name: string; count?: number; pct: number }[]; // §7.12/§7.13 — stored split so the narrative derives from data
   narrative: string;
   plants: { name: string; pct: number }[];
@@ -422,4 +423,181 @@ export interface InterfaceHealth {
   entityCode: string;
   status: 'on schedule' | 'delayed' | 'stale';
   lastSuccessfulRun: string; // '31 Aug 2026, 04:00'
+}
+
+// --- §15 — the agent workforce ---
+// The task mandates status 'live' | 'designed' (nine live in this prototype, nine specified but not built); that
+// overrides §15.5's 'active' | 'paused' | 'shadow'. metrics is optional: only live agents carry them — designed
+// agents render the honest-absence pattern of §7.7. process / type / boundedBy / advisoryOnly / proposesOnly extend
+// §15.5's shape with the roster-grouping and boundary facts from §15.2 / §15.2.1.
+
+export type AgentProcess = 'shared' | 'p2p' | 'o2c';
+
+export type AgentType = 'preventive' | 'reactive';
+
+export type AgentStatus = 'live' | 'designed';
+
+// §15.5 — delegation of authority, verbatim from the spec's shape.
+export interface Delegation {
+  valueCapCr?: number;
+  toleranceBand?: string;
+  requiresDualControl: boolean;
+  neverActsOn: string[]; // e.g. ['vendor bank details']
+  escalatesWhen: string[];
+}
+
+// §15.5 — per-period performance, live agents only. resolvedShareTrend is a six-period series (series[5] === the
+// current resolved share %) feeding the Metric sparkline, mirroring Trend's shape. The three rate trends feed the
+// governance slice on Risk & control (§15.6): each ends at its current rate, and a rising one is interpreted there,
+// not just displayed. delegationBreaches counts actions outside the stated authority — zero in this dataset, where
+// every logged action carries withinDelegation: true.
+export interface AgentMetrics {
+  actionsThisPeriod: number;
+  resolvedWithoutHuman: number;
+  escalated: number;
+  overriddenByHuman: number;
+  reversed: number;
+  valueActedOnCr: number;
+  valueActedOnWithoutReviewCr: number;
+  delegationBreaches: number; // §15.6 — zero in this dataset (every logged action is withinDelegation)
+  resolvedShareTrend?: number[]; // six periods, series[5] === current resolved share %
+  escalationRateTrend?: number[]; // six periods, series[5] === current escalation rate % (§15.6)
+  overrideRateTrend?: number[]; // six periods, series[5] === current override rate % (§15.6)
+  reversalRateTrend?: number[]; // six periods, series[5] === current reversal rate % (§15.6)
+}
+
+// §15.2 — agents are staff, not features: name, scope, delegation of authority, a named human supervisor from the
+// §7.17 pool for that entity, and a status every card states.
+export interface Agent {
+  id: string; // 'follow-up'
+  number: number; // roster position 1–18 (§15.2) — shown on cards and in the coverage strip
+  name: string; // 'Follow-up & escalation'
+  process: AgentProcess;
+  type: AgentType;
+  scope: string; // "Acts on" / "What it does" from §15.2's tables, verbatim
+  boundedBy: string; // the "Bounded by" column, verbatim
+  delegation: Delegation;
+  supervisor: string; // a named human from the §7.17 pool for that entity
+  status: AgentStatus;
+  advisoryOnly?: boolean; // agents 4, 5, 13, 14 — flag and nudge but change nothing (§15.2)
+  proposesOnly?: boolean; // agent 12 — assembles the run; a human releases it (§15.2)
+  metrics?: AgentMetrics; // live agents only
+}
+
+// §15.1.2 — one check in a decision record: the test, its threshold, the actual value, pass or fail. Each opens.
+export interface AgentCheck {
+  test: string; // 'Value inside the auto-approve cap'
+  threshold: string; // '≤ ₹4.2 cr (agent cap)'
+  actual: string; // '₹1.42 cr'
+  pass: boolean;
+}
+
+// §15.5 — one entry in an agent's action log, verbatim from the spec's shape. The decision-record fields (§15.1.2)
+// are populated for exception-targeted actions so the detail page can carry trigger / checks / precedents /
+// delegation / action / declined / reversibility.
+export interface AgentAction {
+  id: string;
+  agentId: string;
+  targetType: 'exception' | 'request' | 'creditBlock';
+  targetId: string;
+  entityCode: string;
+  takenAt: string; // relative per §7.21
+  action: string; // 'Chased plant stores, 2nd nudge'
+  outcome: 'resolved' | 'escalated' | 'awaiting' | 'reversed' | 'overridden';
+  rationale: string;
+  precedents: string[]; // ids a human can open
+  evidence: string[];
+  reversible: boolean;
+  withinDelegation: true;
+  reviewedBy?: string;
+  trigger?: string; // §15.1.2 — what set the agent on this item
+  checks?: AgentCheck[]; // each test with threshold and actual value, openable
+  declined?: string; // what it deliberately did NOT do, and why — matters more than the action line
+  reversibility?: string; // how the action is undone if wrong
+}
+
+// §15.7 — one row of the worklist's agent lane: what the agents have done with this item, derived at read time
+// from the action log (never stored per row). Four states per §15.1.1.
+export interface AgentLane {
+  state: 'working' | 'escalated' | 'resolved' | 'never-automated';
+  agentId?: string; // which agent is on it — absent for never-automated rows
+  detail: string; // working → next escalation timer · escalated → the reason · resolved → what the agent did · never-automated → why it stays human
+}
+
+// Step 22 — one step of the exception-detail walkthrough: a flat, factual caption or a small set of dated events.
+// Stepped, not animated (§15.1.2's 'resist animating the agent reasoning').
+export interface WalkthroughEvent {
+  dateLabel?: string; // absent where no pinned date exists in the dataset
+  actor: 'agent' | 'system'; // §15.7 — agent rows are visually distinct from human/system ones
+  text: string;
+}
+
+export interface WalkthroughStep {
+  title: string;
+  caption?: string; // a flat line under the title (the five test names, the audit flag)
+  events?: WalkthroughEvent[];
+  supervision?: boolean; // the final step — links to the supervision record, no event of its own
+}
+
+// §15.1.1 — the worklist header's agent output line, computed at read time from the pool and the lane store.
+export interface WorklistAgentCounts {
+  pool: number; // '327 blocked'
+  cleared: number; // '241 resolved by agents' — a disposition, not a release (no write-back)
+  needYou: number; // '86 need you'
+}
+
+// §15.4 — one row of the per-entity touch funnel. agentResolvedPct + humanPct = manualPct exactly;
+// touches per 1,000 are manual × 10 today and human × 10 after.
+export interface TouchFunnelRow {
+  code: string; // entity code
+  touchlessPct: number;
+  manualPct: number;
+  agentResolvedPct: number;
+  humanPct: number;
+  touchesTodayPer1000: number;
+  touchesAfterPer1000: number;
+}
+
+// §15.3 — one stage of JGL's illustrative glide path; the two levers compound across stages and cost differently.
+export interface TouchLeverStage {
+  label: string; // 'Today' | 'After cause elimination' | 'Effective — agents on the residue'
+  touchlessPct: number;
+  touchesPer1000: number;
+}
+
+// §15.5.1 — workforce summary line, computed at read time (never stored).
+export interface AgentWorkforceSummary {
+  liveRoles: number;
+  totalRoles: number;
+  preventive: number;
+  actionsThisPeriod: number;
+  resolvedWithoutHuman: number;
+  escalated: number;
+  overriddenByHuman: number;
+  reversed: number;
+}
+
+// §15.6 — the governance slice on Risk & control: exceptions and exposure only, computed at read time over live
+// agents (never stored). The last three fields are denominators for the sub-lines under the four headline figures,
+// not headline figures themselves.
+export interface AgentGovernanceSummary {
+  delegationBreaches: number; // zero in this dataset — every logged action is withinDelegation
+  reversed: number;
+  overriddenByHuman: number;
+  valueActedOnWithoutReviewCr: number; // the figure an auditor asks for first
+  actionsThisPeriod: number; // denominator context only
+  resolvedWithoutHuman: number; // denominator context only
+  valueActedOnCr: number; // denominator context only
+}
+
+// §15.2.0 — lifecycle coverage strip: seven P2P + seven O2C stages with agents positioned where they act.
+export interface CoverageStage {
+  code: string; // 'PR' | 'PO' | ...
+  agents: string[]; // agent ids acting at this stage, in roster order
+  preClose?: string[]; // agents acting before close (provisioning under INV)
+}
+
+export interface CoverageStrip {
+  p2p: CoverageStage[];
+  o2c: CoverageStage[];
 }

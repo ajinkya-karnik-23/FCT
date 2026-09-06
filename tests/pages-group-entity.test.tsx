@@ -352,7 +352,7 @@ describe('Entity health home (spec/04)', () => {
     render(<App />)
     const m = main()
     fireEvent.click(m.getByRole('link', { name: /327 invoices/ }))
-    expect(m.getByRole('heading', { level: 1, name: 'End-to-end flow, not seven separate reports' })).toBeTruthy()
+    expect(m.getByRole('heading', { level: 1, name: 'Procure to pay' })).toBeTruthy()
   })
 
   it('renders JBL with its own score, status and money values', () => {

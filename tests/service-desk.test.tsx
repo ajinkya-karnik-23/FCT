@@ -136,10 +136,7 @@ describe('Finance Service Desk screen (spec §7.29)', () => {
     window.history.pushState(null, '', '/service-desk')
     render(<App />)
     const m = main()
-    expect(m.getByRole('heading', { level: 1, name: 'The clock starts here.' })).toBeTruthy()
-    // The eyebrow sits above the h1; read it via DOM order — queue owners are named people now, so no cell repeats the label.
-    expect(m.getByRole('heading', { level: 1 }).previousElementSibling?.textContent).toBe('Finance Service Desk') // §9.1 — full name, not the abbreviation
-    expect(m.getByText(/a single structured intake for every request into the service/)).toBeTruthy()
+    expect(m.getByRole('heading', { level: 1, name: 'Finance Service Desk' })).toBeTruthy() // §9.1 — full name, not the abbreviation
     const w = serviceDeskWindow()
     expect(m.getByText(`measuring since ${w.measuringSince} · first full-period report from ${w.nextPeriod}`)).toBeTruthy()
     expect(breadcrumbText()).toContain('Finance Service Desk') // §9.1 — case-sensitive: the abbreviation is gone

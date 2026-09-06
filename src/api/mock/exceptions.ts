@@ -102,14 +102,19 @@ const CAUSE_BEATS: Record<string, Beat[]> = {
 };
 
 // §7.19 — the open line says what is still waiting; when resolvable today, the same cause reads as one action away.
-const CLOSING_LINE_OPEN: Record<string, string> = {
-  'missing-gr': 'Awaiting GR — escalation due in 6 hours',
-  'po-price-mismatch': 'Awaiting rate confirmation — escalation due in 6 hours',
-  'approval-pending': 'Awaiting approver release — escalation due in 6 hours',
-  'vendor-master': 'Awaiting master data fix — escalation due in 6 hours',
-  'duplicate-suspicion': 'Awaiting dedup review outcome — escalation due in 6 hours',
-  'tax-mismatch': 'Awaiting tax correction — escalation due in 6 hours',
+const OPEN_LINE_PREFIX: Record<string, string> = {
+  'missing-gr': 'Awaiting GR',
+  'po-price-mismatch': 'Awaiting rate confirmation',
+  'approval-pending': 'Awaiting approver release',
+  'vendor-master': 'Awaiting master data fix',
+  'duplicate-suspicion': 'Awaiting dedup review outcome',
+  'tax-mismatch': 'Awaiting tax correction',
 };
+
+// The escalation timer is the item's own: older items escalate sooner, so lanes differ instead of all reading six hours.
+export function escalationHours(ageDays: number): number {
+  return Math.max(1, 47 - ageDays);
+}
 
 // §7.19 — prospective: the clearing action is available and quick; nothing has posted yet.
 const CLOSING_LINE_RESOLVABLE: Record<string, string> = {
@@ -121,8 +126,10 @@ const CLOSING_LINE_RESOLVABLE: Record<string, string> = {
   'tax-mismatch': 'Tax correction prepared — one validation releases it',
 };
 
-export function closingLine(reasonKey: string, resolvableToday = false): string {
-  return (resolvableToday ? CLOSING_LINE_RESOLVABLE : CLOSING_LINE_OPEN)[reasonKey];
+export function closingLine(reasonKey: string, resolvableToday = false, ageDays?: number): string {
+  if (resolvableToday) return CLOSING_LINE_RESOLVABLE[reasonKey];
+  const hours = escalationHours(ageDays ?? 0);
+  return `${OPEN_LINE_PREFIX[reasonKey]} — escalation due in ${hours} hour${hours === 1 ? '' : 's'}`;
 }
 
 // One seeded clock per (row, offset) so evidence and timeline stamp the same event identically.

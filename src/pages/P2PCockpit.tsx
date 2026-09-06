@@ -28,7 +28,7 @@ export function P2PCockpit() {
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 24 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Eyebrow>Level 2 — Process · Procure to Pay</Eyebrow>
-          <h1 style={titleStyle}>End-to-end flow, not seven separate reports</h1>
+          <h1 style={titleStyle}>Procure to pay</h1>
           {/* §8.7 — the whole flow is read from SAP ECC */}
           <FreshnessStamp sources={['SAP ECC']} />
         </div>
@@ -114,7 +114,7 @@ export function P2PCockpit() {
             </Link>
           ))}
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 10, fontSize: 12, color: colors.textMuted }}>
-            <span>Open POs not yet invoiced — the part most tools miss</span>
+            <span>Open POs not yet invoiced</span>
             <span style={{ fontFamily: fonts.mono }}>{`${formatCr(costCentres.reduce((sum, cc) => sum + cc.committedSpendCr, 0))} committed`}</span>
           </div>
         </section>

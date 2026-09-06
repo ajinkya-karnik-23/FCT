@@ -99,3 +99,11 @@ export function causeEliminationColor(status: CauseEliminationWord): string {
   if (status === 'in-progress') return colors.statusAmber
   return colors.textMuted // identified — not started yet; no commitment to flag
 }
+
+// §15.2/§15.2.0 — preventive vs reactive on the roster and coverage strip; the single place that decides this pair.
+// accentText (not accent) so chip text clears AA on white in the light theme.
+export type AgentTypeWord = 'preventive' | 'reactive'
+
+export function agentTypeColor(type: AgentTypeWord): string {
+  return type === 'preventive' ? colors.accentText : colors.statusAmber
+}

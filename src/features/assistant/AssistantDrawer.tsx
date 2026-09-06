@@ -136,10 +136,6 @@ export function AssistantDrawer({ entityCode, question, onClose, onQuestionConsu
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <p style={{ fontSize: 13, lineHeight: 1.55, color: colors.textMuted, margin: 0 }}>
-          Grounded on the finance semantic model — every answer resolves to transactions, owners and SLA records.
-        </p>
-
         {messages.map((msg, i) => (
           <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
             <div style={msg.role === 'user' ? userBubbleStyle : assistantBubbleStyle}>{msg.text}</div>
@@ -213,9 +209,6 @@ export function AssistantDrawer({ entityCode, question, onClose, onQuestionConsu
             SEND
           </button>
         </div>
-        <p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: colors.textMuted }}>
-          Answers resolve to transactions, owners and service records. Nothing is asserted without a source.
-        </p>
       </div>
     </aside>
   )
