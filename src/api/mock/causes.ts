@@ -13,6 +13,7 @@ export const causes: CauseNode[] = [
     avgDelayDays: 8.4,
     recurrence: 5,
     concentration: '11 vendors',
+    agentResolvablePct: 75, // §15.4 — JGL mix
     narrative:
       'Invoices at Nanjangud and Roorkee remain blocked because goods receipts are posted after invoice receipt; the two plants account for 72% of affected value. Eleven vendors drive the pattern, led by consignment chemicals at 38%; average GR lag is 8.4 days and it has repeated for five consecutive months.',
     plants: [
@@ -42,6 +43,7 @@ export const causes: CauseNode[] = [
     avgDelayDays: 6.1,
     recurrence: 3,
     concentration: '4 vendors',
+    agentResolvablePct: 60, // §15.4 — JGL mix
     narrative:
       'Price differences arise where contract escalations were signed but not loaded into the purchasing info record. Four vendors account for all of the ₹4.1 cr; buyers resolve them manually each cycle and the pattern has repeated for three consecutive months.',
     plants: [
@@ -71,6 +73,7 @@ export const causes: CauseNode[] = [
     avgDelayDays: 5.2,
     recurrence: 2,
     concentration: '2 plants',
+    agentResolvablePct: 80, // §15.4 — JGL mix
     byGroup: [{ name: 'Approvers', count: 7, pct: 64 }],
     narrative:
       'Approvals stall with seven approvers who hold 64% of the ₹3.3 cr value, concentrated in indirect spend above ₹10 lakh. Delegation is not maintained during travel.',
@@ -101,6 +104,7 @@ export const causes: CauseNode[] = [
     avgDelayDays: 9.7,
     recurrence: 4,
     concentration: '7 vendors',
+    agentResolvablePct: 50, // §15.4 — JGL mix
     recordsCreatedQuarter: 23, // §7.13 — backs "23 vendor records created in the last quarter"
     narrative:
       'Bank and GST details fail validation on 23 vendor records created in the last quarter, mostly for one-time service vendors onboarded outside the standard workflow.',
@@ -132,6 +136,7 @@ export const causes: CauseNode[] = [
     recurrence: 1,
     concentration: '9 invoice pairs', // §7.13 — was '—'; count stored in concentrationCount
     concentrationCount: 9,
+    agentResolvablePct: 85, // §15.4 — JGL mix
     narrative:
       'Nine invoice pairs are flagged where the same document is submitted through both the vendor portal and email intake. All are held pending manual confirmation.',
     plants: [
@@ -161,6 +166,7 @@ export const causes: CauseNode[] = [
     avgDelayDays: 4.4,
     recurrence: 2,
     concentration: '3 vendors',
+    agentResolvablePct: 65, // §15.4 — JGL mix
     // §7.13 — backs "two states"; shares normalized from the plant split (Roorkee 46 + Noida 24), summing to the ₹1.3 cr value
     byGroup: [
       { name: 'Uttarakhand', pct: 66 },

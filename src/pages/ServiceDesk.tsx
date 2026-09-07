@@ -145,12 +145,9 @@ export function ServiceDesk() {
     <div style={pageStyle}>
       {/* Plain div, not <header> — a nested header would register as a second banner landmark */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <Eyebrow>Finance Service Desk</Eyebrow>
-        <h1 style={titleStyle}>The clock starts here.</h1>
+        <h1 style={titleStyle}>Finance Service Desk</h1>
         {/* §8.7 — every figure on this screen comes from the service metrics feed */}
         <FreshnessStamp sources={['service metrics']} />
-        {/* §7.29 — the pitch phrase, and the honesty line: measurement began mid-period */}
-        <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0 }}>{`a single structured intake for every request into the service — ${REQUEST_TYPES.map((t) => TYPE_LABEL[t].toLowerCase()).join(' · ')}`}</p>
         <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textFaint }}>{`measuring since ${deskWindow.measuringSince} · first full-period report from ${deskWindow.nextPeriod}`}</span>
       </div>
 

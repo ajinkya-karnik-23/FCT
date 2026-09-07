@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
-import { apControlEffectiveness, getControlSignals } from '../api'
+import { Link } from 'react-router-dom'
+import { agentGovernanceSummary, apControlEffectiveness, getControlSignals, governanceInterpretation, listAgents } from '../api'
 import type { ControlCategory, ControlSignal } from '../api'
 import { Eyebrow, FreshnessStamp } from '../components'
 import { formatCr } from '../lib/format'
@@ -13,6 +14,15 @@ const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
 const cardStyle: CSSProperties = { ...clay.card, padding: 22, gap: 18 }
 // §7.8 — mono label style shared by the metric labels; same family as the read-only / CAPPED tags elsewhere.
 const monoLabelStyle: CSSProperties = { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', color: colors.textMuted }
+
+// §15.1 — the label every agent surface carries; nothing more. The governance slice is one of them.
+const SIMULATED = 'Simulated data'
+
+function SimTag() {
+  return (
+    <span style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.06em', color: colors.textMuted, border: `1px solid ${colors.borderDefault}`, padding: '2px 8px' }}>{SIMULATED}</span>
+  )
+}
 
 // §7.8 — the five categories in spec order; labels composed at render time from the stored keys.
 const CATEGORY_ORDER: Array<{ key: ControlCategory; label: string }> = [
@@ -35,14 +45,18 @@ export function RiskControl() {
   const [access, setAccess] = useState<AccessLevel>('fc')
   const signals = getControlSignals()
   const effectiveness = apControlEffectiveness()
+  // §15.6 — the governance slice carries only what needs attention; volume and resolution rates stay on the Agents screen.
+  const gov = agentGovernanceSummary()
+  // Every live agent appears: a register evidences absence as well as presence, and the interpretation lines mark
+  // what actually needs attention. Ordered by value acted on without review — the figure an auditor asks for first.
+  const govRows = listAgents().filter((a) => a.status === 'live').sort((x, y) => (y.metrics!.valueActedOnWithoutReviewCr - x.metrics!.valueActedOnWithoutReviewCr) || (x.number - y.number))
   const visible = access === 'fc'
 
   return (
     <div style={pageStyle}>
       {/* Plain div, not <header> — a nested header would register as a second banner landmark */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <Eyebrow>Risk & control</Eyebrow>
-        <h1 style={titleStyle}>Everything the auditor will find, ninety days earlier.</h1>
+        <h1 style={titleStyle}>Risk & control</h1>
         {/* §8.7 — mixed sources: SAP ECC for the signals, AP tool control log cited inline below */}
         <FreshnessStamp sources={['SAP ECC', 'AP tool control log']} />
       </div>
@@ -66,9 +80,6 @@ export function RiskControl() {
         </div>
       </div>
 
-      {/* §1 — no duplication: where a source system enforces a control, this platform monitors it rather than re-running it */}
-      <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0, lineHeight: 1.5 }}>{`Where the source system already enforces a control, this platform does not re-run it — it monitors the control's effectiveness and any bypass of it. Control of the control, not a second control.`}</p>
-
       {visible ? (
         <>
           {CATEGORY_ORDER.map(({ key, label }) => (
@@ -90,6 +101,61 @@ export function RiskControl() {
               ))}
             </section>
           ))}
+
+          {/* §15.6 — agent governance sits on Risk & control: exceptions and exposure only, not workforce performance.
+              Each row drills into the agent's own record. */}
+          <section data-fct-agent-governance style={cardStyle}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+              <Eyebrow style={typeScale.tableHeader}>Agent governance</Eyebrow>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {/* §15.1 — the slice is an agent surface; the honesty label repeats here */}
+                <SimTag />
+                <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textFaint }}>{'exceptions and exposure only · source: agent action logs'}</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={monoLabelStyle}>{'Delegation breaches'}</span>
+                <span style={{ ...typeScale.bigScore, color: colors.textPrimary }}>{String(gov.delegationBreaches)}</span>
+                <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textMuted }}>{'every logged action stayed inside its delegation'}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={monoLabelStyle}>{'Reversals'}</span>
+                <span style={{ ...typeScale.bigScore, color: colors.textPrimary }}>{String(gov.reversed)}</span>
+                <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textMuted }}>{`${gov.reversed} of ${gov.actionsThisPeriod} actions this period`}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={monoLabelStyle}>{'Overrides by human'}</span>
+                <span style={{ ...typeScale.bigScore, color: colors.textPrimary }}>{String(gov.overriddenByHuman)}</span>
+                <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textMuted }}>{`${gov.overriddenByHuman} of ${gov.resolvedWithoutHuman} resolved without human`}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={monoLabelStyle}>{'Value acted on without human review'}</span>
+                <span style={{ ...typeScale.bigScore, color: colors.textPrimary }}>{formatCr(gov.valueActedOnWithoutReviewCr)}</span>
+                <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textMuted }}>{`of ${formatCr(gov.valueActedOnCr)} acted on this period`}</span>
+              </div>
+            </div>
+            {govRows.map((a) => {
+              const m = a.metrics!
+              // §15.6 — interpret the rate rather than just displaying it: rising override/reversal → the delegation
+              // may be set wrong; rising escalation → the policy needs updating, not that the agent is failing.
+              const interp = governanceInterpretation(a)
+              return (
+                <div key={a.id} data-fct-gov-row={a.id} style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 12, borderTop: `1px solid ${colors.borderSubtle}` }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                    <Link to={`/agents/${a.id}`} style={{ ...typeScale.body, color: colors.accentText, textDecoration: 'none' }}>{a.name}</Link>
+                    <div style={{ display: 'flex', gap: 24, fontFamily: fonts.mono, fontSize: 10, color: colors.textMuted }}>
+                      <span>{`breaches ${m.delegationBreaches}`}</span>
+                      <span>{`reversed ${m.reversed}`}</span>
+                      <span>{`overridden ${m.overriddenByHuman}`}</span>
+                      <span>{m.valueActedOnWithoutReviewCr > 0 ? `without review ${formatCr(m.valueActedOnWithoutReviewCr)}` : 'without review —'}</span>
+                    </div>
+                  </div>
+                  {interp && <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0 }}>{interp}</p>}
+                </div>
+              )
+            })}
+          </section>
 
           {/* §7.8 item 6 — effectiveness of the AP automation tool's own controls; monitoring only, no duplicate checking here */}
           <section style={cardStyle}>

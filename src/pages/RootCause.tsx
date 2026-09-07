@@ -68,6 +68,8 @@ export function RootCause() {
     { label: 'AVG DELAY', value: `${cause.avgDelayDays} days` },
     { label: 'RECURRENCE', value: formatRecurrence(cause.recurrence) },
     { label: 'CONCENTRATION', value: cause.concentration },
+    // §15.4 — the share an agent can resolve without a human; P2P causes only, O2C nodes carry no such field
+    ...(cause.agentResolvablePct != null ? [{ label: 'AGENT-RESOLVABLE', value: `${cause.agentResolvablePct}%` }] : []),
   ]
 
   return (
@@ -105,6 +107,10 @@ export function RootCause() {
               }}
             >
               <span style={{ flex: 1 }}>{c.name}</span>
+              {/* §15.4 — the row-level share makes automatable vs eliminable causes comparable across the taxonomy */}
+              {c.agentResolvablePct != null && (
+                <span style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.textFaint }}>{`${c.agentResolvablePct}% agent`}</span>
+              )}
               <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textMuted }}>{`${c.sharePct}%`}</span>
             </Link>
           ))}

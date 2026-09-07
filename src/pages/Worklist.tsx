@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { applyWorklistAction, causePool, getEntity, listCauses, listExceptions, plantRoute, vendorRoute } from '../api'
-import type { Exception, WorklistAction } from '../api'
+import { agentCycleRan, applyWorklistAction, causePool, getEntity, laneForException, listCauses, listExceptions, plantRoute, runNextAgentCycle, vendorRoute, worklistAgentCounts } from '../api'
+import type { AgentLane, Exception, WorklistAction } from '../api'
 import { CrossProcessTrace, DataTable, Eyebrow, FreshnessStamp, type Column } from '../components'
 import { formatCr } from '../lib/format'
 import { ageColor, controlColor } from '../theme/derive'
@@ -20,6 +20,23 @@ const SORTS: Array<{ key: SortKey; label: string }> = [
 // §8.9 — the worklist is a working tool: every row supports Assign / Chase / Release, with bulk versions.
 const ACTIONS: WorklistAction[] = ['assign', 'chase', 'release']
 
+type LaneKey = 'needs-you' | 'working' | 'escalated' | 'never-automated' | 'all'
+
+const LANES: Array<{ key: LaneKey; label: string }> = [
+  { key: 'needs-you', label: 'Needs you' },
+  { key: 'working', label: 'Working' },
+  { key: 'escalated', label: 'Escalated' },
+  { key: 'never-automated', label: 'Never automated' },
+  { key: 'all', label: 'All' },
+]
+
+// §15.7 — the human worklist shows only what agents could not close, so "needs you" is every state but resolved.
+function laneMatches(lane: LaneKey, state: AgentLane['state']): boolean {
+  if (lane === 'all') return true
+  if (lane === 'needs-you') return state !== 'resolved'
+  return lane === state
+}
+
 const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
 const filterLabel: CSSProperties = typeScale.tableHeader
@@ -34,6 +51,12 @@ export function Worklist() {
   const sortParam = searchParams.get('sort')
   const sort: SortKey = sortParam === 'age' || sortParam === 'vendor' ? sortParam : 'value' // §8.9 — value desc is the default, never count
   const resolvableActive = searchParams.get('resolvable') === '1'
+  // §15.7 — the agents have already run when the page opens; navigation defaults to "needs you", what they could not close.
+  // A drill from a financial figure (cause filter) shows everything behind that figure, resolved included — the needs-you
+  // default applies to navigation, not to figure drills. An explicit lane param always wins over both defaults.
+  const laneParam = searchParams.get('lane')
+  const defaultLane: LaneKey = causeKey ? 'all' : 'needs-you'
+  const lane: LaneKey = laneParam === 'working' || laneParam === 'escalated' || laneParam === 'never-automated' || laneParam === 'all' || laneParam === 'needs-you' ? laneParam : defaultLane
 
   const [selected, setSelected] = useState<string[]>([])
   const [, setVersion] = useState(0) // bump after store mutations to re-render rows
@@ -44,7 +67,7 @@ export function Worklist() {
   const causes = listCauses('p2p')
   const causeName = (key: string) => causes.find((c) => c.key === key)?.name ?? key
 
-  function setParam(key: 'cause' | 'sort' | 'resolvable', value: string | null) {
+  function setParam(key: 'cause' | 'sort' | 'resolvable' | 'lane', value: string | null) {
     const next = new URLSearchParams(searchParams)
     if (value === null) next.delete(key)
     else next.set(key, value)
@@ -69,10 +92,17 @@ export function Worklist() {
     setVersion((v) => v + 1)
   }
 
+  // §15.1.1 — the one permitted trigger, explicitly a demo control; one-shot per session in the store.
+  function runCycle() {
+    runNextAgentCycle(code ?? '')
+    setVersion((v) => v + 1)
+  }
+
   // The header aggregates recompute over the currently filtered rows.
   const rows = listExceptions(code ?? '', 'p2p')
     .filter((x) => !causeKey || x.reasonKey === causeKey)
     .filter((x) => !resolvableActive || x.resolvableToday) // §7.19 — "resolvable today": the clearing action is available and quick
+    .filter((x) => laneMatches(lane, laneForException(x).state)) // §15.7 — agents have already run; default view is what they could not close
     .sort((a, b) => {
       if (sort === 'value') return b.amount - a.amount
       if (sort === 'age') return b.ageDays - a.ageDays
@@ -86,7 +116,14 @@ export function Worklist() {
   const resolvableVisible = rows.filter((x) => x.resolvableToday).length
   // §7.20 — value alone does not tell a controller whether the pool is stale: the >30-day share of what is shown.
   const staleValue = rows.filter((x) => x.ageDays > 30).reduce((a, x) => a + x.amount, 0)
+  // §15.1.1 — the header leads with what the agents have already done; the cycle times are group-level, same literal as the workforce screen.
+  const counts = worklistAgentCounts(code ?? '')
   const headerSegments = [
+    // Disposition, not release: the agents' output is a decision on the item, and there is no write-back to SAP.
+    `${counts.pool} blocked`,
+    `${counts.cleared} resolved by agents`,
+    `${counts.needYou} need you`,
+    'agents last ran 06:42 · next cycle 07:00',
     `${rows.length} of ${pool?.count ?? entity?.metrics.apBlockedCount ?? 0} shown`,
     `${formatCr(totalValue, 2)} of ${pool ? formatCr(pool.valueCr) : entity ? formatCr(entity.metrics.apBlocked.current) : '—'}`,
     `>30 days ${formatCr(staleValue, 2)}`,
@@ -141,6 +178,26 @@ export function Worklist() {
     },
     { detail: true, header: 'Owner', render: (x) => <span style={{ color: colors.textSecondary }}>{x.owner}</span> },
     { detail: true, header: 'Control', render: (x) => <span style={{ fontFamily: fonts.mono, fontSize: 12, color: controlColor(x.controlSignificance) }}>{x.controlSignificance}</span> },
+    // §15.1.1 — the per-row agent lane: what an agent is doing or did, why it escalated, or why it never ran. No run button on a row.
+    {
+      width: '200px',
+      header: 'Agent',
+      render: (x) => {
+        const l = laneForException(x)
+        if (l.state === 'working') return <span style={{ color: colors.accentText }}>{`working · ${l.detail}`}</span>
+        if (l.state === 'escalated') return <span style={{ color: colors.statusRed }}>{`escalated to you — ${l.detail}`}</span>
+        if (l.state === 'resolved') {
+          return (
+            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'baseline' }}>
+              <span style={{ color: colors.statusGreen }}>agent resolved</span>
+              {/* §15.1.2 — the why is the decision record on the detail screen */}
+              <Link to={`/entity/${code}/p2p/invoices/${x.id}`} style={{ color: colors.accentText, textDecoration: 'none' }}>why →</Link>
+            </span>
+          )
+        }
+        return <span style={{ color: colors.textMuted }}>{l.detail}</span>
+      },
+    },
     {
       width: '236px',
       header: 'Actions',
@@ -170,7 +227,13 @@ export function Worklist() {
           <FreshnessStamp sources={['SAP ECC']} />
         </div>
         {/* §7.20 — one line: sample against pool, and why the visible resolvable count is what it is */}
-        <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textMuted }}>{headerSegments.join(' · ')}</span>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+          {/* §15.1.1 — the screen-level demo control; one-shot per session, disabled once run */}
+          <button type="button" className="fct-action-chip" onClick={runCycle} disabled={agentCycleRan(code ?? '')} style={{ ...actionChip, opacity: agentCycleRan(code ?? '') ? 0.5 : 1 }}>
+            Run the next cycle (demo)
+          </button>
+          <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textMuted }}>{headerSegments.join(' · ')}</span>
+        </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -187,6 +250,13 @@ export function Worklist() {
         <button type="button" className={`fct-chip${resolvableActive ? ' fct-chip--active' : ''}`} onClick={() => setParam('resolvable', resolvableActive ? null : '1')}>
           {resolvableCount !== undefined ? `${resolvableCount} resolvable today` : 'Resolvable today'}
         </button>
+        {/* §15.7 — filter by the row's agent lane; every choice is an explicit URL value so it sticks under a cause filter */}
+        <span style={filterLabel}>Agent</span>
+        {LANES.map((l) => (
+          <button key={l.key} type="button" className={`fct-chip${lane === l.key ? ' fct-chip--active' : ''}`} onClick={() => setParam('lane', l.key)}>
+            {l.label}
+          </button>
+        ))}
         <span style={{ ...filterLabel, marginLeft: 'auto' }}>Sort</span>
         {SORTS.map((s) => (
           <button key={s.key} type="button" className={`fct-chip${sort === s.key ? ' fct-chip--active' : ''}`} onClick={() => setParam('sort', s.key)}>

@@ -3,7 +3,7 @@ import { Fragment } from 'react'
 import type { CSSProperties } from 'react'
 import { listCompliance, listEntities } from '../api'
 import type { ComplianceItem, Entity } from '../api'
-import { Eyebrow, FreshnessStamp } from '../components'
+import { FreshnessStamp } from '../components'
 import { formatCr } from '../lib/format'
 import { complianceColor, scoreColor } from '../theme/derive'
 import { colors, fonts, typeScale } from '../theme/tokens'
@@ -58,8 +58,7 @@ export function CompliancePage() {
     <div style={pageStyle}>
       {/* Plain div, not <header> — a nested header would register as a second banner landmark */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <Eyebrow>Compliance</Eyebrow>
-        <h1 style={titleStyle}>Every statutory obligation, in the jurisdiction that owns it.</h1>
+        <h1 style={titleStyle}>Compliance</h1>
         {/* §8.7 — the register is read from SAP ECC */}
         <FreshnessStamp sources={['SAP ECC']} />
       </div>

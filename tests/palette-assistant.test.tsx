@@ -199,13 +199,9 @@ describe('AI drawer (spec/07)', () => {
 
     fireEvent.click(toggle)
     expect(screen.getByText(/cockpit intelligence/i)).toBeTruthy()
-    expect(screen.getByText(/grounded on the finance semantic model/i)).toBeTruthy()
     for (const q of ['Why is this entity amber?', 'What lifts it fastest?', 'What is our exposure at close?']) {
       expect(screen.getByRole('button', { name: q })).toBeTruthy()
     }
-
-    // The footer states the grounding rule (spec/11).
-    expect(screen.getByText(/Nothing is asserted without a source/)).toBeTruthy()
 
     fireEvent.click(toggle)
     expect(screen.queryByText(/cockpit intelligence/i)).toBeNull()

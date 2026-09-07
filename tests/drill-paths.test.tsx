@@ -97,12 +97,7 @@ describe('Drill paths (spec/08 Part D)', () => {
         render(<App />)
 
         const m = main()
-        expect(
-          m.getByRole('heading', {
-            level: 1,
-            name: proc === 'o2c' ? 'Why receivables keep ageing' : 'Why blocked invoices keep recurring',
-          }),
-        ).toBeTruthy()
+        expect(m.getByRole('heading', { level: 1, name: proc === 'o2c' ? 'Why receivables keep ageing' : 'Why blocked invoices keep recurring' })).toBeTruthy()
         expect(m.getByText(new RegExp(`taxonomy — ${proc}`, 'i'))).toBeTruthy()
         expect(m.getByRole('link', { name: new RegExp(name) }).className).toContain('fct-tax-row--selected')
         expect(m.getByText(new RegExp(`primary root cause — ${name.toLowerCase()}`, 'i'))).toBeTruthy()

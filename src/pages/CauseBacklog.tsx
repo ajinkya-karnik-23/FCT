@@ -77,12 +77,9 @@ export function CauseBacklog() {
     <div style={pageStyle}>
       {/* Plain div, not <header> — a nested header would register as a second banner landmark */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <Eyebrow>Cause elimination</Eyebrow>
-        <h1 style={titleStyle}>Continuous improvement, evidenced.</h1>
+        <h1 style={titleStyle}>Cause elimination</h1>
         {/* §8.7 — the register is read from SAP ECC */}
         <FreshnessStamp sources={['SAP ECC']} />
-        {/* §7.30 — every managed services provider promises continuous improvement; this register is the evidence */}
-        <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0 }}>{`every identified root cause with a named owner and an elimination status — ${counts.eliminated} of ${counts.identified} eliminated to date`}</p>
       </div>
 
       {/* §7.30 headline counts, derived from the register (never stored) */}
@@ -97,7 +94,7 @@ export function CauseBacklog() {
       <section style={cardStyle}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16 }}>
           <Eyebrow style={typeScale.tableHeader}>Register</Eyebrow>
-          <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textMuted }}>{`${rows.length} causes · owners are named people, not departments`}</span>
+          <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textMuted }}>{`${rows.length} causes`}</span>
         </div>
         <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} />
       </section>

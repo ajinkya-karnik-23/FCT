@@ -36,7 +36,6 @@ describe('Service & attribution (spec §4, §5, §7.7, §7.22)', () => {
   it('route renders with its breadcrumb and active nav state', () => {
     openServicePage()
     expect(main().getByRole('heading', { level: 1, name: 'Where the delays come from' })).toBeTruthy()
-    expect(main().getByText('Service & attribution')).toBeTruthy() // eyebrow
     const bc = breadcrumbText()
     expect(bc).toContain('JGL')
     expect(bc).toContain('Service & attribution')
@@ -98,15 +97,13 @@ describe('Service & attribution (spec §4, §5, §7.7, §7.22)', () => {
     expect(c.getByText('Gross achievement')).toBeTruthy()
     expect(c.getByText('Net of client, system and third-party delay')).toBeTruthy()
 
-    // The attribution argument made concrete: the 3.4-point gap, with its evidence trail.
-    expect(c.getByText(`We met ${sc.gross.toFixed(1)}% against the contract; ${sc.net.toFixed(1)}% of what we control.`)).toBeTruthy()
     expect(c.getByText(SERVICE_SCORECARD_DEFINITION)).toBeTruthy()
 
     // The exclusion set is named exactly and sized: for JGL the two readings differ by 0.6 points.
     expect(sc).toEqual({ gross: 95.2, net: 98.6, altNet: 98 })
     expect(c.getByText('The exclusion set is a contract term — whether an interface failure stops the clock depends on who operates the interface; for JGL the two readings differ by 0.6 points.')).toBeTruthy()
 
-    expect(c.getByText('Service credits attach here, and only here')).toBeTruthy()
+    expect(c.getByText('Service credits attach here')).toBeTruthy()
   })
 
   it('SLA table renders day-one rows with values, measuring rows live to-date, needs-register greyed (§7.7/§7.29)', () => {

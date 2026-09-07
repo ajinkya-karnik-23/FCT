@@ -1,6 +1,6 @@
 # Project Map — Finance Control Tower
 
-Inventory of the existing codebase (written at Step 0, refreshed at Step 16). No source files were modified by this document.
+Inventory of the existing codebase (written at Step 0, refreshed at Step 16, re-verified against source at Phase 2 Step 0 on 2026-09-05). No source files were modified by this document.
 
 ## Stack
 
@@ -29,7 +29,7 @@ Two layers sit above the mock data:
 - `src/App.tsx` — wraps `<AppShell>` in `BrowserRouter`.
 - `src/app/AppShell.tsx` — top-level layout: Rail + (TopBar over main routes) + AssistantDrawer + CommandPalette; owns palette/drawer open state, the assistant "ask" API via context, and cockpit-mode state (`useState<CockpitMode>` provided through `AppModeContext`).
 - `src/app/Rail.tsx` — left navigation rail (236px): brand block, nav items grouped under the six §9.1 labels (OVERVIEW · PROCESS · EXPLAIN · ASSURE · FORWARD · SERVICE) with counts, search trigger (⌘K). Counterparty pages are drill-only and never appear here.
-- `src/app/TopBar.tsx` — top bar (60px): breadcrumb, current entity chip + score dot, cockpit-mode toggle (CLOSE / BAU / PRE-CLOSE), period label derived from the active mode (`MODE_PERIOD`), dark/light theme toggle, "Ask the cockpit" drawer button.
+- `src/app/TopBar.tsx` — top bar (60px): breadcrumb, current entity chip (StatusDot paired with the score number in matching colour), cockpit-mode toggle (CLOSE / BAU / PRE-CLOSE), period label derived from the active mode (`MODE_PERIOD`), dark/light theme toggle, "Ask the cockpit" drawer button.
 - `src/app/routes.tsx` — route table (`AppRoutes`), breadcrumb builder, active-nav resolver, and `RAIL_GROUPS` + `NAV_ITEMS` (14 items; counts derive from API accessors, no literals).
 - `src/app/paths.ts` — `defaultRootCauseTo()`: resolves a root-cause link to p2p + that taxonomy's first cause.
 - `src/app/mode.ts` — cockpit mode: `CockpitMode = 'close' | 'bau' | 'preclose'`, `COCKPIT_MODES` labels, `DEFAULT_COCKPIT_MODE = 'preclose'`, `MODE_PERIOD` strings (`DAY 4 OF CLOSE` / `BUSINESS AS USUAL · DAY 12` / `PRE-CLOSE READINESS · 3 DAYS TO CLOSE`), `AppModeContext` + `useAppMode()`. Mode is not persisted.
@@ -40,14 +40,14 @@ Two layers sit above the mock data:
 
 ### Data layer (API + mock)
 - `src/api/types.ts` — domain interfaces: `Entity` (six dimension scores, working-capital figures, veto caps), `ProcessStage`, `Exception`, `CauseNode`, `CashOpportunity`, ageing/reason buckets, group summary, O2C KPIs/service-control, control signals/categories, compliance obligations, data-quality interfaces, service requests, counterparties, cause-backlog entries. Reference data only; colours/status words derived at render.
-- `src/api/index.ts` — public accessor surface (entities, stages, exceptions, causes, cash opportunities, group summary, ageing, payables-by-reason, service control, recurring causes, O2C KPIs/service-control, cause backlog + elimination trend, compliance, controls + AP-tool effectiveness, data quality, requests, counterparties) + type re-exports.
+- `src/api/index.ts` — public accessor surface (entities, stages, exceptions, causes, cash opportunities, group summary, per-entity blocked/receivables ageing via getBlockedInvoiceAgeing/getReceivablesAgeing, payables-by-reason, service control, recurring causes, O2C KPIs/service-control, cause backlog + elimination trend, compliance, controls + AP-tool effectiveness, data quality, requests, counterparties) + per-cause pool denominators (causePool — filtered worklist headers tie to the taxonomy node's value at risk) + type re-exports.
 - `src/api/score.ts` — §3.1/§3.2 score engine: `DIMENSION_KEYS/LABELS/DEFINITIONS/WEIGHTS` (contractual weights .2/.15/.2/.2/.1/.15), `computeScore` (weighted sum, min active veto cap → displayed + `cappedBy`), `priorScore`, `applySensitivity` (§7.10 deltas computed never stored); group-level derived KPIs each with its §8.6.1 definition string: `GROUP_SCORE_DEFINITION`/`groupScore(+Previous)`, `VALUE_AT_RISK_DEFINITION`/`valueAtRisk`, `OPEN_EXCEPTIONS_DEFINITION`/`openExceptions(+Previous)`; plus `trendDelta`, `pointDirection`, `stageExceptionPct`.
 - `src/api/actions.ts` — §8.9 worklist row actions (see "Where mock data lives").
-- `src/api/mock/entities.ts` — 6 legal entities: six dimension scores, working-capital figures, oldest-item ageing, SLA breach counts, veto caps.
+- `src/api/mock/entities.ts` — 6 legal entities: six dimension scores, working-capital figures (incl. queriesOverdue), oldest-item ageing, SLA breach counts, veto caps.
 - `src/api/mock/stages.ts` — P2P stages (7) and O2C stages (7): step code, name, volume, value, exception %, status.
 - `src/api/mock/exceptions.ts` — blocked-invoice exceptions per entity (process p2p).
 - `src/api/mock/causes.ts` — root-cause taxonomies in the fixed §6.1 vocabulary: share, value at risk, delay, recurrence, concentration, narrative, plant/segment + vendor/driver splits, actions.
-- `src/api/mock/misc.ts` — supporting datasets: blocked-invoice ageing, receivables ageing, payables-by-reason, cash opportunities, recurring causes, P2P service & control, O2C KPIs + service/control, group summary (close progress + transformation health).
+- `src/api/mock/misc.ts` — supporting datasets: per-entity blocked-invoice and receivables ageing (share tables allocated to each entity's pool by largest-remainder), payables-by-reason, cash opportunities, recurring causes, P2P service & control, O2C KPIs + service/control, group summary (close progress + transformation health).
 - `src/api/mock/causeBacklog.ts` — §7.30 cause-elimination register (entity-level rows with owner/target/status) plus the six-period elimination trend and current-period eliminations.
 - `src/api/mock/compliance.ts` — compliance obligations with filed/due/overdue status, per-section scores, value at risk.
 - `src/api/mock/controls.ts` — §7.8 control signals across five categories (payment/authority/system/cutoff/exposure) + AP automation tool effectiveness (override rates, value prevented).

@@ -216,9 +216,6 @@ export function AssistantDrawer({ entityCode, question, onClose, onQuestionConsu
             SEND
           </button>
         </div>
-        <p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: colors.textMuted }}>
-          Answers resolve to transactions, owners and service records. Nothing is asserted without a source.
-        </p>
       </div>
     </aside>
   )

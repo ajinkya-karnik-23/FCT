@@ -123,7 +123,7 @@ describe('Compliance screen (§7.26)', () => {
     window.history.pushState(null, '', '/compliance')
     render(<App />)
     const m = screen.getByRole('main')
-    expect(m.querySelector('h1')?.textContent).toBe('Every statutory obligation, in the jurisdiction that owns it.')
+    expect(m.querySelector('h1')?.textContent).toBe('Compliance')
 
     // Multi-jurisdiction coverage is the selling point — every geography shows on its rows.
     const t = m.textContent ?? ''
@@ -155,13 +155,14 @@ describe('Compliance screen (§7.26)', () => {
     const p = screen.getByRole('dialog', { name: 'Command palette' })
     const input = within(p).getByPlaceholderText('Jump to an entity, process, exception or vendor')
 
-    // "compliance" matches only the screen item.
+    // "compliance" also matches the buying-compliance agent; pick the screen row by its meta.
     fireEvent.change(input, { target: { value: 'compliance' } })
     const rows = within(p).getAllByRole('button')
-    expect(rows).toHaveLength(1)
-    expect(rows[0].textContent).toContain('Compliance')
+    const complianceRows = rows.filter((r) => /open obligations/.test(r.textContent ?? ''))
+    expect(complianceRows).toHaveLength(1)
+    expect(complianceRows[0].textContent).toContain('Compliance')
 
-    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.click(complianceRows[0])
     expect(window.location.pathname).toBe('/compliance')
   })
 })
@@ -171,7 +172,7 @@ describe('Data quality screen (§7.27)', () => {
     window.history.pushState(null, '', '/data-quality')
     render(<App />)
     const m = screen.getByRole('main')
-    expect(m.querySelector('h1')?.textContent).toBe('Where master data fails — and the working capital it becomes.')
+    expect(m.querySelector('h1')?.textContent).toBe('Data quality')
 
     const t = m.textContent ?? ''
     for (const d of ['Vendor master', 'Customer master', 'General ledger', 'Interfaces']) expect(t.includes(d)).toBe(true)

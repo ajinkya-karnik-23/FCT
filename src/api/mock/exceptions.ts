@@ -102,14 +102,19 @@ const CAUSE_BEATS: Record<string, Beat[]> = {
 };
 
 // §7.19 — the open line says what is still waiting; when resolvable today, the same cause reads as one action away.
-const CLOSING_LINE_OPEN: Record<string, string> = {
-  'missing-gr': 'Awaiting GR — escalation due in 6 hours',
-  'po-price-mismatch': 'Awaiting rate confirmation — escalation due in 6 hours',
-  'approval-pending': 'Awaiting approver release — escalation due in 6 hours',
-  'vendor-master': 'Awaiting master data fix — escalation due in 6 hours',
-  'duplicate-suspicion': 'Awaiting dedup review outcome — escalation due in 6 hours',
-  'tax-mismatch': 'Awaiting tax correction — escalation due in 6 hours',
+const OPEN_LINE_PREFIX: Record<string, string> = {
+  'missing-gr': 'Awaiting GR',
+  'po-price-mismatch': 'Awaiting rate confirmation',
+  'approval-pending': 'Awaiting approver release',
+  'vendor-master': 'Awaiting master data fix',
+  'duplicate-suspicion': 'Awaiting dedup review outcome',
+  'tax-mismatch': 'Awaiting tax correction',
 };
+
+// The escalation timer is the item's own: older items escalate sooner, so lanes differ instead of all reading six hours.
+export function escalationHours(ageDays: number): number {
+  return Math.max(1, 47 - ageDays);
+}
 
 // §7.19 — prospective: the clearing action is available and quick; nothing has posted yet.
 const CLOSING_LINE_RESOLVABLE: Record<string, string> = {
@@ -121,8 +126,10 @@ const CLOSING_LINE_RESOLVABLE: Record<string, string> = {
   'tax-mismatch': 'Tax correction prepared — one validation releases it',
 };
 
-export function closingLine(reasonKey: string, resolvableToday = false): string {
-  return (resolvableToday ? CLOSING_LINE_RESOLVABLE : CLOSING_LINE_OPEN)[reasonKey];
+export function closingLine(reasonKey: string, resolvableToday = false, ageDays?: number): string {
+  if (resolvableToday) return CLOSING_LINE_RESOLVABLE[reasonKey];
+  const hours = escalationHours(ageDays ?? 0);
+  return `${OPEN_LINE_PREFIX[reasonKey]} — escalation due in ${hours} hour${hours === 1 ? '' : 's'}`;
 }
 
 // One seeded clock per (row, offset) so evidence and timeline stamp the same event identically.
@@ -207,6 +214,13 @@ const SEEDS: Seed[] = [
   { code: 'JHS', totalCr: 2.9, maxAge: 27, plants: ['Spokane, WA', 'Montreal, QC'], vendors: US_VENDORS, owners: ['J. Halloran', 'T. Bergstrom'], idBase: 507000, poPrefix: '84' },
   { code: 'JRP', totalCr: 10.1, maxAge: 74, plants: ['Kirkland, QC', 'US radiopharmacy network'], vendors: CA_US_VENDORS, owners: ['C. Tremblay', 'N. Okafor'], idBase: 608000, poPrefix: '95' },
 ];
+
+// §7.17 — the named people per entity (JGL's four from its pinned rows). Exported so other datasets (PO owners in
+// commitments) reuse the same pool instead of inventing new names.
+export const OWNER_POOLS: Record<string, string[]> = {
+  JGL: ['P. Nair', 'A. Sethi', 'R. Iyer', 'S. Rao'],
+  ...Object.fromEntries(SEEDS.map((s) => [s.code, s.owners])),
+};
 
 // Splits totalCr into twelve non-increasing values (2dp) that sum exactly to the shown value.
 function splitValues(totalCr: number, rand: () => number): number[] {

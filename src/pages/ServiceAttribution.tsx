@@ -222,13 +222,12 @@ export function ServiceAttribution() {
               <div><span style={{ ...typeScale.bigScore, color: colors.textPrimary }}>{`${scorecard.net.toFixed(1)}%`}</span></div>
             </div>
           </div>
-          <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0, lineHeight: 1.5 }}>{`We met ${scorecard.gross.toFixed(1)}% against the contract; ${scorecard.net.toFixed(1)}% of what we control.`}</p>
           <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0, lineHeight: 1.5 }}>{SERVICE_SCORECARD_DEFINITION}</p>
           {/* §4 — name the exclusion set exactly and size how much the two readings differ for this entity; suppressed when they agree */}
           {exclusionDelta.toFixed(1) !== '0.0' && (
             <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0, lineHeight: 1.5 }}>{`The exclusion set is a contract term — whether an interface failure stops the clock depends on who operates the interface; for ${entity.code} the two readings differ by ${exclusionDelta.toFixed(1)} points.`}</p>
           )}
-          <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textMuted }}>Service credits attach here, and only here</span>
+          <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textMuted }}>Service credits attach here</span>
         </section>
       </div>
 

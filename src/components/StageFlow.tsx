@@ -10,7 +10,7 @@ import { StatusDot } from './StatusDot'
 // Prototype scaling: the stage exception fill is exceptionPct * 3.4 % of the track width (spec/05).
 const STAGE_FILL_SCALE = 3.4
 
-export function StageFlow({ stages, to }: { stages: ProcessStage[]; to: string }) {
+export function StageFlow({ stages, to, stageTo }: { stages: ProcessStage[]; to: string; stageTo?: Record<string, string> }) {
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: spacing.gapCardInner }}>
       {/* §8.1 — these are open work in progress, not period volumes */}
@@ -23,7 +23,7 @@ export function StageFlow({ stages, to }: { stages: ProcessStage[]; to: string }
           <Link
             key={s.step}
             id={`fct-stage-${s.step}`} // §8.2 — drill anchor target (e.g. #fct-stage-COL from the consequence strip)
-            to={to}
+            to={stageTo?.[s.step] ?? to}
             className="fct-stage-card"
             style={{ background: colors.bgPanel, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8, color: colors.textPrimary, textDecoration: 'none' }}
           >
