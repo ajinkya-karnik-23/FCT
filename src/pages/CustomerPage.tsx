@@ -4,12 +4,13 @@ import { getEntity, listCounterparties } from '../api'
 import { AgeingChart, Eyebrow, FreshnessStamp } from '../components'
 import { formatCr } from '../lib/format'
 import { colors, fonts, spacing, typeScale } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
 // Headline figures use the tile scale directly — Metric mandates a trend sparkline these pages do not carry.
 const metricLabel: CSSProperties = { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.1em', color: colors.textFaint }
-const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }
+const cardStyle: CSSProperties = { ...clay.card, padding: 20, gap: 14 }
 
 export function CustomerPage() {
   const { code, id } = useParams()
@@ -58,7 +59,7 @@ export function CustomerPage() {
         </div>
         {/* §7.24 — credit block status is the state a controller asks about on the phone */}
         <span
-          style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', padding: '3px 6px', border: `1px solid ${customer.creditBlocked ? colors.statusRed : colors.statusGreen}`, color: customer.creditBlocked ? colors.statusRed : colors.statusGreen }}
+          style={clay.tag(customer.creditBlocked ? colors.statusRed : colors.statusGreen)}
         >
           {customer.creditBlocked ? 'CREDIT BLOCKED' : 'OPEN'}
         </span>
@@ -81,7 +82,7 @@ export function CustomerPage() {
           <p style={{ fontSize: 13, lineHeight: 1.55, color: colors.textSecondary, margin: 0 }}>{customer.paymentBehaviour}</p>
         </section>
 
-        <section style={{ ...cardStyle, border: customer.creditBlocked ? `1px solid ${colors.statusRed}` : undefined, background: customer.creditBlocked ? colors.bgRiskSoft : colors.bgPanel }}>
+        <section style={{ ...cardStyle, background: customer.creditBlocked ? colors.bgRiskSoft : colors.bgPanel }}>
           <Eyebrow style={typeScale.tableHeader}>Credit block &amp; release path</Eyebrow>
           {customer.creditBlocked && customer.releasePath ? (
             <p style={{ fontSize: 13, lineHeight: 1.55, color: colors.textSecondary, margin: 0 }}>{customer.releasePath}</p>

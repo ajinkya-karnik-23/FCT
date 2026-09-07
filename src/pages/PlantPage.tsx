@@ -5,9 +5,10 @@ import type { Exception } from '../api'
 import { DataTable, Eyebrow, FreshnessStamp, type Column } from '../components'
 import { formatCr } from '../lib/format'
 import { ageColor } from '../theme/derive'
-import { colors, fonts, spacing, typeScale } from '../theme/tokens'
+import { colors, fonts, typeScale } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
 // Headline figures use the tile scale directly — Metric mandates a trend sparkline these pages do not carry.
 const metricLabel: CSSProperties = { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.1em', color: colors.textFaint }
@@ -87,7 +88,7 @@ export function PlantPage() {
     { width: '130px', align: 'right', header: 'Amount', render: (x) => <span style={{ fontFamily: fonts.mono }}>{formatCr(x.amount, 2)}</span> },
     { width: '90px', align: 'right', header: 'Age', render: (x) => <span style={{ fontFamily: fonts.mono, color: ageColor(x.ageDays) }}>{`${x.ageDays} d`}</span> },
     { width: '170px', header: 'Blocking reason', render: (x) => <span style={{ color: colors.textSecondary }}>{causeName(x.reasonKey)}</span> },
-    { width: '130px', header: 'Owner', render: (x) => <span style={{ color: colors.textSecondary }}>{x.owner}</span> },
+    { detail: true, header: 'Owner', render: (x) => <span style={{ color: colors.textSecondary }}>{x.owner}</span> },
   ]
 
   return (
@@ -113,11 +114,11 @@ export function PlantPage() {
         ))}
       </div>
 
-      <section style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, fontSize: 13 }}>
+      <section style={{ ...clay.frame, fontSize: 13 }}>
         <DataTable columns={causeColumns} rows={byCause} rowKey={(r) => r.causeKey} />
       </section>
 
-      <section style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, fontSize: 13 }}>
+      <section style={{ ...clay.frame, fontSize: 13 }}>
         <DataTable columns={itemColumns} rows={items} rowKey={(x) => x.id} />
         {partialSample && (
           <div style={{ padding: '12px 20px', borderTop: `1px solid ${colors.borderSubtle}`, color: colors.textMuted }}>

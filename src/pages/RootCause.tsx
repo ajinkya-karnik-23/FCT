@@ -5,10 +5,11 @@ import { Bar, CrossProcessTrace, Eyebrow, FreshnessStamp } from '../components'
 import { AssistantContext } from '../features/assistant/AssistantDrawer'
 import { formatCr, formatRecurrence } from '../lib/format'
 import { barHeights, colors, fonts, radius, spacing, typeScale } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
-const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }
+const cardStyle: CSSProperties = { ...clay.card, padding: 20, gap: 14 }
 
 function DriverRow({ name, pct, to }: { name: string; pct: number; to?: string }) {
   return (
@@ -78,13 +79,13 @@ export function RootCause() {
         {/* §8.7 — the cause register is read from SAP ECC */}
         <FreshnessStamp sources={['SAP ECC']} />
         {/* §11 — the root cause view poses its own question to the drawer */}
-        <button type="button" className="fct-ask-btn" onClick={() => assistant?.ask(proc === 'o2c' ? 'What will DSO be at month-end?' : 'Why do blocked invoices keep recurring?')} style={{ alignSelf: 'flex-start', border: `1px solid ${colors.accent}`, color: colors.textPrimary, padding: '9px 12px', fontSize: 13 }}>{proc === 'o2c' ? 'Ask what DSO will be at month-end' : 'Ask why these keep recurring'}</button>
+        <button type="button" className="fct-ask-btn" onClick={() => assistant?.ask(proc === 'o2c' ? 'What will DSO be at month-end?' : 'Why do blocked invoices keep recurring?')} style={{ alignSelf: 'flex-start', padding: '9px 14px', fontSize: 13 }}>{proc === 'o2c' ? 'Ask what DSO will be at month-end' : 'Ask why these keep recurring'}</button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: spacing.gapCards, alignItems: 'start' }}>
         {/* Taxonomy — the selected row is driven by the :causeKey route param */}
-        <section style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel }}>
-          <div style={{ padding: '14px 18px', borderBottom: `1px solid ${colors.borderDefault}` }}>
+        <section style={{ ...clay.frame, padding: 0 }}>
+          <div style={{ padding: '14px 18px', borderBottom: `1px solid ${colors.borderSubtle}` }}>
             <Eyebrow style={typeScale.tableHeader}>{`Taxonomy — ${proc.toUpperCase()}`}</Eyebrow>
           </div>
           {taxonomy.map((c) => (
@@ -111,7 +112,7 @@ export function RootCause() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.gapCards }}>
           {/* Primary root cause panel — everything reads from the selected CauseNode */}
-          <section style={{ border: `1px solid ${colors.borderAccent}`, background: colors.bgAccentPanel, padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <section style={{ ...clay.cardAccent, padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ width: 6, height: 6, borderRadius: radius.dot, background: colors.accent }} />
               <Eyebrow style={{ ...typeScale.tableHeader, color: colors.accentText }}>{`Primary root cause — ${cause.name}`}</Eyebrow>

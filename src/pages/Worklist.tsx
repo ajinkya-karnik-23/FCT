@@ -6,7 +6,8 @@ import type { Exception, WorklistAction } from '../api'
 import { CrossProcessTrace, DataTable, Eyebrow, FreshnessStamp, type Column } from '../components'
 import { formatCr } from '../lib/format'
 import { ageColor, controlColor } from '../theme/derive'
-import { colors, fonts, spacing, typeScale } from '../theme/tokens'
+import { colors, fonts, typeScale } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
 type SortKey = 'value' | 'age' | 'vendor'
 
@@ -19,7 +20,7 @@ const SORTS: Array<{ key: SortKey; label: string }> = [
 // §8.9 — the worklist is a working tool: every row supports Assign / Chase / Release, with bulk versions.
 const ACTIONS: WorklistAction[] = ['assign', 'chase', 'release']
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 20 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
 const filterLabel: CSSProperties = typeScale.tableHeader
 // spec/05 column grid; AMOUNT, AGE and CONTROL are right-aligned. Checkbox + Actions columns added in §8.9.
@@ -129,19 +130,19 @@ export function Worklist() {
     },
     { width: '130px', align: 'right', header: 'Amount', render: (x) => <span style={{ fontFamily: fonts.mono }}>{formatCr(x.amount, 2)}</span> },
     { width: '90px', align: 'right', header: 'Age', render: (x) => <span style={{ fontFamily: fonts.mono, color: ageColor(x.ageDays) }}>{`${x.ageDays} d`}</span> },
-    { width: '170px', header: 'Blocking reason', render: (x) => <span style={{ color: colors.textSecondary }}>{causeName(x.reasonKey)}</span> },
+    { width: '180px', header: 'Blocking reason', render: (x) => <span style={{ color: colors.textSecondary }}>{causeName(x.reasonKey)}</span> },
     {
-      width: '130px',
+      detail: true,
       header: 'Plant',
       render: (x) => {
         const to = plantRoute(code ?? '', x.plant)
         return to ? <Link to={to} style={{ color: colors.accentText, textDecoration: 'none' }}>{x.plant}</Link> : <span style={{ color: colors.textSecondary }}>{x.plant}</span>
       },
     },
-    { width: '130px', header: 'Owner', render: (x) => <span style={{ color: colors.textSecondary }}>{x.owner}</span> },
-    { width: '110px', align: 'right', header: 'Control', render: (x) => <span style={{ fontFamily: fonts.mono, fontSize: 12, color: controlColor(x.controlSignificance) }}>{x.controlSignificance}</span> },
+    { detail: true, header: 'Owner', render: (x) => <span style={{ color: colors.textSecondary }}>{x.owner}</span> },
+    { detail: true, header: 'Control', render: (x) => <span style={{ fontFamily: fonts.mono, fontSize: 12, color: controlColor(x.controlSignificance) }}>{x.controlSignificance}</span> },
     {
-      width: '220px',
+      width: '236px',
       header: 'Actions',
       render: (x) =>
         x.status === 'released' ? (
@@ -199,7 +200,7 @@ export function Worklist() {
         <CrossProcessTrace code={entity.code} current="invoice" />
       )}
 
-      <section style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, fontSize: 13 }}>
+      <section style={{ ...clay.frame, fontSize: 13 }}>
         {selected.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${colors.borderSubtle}` }}>
             <span style={typeScale.tableHeader}>{`${selected.length} SELECTED`}</span>

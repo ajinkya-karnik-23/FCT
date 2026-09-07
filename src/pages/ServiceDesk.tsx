@@ -5,11 +5,12 @@ import type { Request } from '../api'
 import { DataTable, Eyebrow, FreshnessStamp } from '../components'
 import type { Column } from '../components'
 import { requestSlaColor } from '../theme/derive'
-import { colors, fonts, spacing, typeScale } from '../theme/tokens'
+import { colors, fonts, typeScale } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
-const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }
+const cardStyle: CSSProperties = { ...clay.card, padding: 22, gap: 18 }
 const monoLabelStyle: CSSProperties = { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', color: colors.textMuted }
 const dimStyle: CSSProperties = { color: colors.textFaint }
 
@@ -47,7 +48,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-const inputStyle: CSSProperties = { background: 'transparent', border: `1px solid ${colors.borderStrong}`, padding: '9px 12px', fontSize: 13, color: colors.textPrimary }
+const inputStyle: CSSProperties = { ...clay.sunken, background: colors.bgPanel, border: 'none', padding: '10px 14px', fontSize: 13, color: colors.textPrimary, outline: 'none' }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -108,14 +109,14 @@ export function ServiceDesk() {
   }
 
   const queueColumns: Array<Column<Request>> = [
-    { header: 'Entity', width: '64px', render: (r) => <span style={{ fontFamily: fonts.mono, fontSize: 12 }}>{r.entityCode}</span> },
+    { header: 'Entity', width: '76px', render: (r) => <span style={{ fontFamily: fonts.mono, fontSize: 12 }}>{r.entityCode}</span> },
     { header: 'Type', width: '120px', render: (r) => TYPE_LABEL[r.type] },
     { header: 'Category', render: (r) => <span style={{ color: colors.textSecondary }}>{r.category}</span> },
     { header: 'Raised by', width: '130px', render: (r) => r.raisedBy },
-    { header: 'Raised on', width: '112px', render: (r) => <span style={{ fontFamily: fonts.mono, fontSize: 12 }}>{formatRaised(r.raisedOn)}</span> },
-    { header: 'Age d', width: '70px', align: 'right', render: (r) => <span style={{ fontFamily: fonts.mono, fontSize: 12 }}>{requestAgeDays(r)}</span> },
+    { header: 'Raised on', detail: true, render: (r) => <span style={{ fontFamily: fonts.mono, fontSize: 12 }}>{formatRaised(r.raisedOn)}</span> },
+    { header: 'Age d', width: '80px', align: 'right', render: (r) => <span style={{ fontFamily: fonts.mono, fontSize: 12 }}>{requestAgeDays(r)}</span> },
     // §5's attribution logic applied to requests — the hours the clock stood still while awaiting the client.
-    { header: 'Stopped h', width: '84px', align: 'right', render: (r) => (r.clockStoppedHours > 0 ? <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>{r.clockStoppedHours}</span> : <span style={dimStyle}>—</span>) },
+    { header: 'Stopped h', detail: true, render: (r) => (r.clockStoppedHours > 0 ? <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>{r.clockStoppedHours}</span> : <span style={dimStyle}>—</span>) },
     { header: 'Owner', width: '140px', render: (r) => r.owner },
     { header: 'Status', width: '150px', render: (r) => <span style={{ fontFamily: fonts.mono, fontSize: 12, color: r.status === 'closed' ? colors.textFaint : colors.textSecondary }}>{r.status.toUpperCase()}</span> },
     {

@@ -6,19 +6,20 @@ import type { DriverAssumption, ForecastDriver, RankedAction } from '../api'
 import { DataTable, Eyebrow, FreshnessStamp, Metric } from '../components'
 import type { Column } from '../components'
 import { formatCr } from '../lib/format'
-import { colors, fonts, spacing, typeScale } from '../theme/tokens'
+import { colors, fonts, typeScale } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
-const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }
+const cardStyle: CSSProperties = { ...clay.card, padding: 22, gap: 18 }
 
 // §7.3 — the headline reads whole days in the base case ('72', not '72.0'); contested cases keep one decimal.
 function fmtDays(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1)
 }
 
-const tagStyle = (c: string): CSSProperties => ({ fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', padding: '3px 6px', border: `1px solid ${c}`, color: c, whiteSpace: 'nowrap' })
-const controlButtonStyle: CSSProperties = { border: `1px solid ${colors.borderStrong}`, padding: '3px 7px', fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', color: colors.textPrimary, background: 'transparent', cursor: 'pointer' }
+const tagStyle = (c: string): CSSProperties => clay.tag(c)
+const controlButtonStyle: CSSProperties = clay.controlPill(false)
 
 export function Predictive() {
   // §7.23 — every entity carries its own DSO forecast; the route is per-entity so JRP shows JRP's numbers.
@@ -63,7 +64,7 @@ export function Predictive() {
       },
     },
     { header: 'Value', width: '110px', align: 'right', render: (d) => <span style={{ fontFamily: fonts.mono }}>{formatCr(d.valueCr)}</span> },
-    { header: 'Days impact', width: '110px', align: 'right', render: (d) => <span style={{ fontFamily: fonts.mono }}>{`+${d.impact.toFixed(1)}`}</span> },
+    { header: 'Days impact', width: '130px', align: 'right', render: (d) => <span style={{ fontFamily: fonts.mono }}>{`+${d.impact.toFixed(1)}`}</span> },
     {
       header: 'Assumed settlement',
       width: '200px',
@@ -75,7 +76,7 @@ export function Predictive() {
             value={a.settleIso ?? d.baseSettleIso ?? ''}
             disabled={!!a.resolved}
             onChange={(e) => setAssumption(d.id, { settleIso: e.target.value })}
-            style={{ fontFamily: fonts.mono, fontSize: 12, color: a.resolved ? colors.textFaint : colors.textPrimary, background: 'transparent', border: `1px solid ${colors.borderDefault}`, borderRadius: 0, padding: '4px 6px' }}
+            style={{ ...clay.sunken, fontFamily: fonts.mono, fontSize: 12, color: a.resolved ? colors.textFaint : colors.textPrimary, background: colors.bgPanel, border: 'none', padding: '5px 10px', outline: 'none' }}
           />
         )
       },
@@ -97,7 +98,7 @@ export function Predictive() {
   ]
 
   const actionColumns: Array<Column<RankedAction>> = [
-    { header: '#', width: '40px', render: (a) => <span style={{ fontFamily: fonts.mono, color: colors.textMuted }}>{a.rank}</span> },
+    { header: '#', width: '52px', render: (a) => <span style={{ fontFamily: fonts.mono, color: colors.textMuted }}>{a.rank}</span> },
     { header: 'Action', render: (a) => a.action },
     { header: 'Owner', width: '170px', render: (a) => <span style={{ color: colors.textSecondary }}>{a.owner}</span> },
     { header: 'Effort', width: '90px', render: (a) => <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>{a.effort}</span> },

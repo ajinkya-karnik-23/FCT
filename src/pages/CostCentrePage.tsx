@@ -3,9 +3,10 @@ import { Link, useParams } from 'react-router-dom'
 import { getEntity, listCostCentres } from '../api'
 import { Bar, DataTable, Eyebrow, FreshnessStamp, type Column } from '../components'
 import { formatCr } from '../lib/format'
-import { colors, fonts, spacing, typeScale } from '../theme/tokens'
+import { colors, fonts, typeScale } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
 // Headline figures use the tile scale directly — Metric mandates a trend sparkline these pages do not carry.
 const metricLabel: CSSProperties = { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.1em', color: colors.textFaint }
@@ -83,7 +84,7 @@ export function CostCentrePage() {
         ))}
       </div>
 
-      <section style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <section style={{ ...clay.card, padding: 20 }}>
         <Eyebrow style={typeScale.tableHeader}>Booked and committed against budget</Eyebrow>
         {[
           { label: 'Booked spend', value: centre.bookedSpendCr, color: colors.accent },
@@ -99,7 +100,7 @@ export function CostCentrePage() {
         ))}
       </section>
 
-      <section style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, fontSize: 13 }}>
+      <section style={{ ...clay.frame, fontSize: 13 }}>
         <DataTable columns={poColumns} rows={centre.openPos} rowKey={(p) => p.po} />
         {remaining < 0 && (
           <div style={{ padding: '12px 20px', borderTop: `1px solid ${colors.borderSubtle}`, color: colors.statusRed }}>

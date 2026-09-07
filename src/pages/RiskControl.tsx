@@ -5,11 +5,12 @@ import type { ControlCategory, ControlSignal } from '../api'
 import { Eyebrow, FreshnessStamp } from '../components'
 import { formatCr } from '../lib/format'
 import { controlColor } from '../theme/derive'
-import { colors, fonts, spacing, typeScale } from '../theme/tokens'
+import { colors, fonts, typeScale } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
-const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }
+const cardStyle: CSSProperties = { ...clay.card, padding: 22, gap: 18 }
 // §7.8 — mono label style shared by the metric labels; same family as the read-only / CAPPED tags elsewhere.
 const monoLabelStyle: CSSProperties = { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', color: colors.textMuted }
 
@@ -27,7 +28,7 @@ type AccessLevel = 'fc' | 'plant'
 
 function severityTagStyle(severity: ControlSignal['severity']): CSSProperties {
   const c = controlColor(severity)
-  return { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', padding: '3px 6px', border: `1px solid ${c}`, color: c, whiteSpace: 'nowrap' }
+  return clay.tag(c)
 }
 
 export function RiskControl() {
@@ -47,7 +48,7 @@ export function RiskControl() {
       </div>
 
       {/* §8.8 — restricted content behind a visible marker; demo-only toggle flips it for the walkthrough */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', border: `1px solid ${colors.statusRed}`, background: colors.bgRiskSoft, padding: '12px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', ...clay.cardRisk, padding: '12px 18px', flexDirection: 'row' }}>
         <span style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: '0.08em', color: colors.statusRed }}>{'RESTRICTED — Financial Controller and above'}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* textMuted, not textFaint — the strip sits on bgRiskSoft, where faint fails AA in light */}
@@ -57,7 +58,7 @@ export function RiskControl() {
               key={level}
               type="button"
               onClick={() => setAccess(level)}
-              style={{ border: `1px solid ${access === level ? colors.accent : colors.borderStrong}`, padding: '3px 7px', fontFamily: fonts.mono, fontSize: 10, color: access === level ? colors.textPrimary : colors.textMuted, background: 'transparent', cursor: 'pointer' }}
+              style={clay.controlPill(access === level)}
             >
               {level === 'fc' ? 'FC AND ABOVE' : 'PLANT MANAGER'}
             </button>

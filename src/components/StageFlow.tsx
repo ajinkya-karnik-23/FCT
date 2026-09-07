@@ -25,7 +25,7 @@ export function StageFlow({ stages, to }: { stages: ProcessStage[]; to: string }
             id={`fct-stage-${s.step}`} // §8.2 — drill anchor target (e.g. #fct-stage-COL from the consequence strip)
             to={to}
             className="fct-stage-card"
-            style={{ background: colors.bgPanel, padding: 16, display: 'flex', flexDirection: 'column', gap: 8, color: colors.textPrimary, textDecoration: 'none' }}
+            style={{ background: colors.bgPanel, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8, color: colors.textPrimary, textDecoration: 'none' }}
           >
             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.12em', color: colors.textFaint }}>{s.step}</span>
@@ -34,7 +34,7 @@ export function StageFlow({ stages, to }: { stages: ProcessStage[]; to: string }
             <span style={{ fontSize: 14, fontWeight: fontWeights.semibold }}>{s.name}</span>
             <span style={typeScale.stageVolume}>{s.inFlight.toLocaleString()}</span>
             <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>{formatCr(s.inFlightValue)}</span>
-            <Bar value={stageExceptionPct(s) * STAGE_FILL_SCALE} max={100} height={barHeights.stageRate} color={statusColor(s.status)} />
+            <Bar value={stageExceptionPct(s) * STAGE_FILL_SCALE} max={100} height={barHeights.stageRate + 2} color={statusColor(s.status)} />
             <span style={{ fontFamily: fonts.mono, fontSize: 11, color: s.status === 'GREEN' ? colors.textMuted : statusColor(s.status) }}>{`${stageExceptionPct(s)}% exception`}</span>
           </Link>
         ))}

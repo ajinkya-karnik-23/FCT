@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { computeScore, getEntity } from '../api'
 import { StatusDot } from '../components'
+import { controlPill, pillButton, pillButtonAccent, tag } from '../theme/clay'
 import { scoreColor } from '../theme/derive'
 import { applyTheme, colors, fonts, layout, radius, setStoredTheme, storedTheme, type Theme } from '../theme/tokens'
 import { COCKPIT_MODES, MODE_PERIOD, useAppMode } from './mode'
@@ -30,8 +31,7 @@ export function TopBar({ drawerOpen, onToggleDrawer }: { drawerOpen: boolean; on
         height: layout.topBarHeight,
         flexShrink: 0,
         padding: '0 26px',
-        background: colors.bgPanel,
-        borderBottom: `1px solid ${colors.borderDefault}`,
+        background: colors.bgRoot,
         display: 'flex',
         alignItems: 'center',
         gap: 18,
@@ -60,76 +60,28 @@ export function TopBar({ drawerOpen, onToggleDrawer }: { drawerOpen: boolean; on
       {entity && score && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <StatusDot color={scoreColor(score.displayed)} size={8} />
-          <span style={{ fontFamily: fonts.mono, fontSize: 12, fontWeight: 600, color: scoreColor(score.displayed) }}>{score.displayed}</span>
+          <span style={{ fontFamily: fonts.mono, fontSize: 12, fontWeight: 700, color: scoreColor(score.displayed) }}>{score.displayed}</span>
           <span style={{ fontSize: 13, fontWeight: 600 }}>{entity.name}</span>
-          <span
-            style={{
-              border: `1px solid ${colors.borderStrong}`,
-              padding: '3px 7px',
-              fontFamily: fonts.mono,
-              fontSize: 11,
-              color: colors.textFaint,
-            }}
-          >
-            {entity.code}
-          </span>
+          <span style={{ ...tag(colors.textMuted), fontSize: 11 }}>{entity.code}</span>
         </div>
       )}
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14 }}>
         {/* §8.5 — demo mode switcher, labelled as a demo control. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: fonts.mono, fontSize: 9, letterSpacing: '0.08em', color: colors.textFaint }}>DEMO MODE</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontFamily: fonts.mono, fontSize: 9, letterSpacing: '0.08em', color: colors.textFaint, marginRight: 4 }}>DEMO MODE</span>
           {COCKPIT_MODES.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => setMode(m.id)}
-              style={{
-                border: `1px solid ${mode === m.id ? colors.accent : colors.borderStrong}`,
-                padding: '3px 7px',
-                fontFamily: fonts.mono,
-                fontSize: 10,
-                color: mode === m.id ? colors.textPrimary : colors.textFaint,
-                background: 'transparent',
-                cursor: 'pointer',
-              }}
-            >
+            <button key={m.id} type="button" className="fct-press" onClick={() => setMode(m.id)} style={controlPill(mode === m.id)}>
               {m.label}
             </button>
           ))}
         </div>
         <span style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.textFaint }}>PERIOD AUG-2026 · {MODE_PERIOD[mode]}</span>
-        <button
-          type="button"
-          onClick={toggleTheme}
-          style={{
-            border: `1px solid ${colors.borderStrong}`,
-            padding: '3px 7px',
-            fontFamily: fonts.mono,
-            fontSize: 11,
-            color: colors.textFaint,
-            background: 'transparent',
-            cursor: 'pointer',
-          }}
-        >
+        <button type="button" className="fct-press" onClick={toggleTheme} style={controlPill(false)}>
           {theme === 'dark' ? 'DARK MODE' : 'LIGHT MODE'}
         </button>
-        <button
-          type="button"
-          onClick={onToggleDrawer}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 9,
-            padding: '8px 13px',
-            fontSize: 13,
-            border: `1px solid ${drawerOpen ? colors.accent : colors.borderStrong}`,
-            background: 'transparent',
-            color: colors.textPrimary,
-          }}
-        >
-          <span aria-hidden style={{ width: 6, height: 6, borderRadius: radius.dot, background: colors.accent }} />
+        <button type="button" className="fct-press" onClick={onToggleDrawer} style={drawerOpen ? pillButtonAccent : pillButton}>
+          <span aria-hidden style={{ width: 6, height: 6, borderRadius: radius.dot, background: drawerOpen ? '#FFFFFF' : colors.accent }} />
           Ask the cockpit
         </button>
       </div>

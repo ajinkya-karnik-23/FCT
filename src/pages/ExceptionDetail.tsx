@@ -6,10 +6,11 @@ import { Eyebrow, FreshnessStamp, StatusDot } from '../components'
 import { formatCr } from '../lib/format'
 import { ageColor, controlColor } from '../theme/derive'
 import { colors, fonts, spacing, typeScale } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 20 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
-const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, display: 'flex', flexDirection: 'column' }
+const cardStyle: CSSProperties = { ...clay.card, padding: 0, gap: 0 }
 const fieldRow: CSSProperties = { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, padding: '12px 20px', borderBottom: `1px solid ${colors.borderSubtle}`, fontSize: 13 }
 const backLinkStyle: CSSProperties = { alignSelf: 'flex-start', padding: '8px 12px', fontSize: 12, textDecoration: 'none' }
 
@@ -52,7 +53,7 @@ export function ExceptionDetail() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: spacing.gapCards }}>
         <section style={cardStyle}>
-          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${colors.borderDefault}` }}>
+          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${colors.borderSubtle}` }}>
             <Eyebrow style={typeScale.tableHeader}>Transaction</Eyebrow>
           </div>
           <div>
@@ -122,7 +123,7 @@ export function ExceptionDetail() {
             </div>
           </section>
 
-          <section style={{ border: `1px solid ${colors.borderAccent}`, background: colors.bgAccentPanel, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <section style={{ ...clay.cardAccent, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Eyebrow style={{ ...typeScale.tableHeader, color: colors.accentText }}>Next action</Eyebrow>
             <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: colors.textSecondary }}>
               {`Goods receipt is pending at ${x.plant} stores. Auto-escalation to the plant controller fires in 6 hours; releasing this invoice clears ${formatCr(x.amount, 2)} of payment block.`}

@@ -22,7 +22,7 @@ export function Metric({ label, value, trend, inverse, compact = false, valueSty
         <span style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: colors.textFaint }}>{label}</span>
       )}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: compact ? 'flex-end' : 'space-between', gap: 8 }}>
-        <span style={compact ? { fontFamily: fonts.mono, fontSize: 13, ...valueStyle } : valueStyle ?? typeScale.tileValue}>{value}</span>
+        <span style={compact ? { fontFamily: fonts.mono, fontSize: 13, fontVariantNumeric: 'tabular-nums', ...valueStyle } : valueStyle ?? typeScale.tileValue}>{value}</span>
         <span style={{ fontFamily: fonts.mono, fontSize: compact ? 10 : 12, color }}>{`${delta.percent > 0 ? '+' : ''}${delta.percent}%`}</span>
       </div>
       <Sparkline series={trend.series} color={color} width={compact ? 56 : 72} alignEnd={compact} />

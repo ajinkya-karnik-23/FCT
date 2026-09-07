@@ -5,11 +5,12 @@ import type { Attribution, ServiceMetric, SlaBreachSplit } from '../api'
 import { DataTable, Eyebrow, FreshnessStamp } from '../components'
 import type { Column } from '../components'
 import { scoreColor, statusWord } from '../theme/derive'
-import { barHeights, colors, fonts, spacing, typeScale } from '../theme/tokens'
+import { barHeights, colors, fonts, spacing, typeScale, shadows } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
-const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }
+const cardStyle: CSSProperties = { ...clay.card, padding: 22, gap: 18 }
 // §4 — gross/net labels; same mono tag style as the read-only / CAPPED tags on this screen.
 const scoreLabelStyle: CSSProperties = { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', color: colors.textMuted }
 
@@ -167,7 +168,7 @@ export function ServiceAttribution() {
             <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textFaint }}>read-only · source: SLA breach log</span>
           </div>
         </div>
-        <div className="fct-sla-bar" style={{ display: 'flex', height: barHeights.ageing, background: colors.borderSubtle }}>
+        <div className="fct-sla-bar" style={{ display: 'flex', height: barHeights.ageing, background: colors.bgSelected, borderRadius: 6, boxShadow: shadows.in, overflow: 'hidden' }}>
           {segments.map((seg) => (
             <div key={seg.key} className="fct-sla-seg" title={`${seg.label}: ${seg.count} of ${split.total}`} style={{ width: `${(seg.count / split.total) * 100}%`, background: seg.color }} />
           ))}
@@ -175,7 +176,7 @@ export function ServiceAttribution() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 24px' }}>
           {segments.map((seg) => (
             <span key={seg.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-              <span style={{ width: 10, height: 10, background: seg.color }} />
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: seg.color }} />
               {seg.label}
               <span style={{ fontFamily: fonts.mono, color: colors.textMuted }}>{`${seg.count} · ${Math.round((seg.count / split.total) * 100)}%`}</span>
             </span>
@@ -191,14 +192,14 @@ export function ServiceAttribution() {
         <Link to={`/entity/${entity.code}`} className="fct-link" style={{ ...cardStyle, textDecoration: 'none' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16 }}>
             <Eyebrow style={typeScale.tableHeader}>Health score</Eyebrow>
-            <span style={{ fontFamily: fonts.mono, fontSize: 12, letterSpacing: '0.12em', padding: '4px 9px', color: statusColor, border: `1px solid color-mix(in srgb, ${statusColor} 33%, transparent)` }}>{statusWord(score.displayed)}</span>
+            <span style={{ ...clay.tag(statusColor), fontSize: 11, letterSpacing: '0.12em' }}>{statusWord(score.displayed)}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
             <span style={{ ...typeScale.bigScore, color: statusColor }}>{score.displayed}</span>
             <span style={{ fontFamily: fonts.mono, fontSize: 14, color: colors.textFaint }}>/100</span>
           </div>
           {score.cappedBy && (
-            <span style={{ alignSelf: 'flex-start', fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', padding: '3px 6px', border: `1px solid ${colors.statusRed}`, color: colors.statusRed }}>{`CAPPED — ${score.cappedBy.reason}`}</span>
+            <span style={{ alignSelf: 'flex-start', ...clay.tag(colors.statusRed, colors.bgRiskSoft) }}>{`CAPPED — ${score.cappedBy.reason}`}</span>
           )}
           <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0, lineHeight: 1.5 }}>{HEALTH_SCORE_DEFINITION}</p>
         </Link>

@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { colors, spacing } from '../theme/tokens'
+import { card } from '../theme/clay'
 import { Eyebrow } from './Eyebrow'
 
 interface CardProps {
@@ -8,19 +8,10 @@ interface CardProps {
   style?: CSSProperties
 }
 
+// A raised clay panel — one readable object. Rows inside a table use the frame recipe instead.
 export function Card({ eyebrow, children, style }: CardProps) {
   return (
-    <section
-      style={{
-        background: colors.bgPanel,
-        border: `1px solid ${colors.borderDefault}`,
-        padding: spacing.cardPadding,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: spacing.gapCardInner,
-        ...style,
-      }}
-    >
+    <section style={{ ...card, ...style }}>
       {eyebrow != null ? <Eyebrow>{eyebrow}</Eyebrow> : null}
       {children}
     </section>

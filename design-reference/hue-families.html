@@ -1,0 +1,188 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FCT Hue Families</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--pg:#F4F3F1;--pt:#1D1F23;--pm:#6B6E75;--rule:#DAD8D3}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--pg:#141517;--pt:#ECEBE8;--pm:#9A9CA3;--rule:#2A2C31}}
+:root[data-theme="dark"]{--pg:#141517;--pt:#ECEBE8;--pm:#9A9CA3;--rule:#2A2C31}
+body{background:var(--pg);color:var(--pt);font-family:'IBM Plex Sans',-apple-system,Segoe UI,sans-serif;padding:40px 32px 80px}
+h1{font-size:26px;font-weight:600;letter-spacing:-.01em;margin:0 0 6px;text-wrap:balance}
+.lede{color:var(--pm);max-width:64ch;margin:0 0 36px;line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:28px}
+.fam{border:1px solid var(--rule);border-radius:14px;overflow:hidden;background:var(--pg)}
+.fam header{padding:16px 18px 12px;display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.fam h2{font-size:16px;font-weight:600;margin:0}
+.fam .note{font-size:12.5px;color:var(--pm);margin:2px 0 0}
+.fam .hue{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--pm);white-space:nowrap}
+/* mock — everything inside reads the family's own tokens */
+.mock{padding:20px;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',Segoe UI,Roboto,sans-serif}
+.mock .kpis{display:flex;gap:10px;margin-bottom:14px}
+.mock .kpi{flex:1;background:var(--bg);border-radius:16px;padding:12px 14px;box-shadow:var(--up)}
+.mock .kl{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.mock .kv{font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:600;margin-top:2px}
+.mock .kd{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--muted);margin-top:2px}
+.mock .tabs{display:inline-flex;gap:4px;padding:4px;border-radius:999px;box-shadow:var(--in);margin-bottom:12px}
+.mock .tab{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:6px 12px;border-radius:999px;color:var(--muted)}
+.mock .tab.on{background:var(--accent);color:var(--onaccent);box-shadow:var(--up-sm)}
+.mock .row{display:grid;grid-template-columns:1.3fr .7fr 1.4fr .8fr .4fr;gap:8px;align-items:center;padding:12px 14px;border-radius:16px;box-shadow:var(--up);margin-bottom:8px;font-size:12.5px}
+.mock .nm{font-weight:600;display:flex;align-items:center;gap:8px}
+.mock .dot{width:8px;height:8px;border-radius:50%}
+.mock .sc{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:15px}
+.mock .sw{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--muted);margin-left:5px;letter-spacing:.1em}
+.mock .dims{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.mock .dp{height:14px;border-radius:5px;box-shadow:var(--in);position:relative;overflow:hidden}
+.mock .df{position:absolute;inset:2px auto 2px 2px;border-radius:3px;background:var(--data)}
+.mock .mn{font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right;color:var(--ink2)}
+.mock .br{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;text-align:right}
+.mock .cap{font-family:'IBM Plex Mono',monospace;font-size:8.5px;color:var(--red);box-shadow:var(--in);padding:3px 6px;border-radius:6px;display:inline-block;margin-top:4px}
+.sw-strip{display:flex;border-top:1px solid var(--rule)}
+.sw-strip div{flex:1;height:34px;position:relative}
+.sw-strip div span{position:absolute;left:0;right:0;bottom:-16px;font-family:'IBM Plex Mono',monospace;font-size:8.5px;color:var(--pm);text-align:center;white-space:nowrap}
+.tok{padding:26px 18px 14px;display:grid;grid-template-columns:repeat(2,1fr);gap:3px 16px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--pm)}
+.tok b{color:var(--pt);font-weight:600}
+.tok .ok{color:#2E7D4F}
+.extra{padding:0 18px 16px;font-size:11.5px;color:var(--pm);line-height:1.5}
+.extra code{font-family:'IBM Plex Mono',monospace;font-size:10.5px}
+.method{margin-top:44px;border-top:1px solid var(--rule);padding-top:22px;max-width:70ch;color:var(--pm);font-size:13.5px;line-height:1.55}
+.method b{color:var(--pt)}
+</style>
+</head><body style="margin:0">
+<h1>Hue families for the clay Group View</h1>
+<p class="lede">Every light option is generated the same way — one OKLCH hue held fixed, neutrals tinted 1–2% toward it, an ink lightness ladder, one mid-chroma accent, a separate data hue, and a status trio at matched lightness. Each text colour is then lowered until it clears 4.5:1 on its ground, so the numbers under each card are measured, not eyeballed. The last card is CRED's real NeoPOP tokens, pulled from their open-source <code>neopop-web</code> library.</p>
+<div class="grid">
+<section class="fam">
+<header><div><h2>Slate blue</h2><p class="note">current — cool, corporate, safe</p></div><span class="hue">h 250°</span></header>
+<div class="mock" style="--bg:#EAF1F8;--ink:#222F3C;--ink2:#515F6E;--muted:#626D7A;--accent:#166EB9;--onaccent:#FFFFFF;--data:#6DA3DA;--green:#277A40;--amber:#956100;--red:#B74441;--up:-5px -5px 12px rgba(255,255,255,.95), 5px 5px 14px #222F3C26;--up-sm:-3px -3px 7px rgba(255,255,255,.9), 3px 3px 8px #222F3C22;--in:inset -3px -3px 8px rgba(255,255,255,.9), inset 4px 4px 10px #222F3C2E">
+ <div class="kpis">
+  <div class="kpi"><div class="kl">Group score</div><div class="kv" style="color:var(--amber)">76</div><div class="kd">−1 vs prior</div></div>
+  <div class="kpi"><div class="kl">Value at risk</div><div class="kv">₹100.4 cr</div><div class="kd">tracked, not owned</div></div>
+  <div class="kpi"><div class="kl">Open exceptions</div><div class="kv">1,980</div><div class="kd">−32 vs prior</div></div>
+ </div>
+ <div class="tabs"><span class="tab on">Entity</span><span class="tab">Segment</span><span class="tab">Geography</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--green)"></span>Jubilant Cadista</span><span><span class="sc" style="color:var(--green)">91</span><span class="sw">GREEN</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:88%"></span></span><span class="dp"><span class="df" style="width:92%"></span></span><span class="dp"><span class="df" style="width:85%"></span></span></span><span class="mn">₹2.1 cr</span><span class="br" style="color:var(--green)">0</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--amber)"></span>Jubilant Generics</span><span><span class="sc" style="color:var(--amber)">74</span><span class="sw">AMBER</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:64%"></span></span><span class="dp"><span class="df" style="width:66%"></span></span><span class="dp"><span class="df" style="width:46%"></span></span></span><span class="mn">₹18.6 cr</span><span class="br" style="color:var(--amber)">4</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--red)"></span><span>Jubilant Radiopharma<br><span class="cap">CAPPED — vendor bank change</span></span></span><span><span class="sc" style="color:var(--red)">55</span><span class="sw">RED</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:58%"></span></span><span class="dp"><span class="df" style="width:52%"></span></span><span class="dp"><span class="df" style="width:44%"></span></span></span><span class="mn">₹14.7 cr</span><span class="br" style="color:var(--red)">7</span></div>
+</div>
+<div class="sw-strip"><div style="background:#EAF1F8"><span>bg</span></div><div style="background:#222F3C"><span>ink</span></div><div style="background:#515F6E"><span>ink2</span></div><div style="background:#626D7A"><span>muted</span></div><div style="background:#166EB9"><span>accent</span></div><div style="background:#6DA3DA"><span>data</span></div><div style="background:#277A40"><span>green</span></div><div style="background:#956100"><span>amber</span></div><div style="background:#B74441"><span>red</span></div></div>
+<div class="tok"><span><b>bg</b> #EAF1F8</span><span><b>ink</b> #222F3C <span class="ok">11.97:1</span></span><span><b>ink2</b> #515F6E <span class="ok">5.74:1</span></span><span><b>muted</b> #626D7A <span class="ok">4.62:1</span></span><span><b>accent</b> #166EB9 <span class="ok">4.65:1</span></span><span><b>data</b> #6DA3DA</span><span><b>green</b> #277A40 <span class="ok">4.67:1</span></span><span><b>amber</b> #956100 <span class="ok">4.62:1</span></span><span><b>red</b> #B74441 <span class="ok">4.71:1</span></span></div>
+</section>
+<section class="fam">
+<header><div><h2>Petrol teal</h2><p class="note">calmer than blue, reads 'analytical'</p></div><span class="hue">h 200°</span></header>
+<div class="mock" style="--bg:#E7F3F3;--ink:#1B3234;--ink2:#4A6364;--muted:#5C7071;--accent:#007781;--onaccent:#FFFFFF;--data:#40B1B7;--green:#277A40;--amber:#956100;--red:#B94642;--up:-5px -5px 12px rgba(255,255,255,.95), 5px 5px 14px #1B323426;--up-sm:-3px -3px 7px rgba(255,255,255,.9), 3px 3px 8px #1B323422;--in:inset -3px -3px 8px rgba(255,255,255,.9), inset 4px 4px 10px #1B32342E">
+ <div class="kpis">
+  <div class="kpi"><div class="kl">Group score</div><div class="kv" style="color:var(--amber)">76</div><div class="kd">−1 vs prior</div></div>
+  <div class="kpi"><div class="kl">Value at risk</div><div class="kv">₹100.4 cr</div><div class="kd">tracked, not owned</div></div>
+  <div class="kpi"><div class="kl">Open exceptions</div><div class="kv">1,980</div><div class="kd">−32 vs prior</div></div>
+ </div>
+ <div class="tabs"><span class="tab on">Entity</span><span class="tab">Segment</span><span class="tab">Geography</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--green)"></span>Jubilant Cadista</span><span><span class="sc" style="color:var(--green)">91</span><span class="sw">GREEN</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:88%"></span></span><span class="dp"><span class="df" style="width:92%"></span></span><span class="dp"><span class="df" style="width:85%"></span></span></span><span class="mn">₹2.1 cr</span><span class="br" style="color:var(--green)">0</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--amber)"></span>Jubilant Generics</span><span><span class="sc" style="color:var(--amber)">74</span><span class="sw">AMBER</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:64%"></span></span><span class="dp"><span class="df" style="width:66%"></span></span><span class="dp"><span class="df" style="width:46%"></span></span></span><span class="mn">₹18.6 cr</span><span class="br" style="color:var(--amber)">4</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--red)"></span><span>Jubilant Radiopharma<br><span class="cap">CAPPED — vendor bank change</span></span></span><span><span class="sc" style="color:var(--red)">55</span><span class="sw">RED</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:58%"></span></span><span class="dp"><span class="df" style="width:52%"></span></span><span class="dp"><span class="df" style="width:44%"></span></span></span><span class="mn">₹14.7 cr</span><span class="br" style="color:var(--red)">7</span></div>
+</div>
+<div class="sw-strip"><div style="background:#E7F3F3"><span>bg</span></div><div style="background:#1B3234"><span>ink</span></div><div style="background:#4A6364"><span>ink2</span></div><div style="background:#5C7071"><span>muted</span></div><div style="background:#007781"><span>accent</span></div><div style="background:#40B1B7"><span>data</span></div><div style="background:#277A40"><span>green</span></div><div style="background:#956100"><span>amber</span></div><div style="background:#B94642"><span>red</span></div></div>
+<div class="tok"><span><b>bg</b> #E7F3F3</span><span><b>ink</b> #1B3234 <span class="ok">11.92:1</span></span><span><b>ink2</b> #4A6364 <span class="ok">5.68:1</span></span><span><b>muted</b> #5C7071 <span class="ok">4.62:1</span></span><span><b>accent</b> #007781 <span class="ok">4.68:1</span></span><span><b>data</b> #40B1B7</span><span><b>green</b> #277A40 <span class="ok">4.69:1</span></span><span><b>amber</b> #956100 <span class="ok">4.64:1</span></span><span><b>red</b> #B94642 <span class="ok">4.61:1</span></span></div>
+</section>
+<section class="fam">
+<header><div><h2>Indigo</h2><p class="note">closest to CRED's poliPurple, premium</p></div><span class="hue">h 280°</span></header>
+<div class="mock" style="--bg:#EEEFFA;--ink:#2A2C3F;--ink2:#595C71;--muted:#686A7C;--accent:#6162BD;--onaccent:#FFFFFF;--data:#9297DC;--green:#277A40;--amber:#956100;--red:#B74441;--up:-5px -5px 12px rgba(255,255,255,.95), 5px 5px 14px #2A2C3F26;--up-sm:-3px -3px 7px rgba(255,255,255,.9), 3px 3px 8px #2A2C3F22;--in:inset -3px -3px 8px rgba(255,255,255,.9), inset 4px 4px 10px #2A2C3F2E">
+ <div class="kpis">
+  <div class="kpi"><div class="kl">Group score</div><div class="kv" style="color:var(--amber)">76</div><div class="kd">−1 vs prior</div></div>
+  <div class="kpi"><div class="kl">Value at risk</div><div class="kv">₹100.4 cr</div><div class="kd">tracked, not owned</div></div>
+  <div class="kpi"><div class="kl">Open exceptions</div><div class="kv">1,980</div><div class="kd">−32 vs prior</div></div>
+ </div>
+ <div class="tabs"><span class="tab on">Entity</span><span class="tab">Segment</span><span class="tab">Geography</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--green)"></span>Jubilant Cadista</span><span><span class="sc" style="color:var(--green)">91</span><span class="sw">GREEN</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:88%"></span></span><span class="dp"><span class="df" style="width:92%"></span></span><span class="dp"><span class="df" style="width:85%"></span></span></span><span class="mn">₹2.1 cr</span><span class="br" style="color:var(--green)">0</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--amber)"></span>Jubilant Generics</span><span><span class="sc" style="color:var(--amber)">74</span><span class="sw">AMBER</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:64%"></span></span><span class="dp"><span class="df" style="width:66%"></span></span><span class="dp"><span class="df" style="width:46%"></span></span></span><span class="mn">₹18.6 cr</span><span class="br" style="color:var(--amber)">4</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--red)"></span><span>Jubilant Radiopharma<br><span class="cap">CAPPED — vendor bank change</span></span></span><span><span class="sc" style="color:var(--red)">55</span><span class="sw">RED</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:58%"></span></span><span class="dp"><span class="df" style="width:52%"></span></span><span class="dp"><span class="df" style="width:44%"></span></span></span><span class="mn">₹14.7 cr</span><span class="br" style="color:var(--red)">7</span></div>
+</div>
+<div class="sw-strip"><div style="background:#EEEFFA"><span>bg</span></div><div style="background:#2A2C3F"><span>ink</span></div><div style="background:#595C71"><span>ink2</span></div><div style="background:#686A7C"><span>muted</span></div><div style="background:#6162BD"><span>accent</span></div><div style="background:#9297DC"><span>data</span></div><div style="background:#277A40"><span>green</span></div><div style="background:#956100"><span>amber</span></div><div style="background:#B74441"><span>red</span></div></div>
+<div class="tok"><span><b>bg</b> #EEEFFA</span><span><b>ink</b> #2A2C3F <span class="ok">12.0:1</span></span><span><b>ink2</b> #595C71 <span class="ok">5.75:1</span></span><span><b>muted</b> #686A7C <span class="ok">4.66:1</span></span><span><b>accent</b> #6162BD <span class="ok">4.6:1</span></span><span><b>data</b> #9297DC</span><span><b>green</b> #277A40 <span class="ok">4.66:1</span></span><span><b>amber</b> #956100 <span class="ok">4.6:1</span></span><span><b>red</b> #B74441 <span class="ok">4.69:1</span></span></div>
+</section>
+<section class="fam">
+<header><div><h2>Forest sage</h2><p class="note">monochrome-green fintech (Wise/Robinhood lineage)</p></div><span class="hue">h 160°</span></header>
+<div class="mock" style="--bg:#EBF2EE;--ink:#233229;--ink2:#526259;--muted:#616E66;--accent:#007C47;--onaccent:#FFFFFF;--data:#62B289;--green:#277A40;--amber:#956100;--red:#B74441;--up:-5px -5px 12px rgba(255,255,255,.95), 5px 5px 14px #23322926;--up-sm:-3px -3px 7px rgba(255,255,255,.9), 3px 3px 8px #23322922;--in:inset -3px -3px 8px rgba(255,255,255,.9), inset 4px 4px 10px #2332292E">
+ <div class="kpis">
+  <div class="kpi"><div class="kl">Group score</div><div class="kv" style="color:var(--amber)">76</div><div class="kd">−1 vs prior</div></div>
+  <div class="kpi"><div class="kl">Value at risk</div><div class="kv">₹100.4 cr</div><div class="kd">tracked, not owned</div></div>
+  <div class="kpi"><div class="kl">Open exceptions</div><div class="kv">1,980</div><div class="kd">−32 vs prior</div></div>
+ </div>
+ <div class="tabs"><span class="tab on">Entity</span><span class="tab">Segment</span><span class="tab">Geography</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--green)"></span>Jubilant Cadista</span><span><span class="sc" style="color:var(--green)">91</span><span class="sw">GREEN</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:88%"></span></span><span class="dp"><span class="df" style="width:92%"></span></span><span class="dp"><span class="df" style="width:85%"></span></span></span><span class="mn">₹2.1 cr</span><span class="br" style="color:var(--green)">0</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--amber)"></span>Jubilant Generics</span><span><span class="sc" style="color:var(--amber)">74</span><span class="sw">AMBER</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:64%"></span></span><span class="dp"><span class="df" style="width:66%"></span></span><span class="dp"><span class="df" style="width:46%"></span></span></span><span class="mn">₹18.6 cr</span><span class="br" style="color:var(--amber)">4</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--red)"></span><span>Jubilant Radiopharma<br><span class="cap">CAPPED — vendor bank change</span></span></span><span><span class="sc" style="color:var(--red)">55</span><span class="sw">RED</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:58%"></span></span><span class="dp"><span class="df" style="width:52%"></span></span><span class="dp"><span class="df" style="width:44%"></span></span></span><span class="mn">₹14.7 cr</span><span class="br" style="color:var(--red)">7</span></div>
+</div>
+<div class="sw-strip"><div style="background:#EBF2EE"><span>bg</span></div><div style="background:#233229"><span>ink</span></div><div style="background:#526259"><span>ink2</span></div><div style="background:#616E66"><span>muted</span></div><div style="background:#007C47"><span>accent</span></div><div style="background:#62B289"><span>data</span></div><div style="background:#277A40"><span>green</span></div><div style="background:#956100"><span>amber</span></div><div style="background:#B74441"><span>red</span></div></div>
+<div class="tok"><span><b>bg</b> #EBF2EE</span><span><b>ink</b> #233229 <span class="ok">11.84:1</span></span><span><b>ink2</b> #526259 <span class="ok">5.68:1</span></span><span><b>muted</b> #616E66 <span class="ok">4.7:1</span></span><span><b>accent</b> #007C47 <span class="ok">4.65:1</span></span><span><b>data</b> #62B289</span><span><b>green</b> #277A40 <span class="ok">4.68:1</span></span><span><b>amber</b> #956100 <span class="ok">4.63:1</span></span><span><b>red</b> #B74441 <span class="ok">4.72:1</span></span></div>
+</section>
+<section class="fam">
+<header><div><h2>Warm clay</h2><p class="note">literal clay: terracotta ink, ties to the orange branch</p></div><span class="hue">h 45°</span></header>
+<div class="mock" style="--bg:#F8EEEA;--ink:#3B2921;--ink2:#6D5950;--muted:#786861;--accent:#AE4E1A;--onaccent:#FFFFFF;--data:#D28A69;--green:#277A40;--amber:#956100;--red:#B74441;--up:-5px -5px 12px rgba(255,255,255,.95), 5px 5px 14px #3B292126;--up-sm:-3px -3px 7px rgba(255,255,255,.9), 3px 3px 8px #3B292122;--in:inset -3px -3px 8px rgba(255,255,255,.9), inset 4px 4px 10px #3B29212E">
+ <div class="kpis">
+  <div class="kpi"><div class="kl">Group score</div><div class="kv" style="color:var(--amber)">76</div><div class="kd">−1 vs prior</div></div>
+  <div class="kpi"><div class="kl">Value at risk</div><div class="kv">₹100.4 cr</div><div class="kd">tracked, not owned</div></div>
+  <div class="kpi"><div class="kl">Open exceptions</div><div class="kv">1,980</div><div class="kd">−32 vs prior</div></div>
+ </div>
+ <div class="tabs"><span class="tab on">Entity</span><span class="tab">Segment</span><span class="tab">Geography</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--green)"></span>Jubilant Cadista</span><span><span class="sc" style="color:var(--green)">91</span><span class="sw">GREEN</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:88%"></span></span><span class="dp"><span class="df" style="width:92%"></span></span><span class="dp"><span class="df" style="width:85%"></span></span></span><span class="mn">₹2.1 cr</span><span class="br" style="color:var(--green)">0</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--amber)"></span>Jubilant Generics</span><span><span class="sc" style="color:var(--amber)">74</span><span class="sw">AMBER</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:64%"></span></span><span class="dp"><span class="df" style="width:66%"></span></span><span class="dp"><span class="df" style="width:46%"></span></span></span><span class="mn">₹18.6 cr</span><span class="br" style="color:var(--amber)">4</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--red)"></span><span>Jubilant Radiopharma<br><span class="cap">CAPPED — vendor bank change</span></span></span><span><span class="sc" style="color:var(--red)">55</span><span class="sw">RED</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:58%"></span></span><span class="dp"><span class="df" style="width:52%"></span></span><span class="dp"><span class="df" style="width:44%"></span></span></span><span class="mn">₹14.7 cr</span><span class="br" style="color:var(--red)">7</span></div>
+</div>
+<div class="sw-strip"><div style="background:#F8EEEA"><span>bg</span></div><div style="background:#3B2921"><span>ink</span></div><div style="background:#6D5950"><span>ink2</span></div><div style="background:#786861"><span>muted</span></div><div style="background:#AE4E1A"><span>accent</span></div><div style="background:#D28A69"><span>data</span></div><div style="background:#277A40"><span>green</span></div><div style="background:#956100"><span>amber</span></div><div style="background:#B74441"><span>red</span></div></div>
+<div class="tok"><span><b>bg</b> #F8EEEA</span><span><b>ink</b> #3B2921 <span class="ok">12.07:1</span></span><span><b>ink2</b> #6D5950 <span class="ok">5.76:1</span></span><span><b>muted</b> #786861 <span class="ok">4.66:1</span></span><span><b>accent</b> #AE4E1A <span class="ok">4.71:1</span></span><span><b>data</b> #D28A69</span><span><b>green</b> #277A40 <span class="ok">4.67:1</span></span><span><b>amber</b> #956100 <span class="ok">4.62:1</span></span><span><b>red</b> #B74441 <span class="ok">4.7:1</span></span></div>
+</section>
+<section class="fam">
+<header><div><h2>Graphite + amber</h2><p class="note">near-zero-chroma neutrals, one warm accent</p></div><span class="hue">h 70°</span></header>
+<div class="mock" style="--bg:#F2F0ED;--ink:#312D28;--ink2:#615D58;--muted:#6F6B67;--accent:#9F5B00;--onaccent:#FFFFFF;--data:#C69356;--green:#277A40;--amber:#956100;--red:#B74441;--up:-5px -5px 12px rgba(255,255,255,.95), 5px 5px 14px #312D2826;--up-sm:-3px -3px 7px rgba(255,255,255,.9), 3px 3px 8px #312D2822;--in:inset -3px -3px 8px rgba(255,255,255,.9), inset 4px 4px 10px #312D282E">
+ <div class="kpis">
+  <div class="kpi"><div class="kl">Group score</div><div class="kv" style="color:var(--amber)">76</div><div class="kd">−1 vs prior</div></div>
+  <div class="kpi"><div class="kl">Value at risk</div><div class="kv">₹100.4 cr</div><div class="kd">tracked, not owned</div></div>
+  <div class="kpi"><div class="kl">Open exceptions</div><div class="kv">1,980</div><div class="kd">−32 vs prior</div></div>
+ </div>
+ <div class="tabs"><span class="tab on">Entity</span><span class="tab">Segment</span><span class="tab">Geography</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--green)"></span>Jubilant Cadista</span><span><span class="sc" style="color:var(--green)">91</span><span class="sw">GREEN</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:88%"></span></span><span class="dp"><span class="df" style="width:92%"></span></span><span class="dp"><span class="df" style="width:85%"></span></span></span><span class="mn">₹2.1 cr</span><span class="br" style="color:var(--green)">0</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--amber)"></span>Jubilant Generics</span><span><span class="sc" style="color:var(--amber)">74</span><span class="sw">AMBER</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:64%"></span></span><span class="dp"><span class="df" style="width:66%"></span></span><span class="dp"><span class="df" style="width:46%"></span></span></span><span class="mn">₹18.6 cr</span><span class="br" style="color:var(--amber)">4</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--red)"></span><span>Jubilant Radiopharma<br><span class="cap">CAPPED — vendor bank change</span></span></span><span><span class="sc" style="color:var(--red)">55</span><span class="sw">RED</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:58%"></span></span><span class="dp"><span class="df" style="width:52%"></span></span><span class="dp"><span class="df" style="width:44%"></span></span></span><span class="mn">₹14.7 cr</span><span class="br" style="color:var(--red)">7</span></div>
+</div>
+<div class="sw-strip"><div style="background:#F2F0ED"><span>bg</span></div><div style="background:#312D28"><span>ink</span></div><div style="background:#615D58"><span>ink2</span></div><div style="background:#6F6B67"><span>muted</span></div><div style="background:#9F5B00"><span>accent</span></div><div style="background:#C69356"><span>data</span></div><div style="background:#277A40"><span>green</span></div><div style="background:#956100"><span>amber</span></div><div style="background:#B74441"><span>red</span></div></div>
+<div class="tok"><span><b>bg</b> #F2F0ED</span><span><b>ink</b> #312D28 <span class="ok">12.02:1</span></span><span><b>ink2</b> #615D58 <span class="ok">5.74:1</span></span><span><b>muted</b> #6F6B67 <span class="ok">4.64:1</span></span><span><b>accent</b> #9F5B00 <span class="ok">4.65:1</span></span><span><b>data</b> #C69356</span><span><b>green</b> #277A40 <span class="ok">4.68:1</span></span><span><b>amber</b> #956100 <span class="ok">4.63:1</span></span><span><b>red</b> #B74441 <span class="ok">4.71:1</span></span></div>
+</section>
+<section class="fam">
+<header><div><h2>CRED NeoPOP</h2><p class="note">real tokens from neopop-web — dark-only; highlight/shadow arms invert</p></div><span class="hue">dark · hue-free neutrals</span></header>
+<div class="mock" style="--bg:#0D0D0D;--ink:#FFFFFF;--ink2:#E0E0E0;--muted:#8A8A8A;--accent:#E5FE40;--onaccent:#0D0D0D;--data:#6A35FF;--green:#06C270;--amber:#F08D32;--red:#EE4D37;--up:-4px -4px 10px rgba(255,255,255,.04), 5px 5px 14px rgba(0,0,0,.85);--up-sm:-2px -2px 6px rgba(255,255,255,.04), 3px 3px 8px rgba(0,0,0,.8);--in:inset -3px -3px 8px rgba(255,255,255,.05), inset 4px 4px 10px rgba(0,0,0,.9)">
+ <div class="kpis">
+  <div class="kpi"><div class="kl">Group score</div><div class="kv" style="color:var(--amber)">76</div><div class="kd">−1 vs prior</div></div>
+  <div class="kpi"><div class="kl">Value at risk</div><div class="kv">₹100.4 cr</div><div class="kd">tracked, not owned</div></div>
+  <div class="kpi"><div class="kl">Open exceptions</div><div class="kv">1,980</div><div class="kd">−32 vs prior</div></div>
+ </div>
+ <div class="tabs"><span class="tab on">Entity</span><span class="tab">Segment</span><span class="tab">Geography</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--green)"></span>Jubilant Cadista</span><span><span class="sc" style="color:var(--green)">91</span><span class="sw">GREEN</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:88%"></span></span><span class="dp"><span class="df" style="width:92%"></span></span><span class="dp"><span class="df" style="width:85%"></span></span></span><span class="mn">₹2.1 cr</span><span class="br" style="color:var(--green)">0</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--amber)"></span>Jubilant Generics</span><span><span class="sc" style="color:var(--amber)">74</span><span class="sw">AMBER</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:64%"></span></span><span class="dp"><span class="df" style="width:66%"></span></span><span class="dp"><span class="df" style="width:46%"></span></span></span><span class="mn">₹18.6 cr</span><span class="br" style="color:var(--amber)">4</span></div>
+ <div class="row"><span class="nm"><span class="dot" style="background:var(--red)"></span><span>Jubilant Radiopharma<br><span class="cap">CAPPED — vendor bank change</span></span></span><span><span class="sc" style="color:var(--red)">55</span><span class="sw">RED</span></span>
+  <span class="dims"><span class="dp"><span class="df" style="width:58%"></span></span><span class="dp"><span class="df" style="width:52%"></span></span><span class="dp"><span class="df" style="width:44%"></span></span></span><span class="mn">₹14.7 cr</span><span class="br" style="color:var(--red)">7</span></div>
+</div>
+<div class="sw-strip"><div style="background:#0D0D0D"><span>bg</span></div><div style="background:#FFFFFF"><span>ink</span></div><div style="background:#E0E0E0"><span>ink2</span></div><div style="background:#8A8A8A"><span>muted</span></div><div style="background:#E5FE40"><span>accent</span></div><div style="background:#6A35FF"><span>data</span></div><div style="background:#06C270"><span>green</span></div><div style="background:#F08D32"><span>amber</span></div><div style="background:#EE4D37"><span>red</span></div></div>
+<div class="tok"><span><b>bg</b> #0D0D0D</span><span><b>ink</b> #FFFFFF <span class="ok">19.44:1</span></span><span><b>ink2</b> #E0E0E0 <span class="ok">14.72:1</span></span><span><b>muted</b> #8A8A8A <span class="ok">5.63:1</span></span><span><b>accent</b> #E5FE40 <span class="ok">17.2:1</span></span><span><b>data</b> #6A35FF</span><span><b>green</b> #06C270 <span class="ok">8.29:1</span></span><span><b>amber</b> #F08D32 <span class="ok">7.92:1</span></span><span><b>red</b> #EE4D37 <span class="ok">5.32:1</span></span></div><div class="extra">Also in their palette (not used above): popWhite <code>#FBFBFB</code>, parkGreen <code>#3BFFAD</code>, pinkPong <code>#FF426F</code>, mannna <code>#FFCB45</code>, yoyo <code>#AA3FFF</code>, orangeSunshine <code>#FF8744</code>, blue <code>#144CC7</code>. Their <code>mainColors</code> are black <code>#0D0D0D</code>, white, red <code>#EE4D37</code>, yellow <code>#F08D32</code>, blue <code>#144CC7</code>, green <code>#06C270</code>. NeoPOP is dark-only and built for a consumer credit-card app — the neon accents work at one CTA per screen, not across a 48-cell finance grid. Shown honestly rather than adapted.</div>
+</section>
+</div>
+<div class="method"><b>How to read these.</b> Squint: the hierarchy (KPIs → tabs → rows → status) should survive in every card — if it does, colour is doing emphasis, not structure. Then ask which <i>temperature</i> suits a finance controller staring at this for hours: cool families (slate, teal, indigo) read analytical and recede; warm ones (clay, graphite+amber) feel more human but fight the red status colour for attention. The data hue is deliberately lighter than the accent in every family so bars never look like buttons. Contrast figures are WCAG 2.1 ratios of each text colour on that card's ground.</div>
+</body></html>

@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
+import { tag } from '../theme/clay'
 import { colors, fonts } from '../theme/tokens'
 
 // §8.10 — the one demo path that crosses towers: a missing goods receipt in P2P blocks an invoice,
@@ -16,7 +17,7 @@ const NODES: Array<{ key: TraceNode; label: string; to: (code: string) => string
 ]
 
 const linkStyle: CSSProperties = { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.06em', color: colors.accentText, textDecoration: 'none' }
-const currentStyle: CSSProperties = { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.06em', padding: '3px 6px', border: `1px solid ${colors.accent}`, color: colors.textPrimary }
+const currentStyle: CSSProperties = { ...tag(colors.textPrimary, colors.bgSelected), fontSize: 10, letterSpacing: '0.06em' }
 
 export function CrossProcessTrace({ code, current }: { code: string; current: TraceNode }) {
   return (

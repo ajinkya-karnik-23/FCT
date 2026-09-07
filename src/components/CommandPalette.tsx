@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { causeBacklogCounts, computeScore, getControlSignals, getEntity, getForecast, listCauses, listCompliance, listCostCentres, listCounterparties, listDataQuality, listEntities, listExceptions, listPlants, listRequests, slaBreachSplit } from '../api'
 import { formatCr } from '../lib/format'
-import { colors, fonts, layout, paletteShadow } from '../theme/tokens'
+import { colors, fonts, layout, paletteShadow, radius } from '../theme/tokens'
 import { DEFAULT_ENTITY, entityCodeFromPath } from '../app/routes'
 
 interface PaletteItem {
@@ -115,10 +115,10 @@ export function CommandPalette({ open, onOpen, onClose }: CommandPaletteProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        style={{ width: layout.paletteWidth, maxWidth: '100%', background: colors.bgPanel, border: `1px solid ${colors.borderStrong}`, boxShadow: paletteShadow }}
+        style={{ width: layout.paletteWidth, maxWidth: '100%', background: colors.bgPanel, borderRadius: radius.xl, boxShadow: paletteShadow, padding: 8 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ padding: '16px 18px', borderBottom: `1px solid ${colors.borderDefault}`, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="fct-well" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <span aria-hidden style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.textFaint }}>{'>'}</span>
           <input
             className="fct-input"
@@ -129,13 +129,13 @@ export function CommandPalette({ open, onOpen, onClose }: CommandPaletteProps) {
               if (e.key === 'Enter' && shown.length > 0) pick(shown[0])
             }}
             placeholder="Jump to an entity, process, exception or vendor"
-            style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', fontSize: 15, color: colors.textPrimary }}
+            style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', fontSize: 15, color: colors.textPrimary }}
           />
           <span aria-hidden style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.textFaint }}>ESC</span>
         </div>
-        <div style={{ maxHeight: 380, overflowY: 'auto' }}>
+        <div style={{ maxHeight: 380, overflowY: 'auto', padding: '8px 0 2px' }}>
           {shown.map((item) => (
-            <button key={`${item.kind}-${item.label}`} type="button" className="fct-palette-row" onClick={() => pick(item)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 18px' }}>
+            <button key={`${item.kind}-${item.label}`} type="button" className="fct-palette-row" onClick={() => pick(item)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px' }}>
               <span style={{ width: 84, flexShrink: 0, fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.12em', color: colors.textFaint }}>{item.kind}</span>
               <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: colors.textPrimary }}>{item.label}</span>
               <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textMuted }}>{item.meta}</span>

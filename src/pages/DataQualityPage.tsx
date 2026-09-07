@@ -6,16 +6,17 @@ import type { DataQualityItem } from '../api'
 import { Eyebrow, FreshnessStamp } from '../components'
 import { formatCr } from '../lib/format'
 import { interfaceColor, scoreColor } from '../theme/derive'
-import { colors, fonts, spacing, typeScale } from '../theme/tokens'
+import { colors, fonts, typeScale } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
-const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }
+const cardStyle: CSSProperties = { ...clay.card, padding: 22, gap: 18 }
 const monoLabelStyle: CSSProperties = { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', color: colors.textMuted }
 
 function healthTagStyle(status: 'on schedule' | 'delayed' | 'stale'): CSSProperties {
   const c = interfaceColor(status)
-  return { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', padding: '3px 6px', border: `1px solid ${c}`, color: c, whiteSpace: 'nowrap' }
+  return clay.tag(c)
 }
 
 // §7.27 — the four domains in spec order; check rows come from JGL (the pinned anchor entity).
@@ -55,14 +56,14 @@ export function DataQualityPage() {
 
             {listDataQuality('JGL', key).map((c) => (
               <Fragment key={c.check}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, borderTop: `1px solid ${colors.borderDefault}`, paddingTop: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 8 }}>
                   <span style={{ ...typeScale.body, color: colors.textPrimary }}>{c.check}</span>
                   <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textMuted }}>{c.impact}</span>
                 </div>
                 {entities.map((e) => {
                   const cell = listDataQuality(e.code, key).find((d) => d.check === c.check)!
                   return (
-                    <div key={e.code} style={{ borderTop: `1px solid ${colors.borderDefault}`, paddingTop: 8, textAlign: 'center', fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>
+                    <div key={e.code} style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 8, textAlign: 'center', fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>
                       {`${cell.failCount} / ${cell.totalCount}`}
                     </div>
                   )
@@ -77,7 +78,7 @@ export function DataQualityPage() {
                 const h = getInterfaceHealth(e.code)!
                 const idocFails = listDataQuality(e.code, 'interface')[0].failCount
                 return (
-                  <div key={e.code} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px minmax(0, 1fr) 150px', gap: 12, alignItems: 'center', borderTop: `1px solid ${colors.borderDefault}`, paddingTop: 8 }}>
+                  <div key={e.code} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px minmax(0, 1fr) 150px', gap: 12, alignItems: 'center', borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 8 }}>
                     <span style={{ ...typeScale.body, color: colors.textPrimary }}>{e.code}</span>
                     <div><span className="fct-status-tag" style={healthTagStyle(h.status)}>{h.status.toUpperCase()}</span></div>
                     <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>{`last successful run ${h.lastSuccessfulRun}`}</span>

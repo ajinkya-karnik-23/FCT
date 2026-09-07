@@ -6,11 +6,12 @@ import { DataTable, Eyebrow, FreshnessStamp, Metric } from '../components'
 import type { Column } from '../components'
 import { formatCr, formatRecurrence } from '../lib/format'
 import { causeEliminationColor } from '../theme/derive'
-import { colors, fonts, spacing, typeScale } from '../theme/tokens'
+import { colors, fonts, typeScale } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
-const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }
+const cardStyle: CSSProperties = { ...clay.card, padding: 22, gap: 18 }
 const monoLabelStyle: CSSProperties = { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', color: colors.textMuted }
 const dimStyle: CSSProperties = { color: colors.textFaint }
 
@@ -66,8 +67,8 @@ export function CauseBacklog() {
     { header: 'Process', width: '84px', render: (row) => <span style={{ fontFamily: fonts.mono, fontSize: 12 }}>{PROCESS_LABEL[row.processKey]}</span> },
     { header: 'Entity', width: '70px', render: (row) => <span style={{ fontFamily: fonts.mono, fontSize: 12 }}>{row.entityCode}</span> },
     { header: 'Value at risk', width: '120px', align: 'right', render: (row) => <span style={{ fontFamily: fonts.mono, fontSize: 12 }}>{formatCr(row.valueAtRisk)}</span> },
-    { header: 'Recurrence', width: '110px', align: 'right', render: (row) => <span style={{ color: colors.textSecondary }}>{formatRecurrence(row.recurrence)}</span> },
-    { header: 'Owner', width: '140px', render: (row) => row.owner },
+    { header: 'Recurrence', detail: true, render: (row) => <span style={{ color: colors.textSecondary }}>{formatRecurrence(row.recurrence)}</span> },
+    { header: 'Owner', detail: true, render: (row) => row.owner },
     { header: 'Target date', width: '120px', render: (row) => (row.targetDate ? <span style={{ fontFamily: fonts.mono, fontSize: 12 }}>{formatTarget(row.targetDate)}</span> : <span title="Not started — no commitment yet" style={dimStyle}>—</span>) },
     { header: 'Status', width: '130px', render: (row) => <span style={{ fontFamily: fonts.mono, fontSize: 12, letterSpacing: '0.08em', color: causeEliminationColor(row.status) }}>{row.status.toUpperCase()}</span> },
   ]
@@ -121,7 +122,7 @@ export function CauseBacklog() {
             <span style={{ ...monoLabelStyle, flex: 1 }}>GROUP OPEN EXCEPTIONS</span>
           </div>
           {trend.eliminatedSeries.map((elim, i) => (
-            <div key={i} className="fct-mech-row" style={{ display: 'flex', gap: 16, padding: '7px 0', borderTop: `1px solid ${colors.borderDefault}` }}>
+            <div key={i} className="fct-mech-row" style={{ display: 'flex', gap: 16, padding: '7px 0', borderTop: `1px solid ${colors.borderSubtle}` }}>
               <span style={{ width: 90, flexShrink: 0, fontFamily: fonts.mono, fontSize: 11, color: colors.textMuted }}>{periodLabel(i)}</span>
               <span data-series="eliminated" style={{ flex: 1, fontFamily: fonts.mono, fontSize: 12, color: colors.textPrimary }}>{elim}</span>
               <span data-series="open-exceptions" style={{ flex: 1, fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>{trend.openExceptionsSeries[i].toLocaleString('en-IN')}</span>

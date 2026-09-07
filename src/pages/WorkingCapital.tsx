@@ -3,11 +3,12 @@ import { Link, useParams } from 'react-router-dom'
 import { getCashOpportunities, getEntity, getPayablesByReason, getReceivablesAgeing } from '../api'
 import { Eyebrow, FreshnessStamp, Metric } from '../components'
 import { formatCr } from '../lib/format'
-import { barHeights, colors, fonts, spacing, typeScale } from '../theme/tokens'
+import { barHeights, colors, fonts, spacing, typeScale, shadows } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
-const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }
+const cardStyle: CSSProperties = { ...clay.card, padding: 22, gap: 18 }
 // §10 — the effort and owner columns merged without a column gap; 12 matches the other row grids.
 const tableGrid: CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 140px 140px 140px 180px', gap: 12 }
 
@@ -77,7 +78,7 @@ export function WorkingCapital() {
             return (
               <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 13 }}>
                 <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textMuted, width: 80 }}>{b.label}</span>
-                <div style={{ flex: 1, height: barHeights.ageing, background: colors.borderSubtle }}>
+                <div style={{ flex: 1, height: barHeights.ageing, background: colors.bgSelected, borderRadius: 6, boxShadow: shadows.in, overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${width}%`, background: width > 40 ? colors.accent : colors.chartArOld }} />
                 </div>
                 <span style={{ fontFamily: fonts.mono, width: 90, textAlign: 'right' }}>{formatCr(b.value)}</span>
@@ -91,7 +92,7 @@ export function WorkingCapital() {
           {ap.map((r) => (
             <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 13 }}>
               <span style={{ width: 150, flexShrink: 0 }}>{r.name}</span>
-              <div style={{ flex: 1, height: barHeights.ageing, background: colors.borderSubtle }}>
+              <div style={{ flex: 1, height: barHeights.ageing, background: colors.bgSelected, borderRadius: 6, boxShadow: shadows.in, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${Math.round((r.value / maxAp) * 100)}%`, background: colors.accent }} />
               </div>
               <span style={{ fontFamily: fonts.mono, width: 90, textAlign: 'right' }}>{formatCr(r.value)}</span>
@@ -101,8 +102,8 @@ export function WorkingCapital() {
       </div>
 
       {/* Cash opportunity table — rows are informational, not clickable */}
-      <section style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel }}>
-        <div style={{ ...tableGrid, padding: '12px 20px', borderBottom: `1px solid ${colors.borderDefault}` }}>
+      <section style={{ ...clay.frame, padding: 0 }}>
+        <div style={{ ...tableGrid, padding: '12px 20px', borderBottom: `1px solid ${colors.borderSubtle}` }}>
           <span style={typeScale.tableHeader}>Cash opportunity</span>
           <span style={{ ...typeScale.tableHeader, textAlign: 'right' }}>Value</span>
           <span style={{ ...typeScale.tableHeader, textAlign: 'right' }}>Items</span>

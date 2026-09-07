@@ -4,13 +4,14 @@ import { entityTileSubs, getBlockedInvoiceAgeing, getEntity, getServiceControl, 
 import { AgeingChart, Bar, Eyebrow, FreshnessStamp, Metric, StageFlow } from '../components'
 import { formatCr } from '../lib/format'
 import { colors, fonts, spacing, typeScale } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
 // Top-causes rows use the same insight scale as the entity home.
 const CAUSE_FILL_SCALE = 2.6
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
-const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 20, display: 'flex', flexDirection: 'column' }
+const cardStyle: CSSProperties = { ...clay.card, padding: 20, gap: 0 }
 
 export function P2PCockpit() {
   const { code } = useParams()

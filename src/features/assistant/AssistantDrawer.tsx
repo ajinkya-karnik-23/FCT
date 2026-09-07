@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { defaultRootCauseTo } from '../../app/paths'
 import { Eyebrow, StatusDot } from '../../components'
-import { colors, fonts, layout } from '../../theme/tokens'
+import { colors, fonts, layout, radius, shadows } from '../../theme/tokens'
 import { mockAssistant, type AssistantProvider, type Citation, type FollowUpAction } from './provider'
 
 // Lets any part of the app open the drawer and ask a question (spec/07) —
@@ -33,10 +33,12 @@ function fallbackFollowUps(entityCode: string): FollowUpAction[] {
   ]
 }
 
+// User bubbles are raised amber-tinted clay; assistant bubbles are raised neutral clay.
 const userBubbleStyle: CSSProperties = {
   maxWidth: '88%',
-  background: colors.bgAccentSoft,
-  border: `1px solid ${colors.borderAccent}`,
+  background: colors.bgAccentPanel,
+  borderRadius: `${radius.md} ${radius.md} 4px ${radius.md}`,
+  boxShadow: shadows.upSm,
   padding: '12px 15px',
   fontSize: 13,
   lineHeight: 1.5,
@@ -44,8 +46,9 @@ const userBubbleStyle: CSSProperties = {
 
 const assistantBubbleStyle: CSSProperties = {
   maxWidth: '92%',
-  background: colors.bgRaised,
-  border: `1px solid ${colors.assistantBorder}`,
+  background: colors.bgPanel,
+  borderRadius: `${radius.md} ${radius.md} ${radius.md} 4px`,
+  boxShadow: shadows.upSm,
   padding: '14px 16px',
   fontSize: 13,
   lineHeight: 1.6,
@@ -122,12 +125,12 @@ export function AssistantDrawer({ entityCode, question, onClose, onQuestionConsu
         width: layout.aiDrawerWidth,
         flexShrink: 0,
         background: colors.bgPanelAlt,
-        borderLeft: `1px solid ${colors.borderDefault}`,
+        boxShadow: shadows.in,
         display: 'flex',
         flexDirection: 'column',
       }}
     >
-      <div style={{ padding: '16px 20px', borderBottom: `1px solid ${colors.borderDefault}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ padding: '18px 20px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <StatusDot color={colors.accent} size={7} pulse />
         <Eyebrow style={{ color: colors.accentText }}>Cockpit intelligence</Eyebrow>
         <button type="button" className="fct-drawer-close" aria-label="Close assistant" onClick={onClose}>
@@ -135,7 +138,7 @@ export function AssistantDrawer({ entityCode, question, onClose, onQuestionConsu
         </button>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '6px 20px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <p style={{ fontSize: 13, lineHeight: 1.55, color: colors.textMuted, margin: 0 }}>
           Grounded on the finance semantic model — every answer resolves to transactions, owners and SLA records.
         </p>
@@ -187,14 +190,14 @@ export function AssistantDrawer({ entityCode, question, onClose, onQuestionConsu
         )}
       </div>
 
-      <div style={{ padding: '16px 20px', borderTop: `1px solid ${colors.borderDefault}`, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ padding: '16px 20px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <Eyebrow>Suggested</Eyebrow>
         {PRESET_QUESTIONS.map((q) => (
           <button key={q} type="button" className="fct-preset-btn" onClick={() => void submit(q)}>
             {q}
           </button>
         ))}
-        <div style={{ border: `1px solid ${colors.borderStrong}`, padding: '10px 13px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="fct-well" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
           <input
             className="fct-input"
             value={input}
@@ -203,7 +206,7 @@ export function AssistantDrawer({ entityCode, question, onClose, onQuestionConsu
               if (e.key === 'Enter') void submit(input)
             }}
             placeholder="Ask about any entity, process or exception"
-            style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', fontSize: 13, color: colors.textPrimary }}
+            style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', fontSize: 13, color: colors.textPrimary }}
           />
           <button
             type="button"

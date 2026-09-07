@@ -6,16 +6,17 @@ import type { ComplianceItem, Entity } from '../api'
 import { Eyebrow, FreshnessStamp } from '../components'
 import { formatCr } from '../lib/format'
 import { complianceColor, scoreColor } from '../theme/derive'
-import { colors, fonts, spacing, typeScale } from '../theme/tokens'
+import { colors, fonts, typeScale } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
-const cardStyle: CSSProperties = { border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 22, display: 'flex', flexDirection: 'column', gap: 18 }
+const cardStyle: CSSProperties = { ...clay.card, padding: 22, gap: 18 }
 const monoLabelStyle: CSSProperties = { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', color: colors.textMuted }
 
 function statusTagStyle(status: ComplianceItem['status']): CSSProperties {
   const c = complianceColor(status)
-  return { fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', padding: '3px 6px', border: `1px solid ${c}`, color: c, whiteSpace: 'nowrap' }
+  return clay.tag(c)
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -41,7 +42,7 @@ function OverdueChain({ entity, overdue }: { entity: Entity; overdue: Compliance
 
   const segStyle: CSSProperties = { color: colors.accentText, textDecoration: 'none' }
   return (
-    <div style={{ border: `1px solid ${colors.statusRed}`, background: colors.bgRiskSoft, padding: '12px 18px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+    <div style={{ ...clay.sunken, background: colors.bgRiskSoft, padding: '12px 18px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
       <Link to={`/entity/${entity.code}`} style={segStyle}>{`${overdue.obligation} · due ${formatDue(overdue.dueDate)} — overdue`}</Link>
       <span style={{ color: colors.textMuted }}>{'→'}</span>
       <Link to={`/entity/${entity.code}`} style={segStyle}>{`compliance dimension ${entity.dimensions.compliance}`}</Link>
@@ -84,13 +85,13 @@ export function CompliancePage() {
 
               {rows.map((r) => (
                 <Fragment key={r.obligation}>
-                  <div style={{ borderTop: `1px solid ${colors.borderDefault}`, paddingTop: 10, ...typeScale.body, color: colors.textPrimary }}>{r.obligation}</div>
-                  <div style={{ borderTop: `1px solid ${colors.borderDefault}`, paddingTop: 10, fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>{e.geography}</div>
-                  <div style={{ borderTop: `1px solid ${colors.borderDefault}`, paddingTop: 10, fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>{formatDue(r.dueDate)}</div>
-                  <div style={{ borderTop: `1px solid ${colors.borderDefault}`, paddingTop: 10 }}>
+                  <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 10, ...typeScale.body, color: colors.textPrimary }}>{r.obligation}</div>
+                  <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 10, fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>{e.geography}</div>
+                  <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 10, fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>{formatDue(r.dueDate)}</div>
+                  <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 10 }}>
                     <span className="fct-status-tag" style={statusTagStyle(r.status)}>{r.status.toUpperCase()}</span>
                   </div>
-                  <div style={{ borderTop: `1px solid ${colors.borderDefault}`, paddingTop: 10, textAlign: 'right', fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>
+                  <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 10, textAlign: 'right', fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>
                     {r.valueAtRiskCr !== undefined ? formatCr(r.valueAtRiskCr) : r.failCount !== undefined ? `${r.failCount} ${r.failureLabel ?? 'failures'}` : '—'}
                   </div>
                 </Fragment>

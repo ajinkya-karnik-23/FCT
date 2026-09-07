@@ -9,7 +9,8 @@ import { Bar, CrossProcessTrace, DimensionBar, Eyebrow, FreshnessStamp, Metric, 
 import { AssistantContext } from '../features/assistant/AssistantDrawer'
 import { formatCr, formatRecurrence } from '../lib/format'
 import { scoreColor, statusWord, trendColor } from '../theme/derive'
-import { colors, fonts, fontWeights, spacing, typeScale } from '../theme/tokens'
+import { colors, fonts, fontWeights, spacing, typeScale, shadows } from '../theme/tokens'
+import * as clay from '../theme/clay'
 
 // §7.10 — one computed row in "What moves this score": from/to are recomputed at render, never stored.
 type MoveRow = { action: string; from: number; to: number; effort: Effort }
@@ -42,7 +43,7 @@ function countDelta(current: number, previous: number): string {
   return `${d > 0 ? '+' : ''}${d} vs last period`
 }
 
-const pageStyle: CSSProperties = { padding: spacing.contentPadding, display: 'flex', flexDirection: 'column', gap: 22 }
+const pageStyle: CSSProperties = clay.pageStyle
 const titleStyle: CSSProperties = { ...typeScale.viewTitle, margin: 0 }
 
 export function EntityHome() {
@@ -148,21 +149,21 @@ export function EntityHome() {
   return (
     <div style={pageStyle}>
       {/* Plain div, not <header> — a nested header would register as a second banner landmark */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 30 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 30, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 300 }}>
           <Eyebrow>Level 1 — Legal entity</Eyebrow>
           <h1 style={titleStyle}>{entity.name}</h1>
           {/* §8.7 — mixed sources: SAP ECC for the health figures, close tracker and trial balance extract cited inline below */}
           <FreshnessStamp sources={['SAP ECC', 'close tracker', 'trial balance extract']} />
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 34 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 28, flexWrap: 'wrap', ...clay.card, padding: '18px 22px', flexDirection: 'row' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
               <span style={{ ...typeScale.bigScore, color: statusColor }}>{score.displayed}</span>
               <span style={{ fontFamily: fonts.mono, fontSize: 14, color: colors.textFaint }}>/100</span>
               {/* §7.15 — two-point delta vs the prior period; colour follows improvement */}
               <span style={{ fontFamily: fonts.mono, fontSize: 12, color: trendColor(pointDirection(score.displayed, prior.displayed, false)) }}>{`${scoreDelta > 0 ? '+' : ''}${scoreDelta} vs last period`}</span>
-              <span style={{ fontFamily: fonts.mono, fontSize: 12, letterSpacing: '0.12em', padding: '4px 9px', color: statusColor, border: `1px solid color-mix(in srgb, ${statusColor} 33%, transparent)` }}>{word}</span>
+              <span style={{ ...clay.tag(statusColor), fontSize: 11, letterSpacing: '0.12em' }}>{word}</span>
             </div>
             {capped && (
               <>
@@ -170,17 +171,7 @@ export function EntityHome() {
                 <button
                   type="button"
                   onClick={() => setRevealed(!revealed)}
-                  style={{
-                    fontFamily: fonts.mono,
-                    fontSize: 10,
-                    letterSpacing: '0.08em',
-                    padding: '3px 6px',
-                    border: `1px solid ${colors.statusRed}`,
-                    background: 'transparent',
-                    color: colors.statusRed,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                  }}
+                  style={{ ...clay.tag(colors.statusRed, colors.bgRiskSoft), border: 'none', cursor: 'pointer', textAlign: 'left', whiteSpace: 'normal' }}
                 >
                   {`CAPPED — ${capped.reason}`}
                 </button>
@@ -200,11 +191,11 @@ export function EntityHome() {
                   </span>
                 )}
                 {/* §11 — the veto badge can pose its own question to the drawer */}
-                <button type="button" className="fct-ask-btn" onClick={() => assistant?.ask('Why is this entity capped?')} style={{ border: `1px solid ${colors.accent}`, color: colors.textPrimary, padding: '9px 12px', fontSize: 13 }}>Ask why it is capped</button>
+                <button type="button" className="fct-ask-btn" onClick={() => assistant?.ask('Why is this entity capped?')} style={{ padding: '9px 14px', fontSize: 13 }}>Ask why it is capped</button>
               </>
             )}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 124px)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(96px, 124px))', gap: 12 }}>
             {DIMENSION_KEYS.map((key) => (
               <DimensionBar key={key} dimension={key} value={entity.dimensions[key]} previous={entity.dimensionsPrevious[key]} />
             ))}
@@ -213,20 +204,20 @@ export function EntityHome() {
       </div>
 
       {/* §8.5 — mode-aware top panel: foregrounds what matters in the simulated phase of the month */}
-      <section style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${colors.borderDefault}` }}>
+      <section style={{ ...clay.card, padding: 0, gap: 0 }}>
+        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${colors.borderSubtle}` }}>
           <Eyebrow style={typeScale.tableHeader}>{MODE_PANEL_TITLE[mode]}</Eyebrow>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${panel.length}, 1fr)` }}>
           {panel.map((c, i) => (
             c.to ? (
-              <Link key={c.label} to={c.to} className="fct-table-row" style={{ padding: '18px 20px', borderRight: i < panel.length - 1 ? `1px solid ${colors.borderDefault}` : undefined, display: 'flex', flexDirection: 'column', gap: 8, color: colors.textPrimary, textDecoration: 'none' }}>
+              <Link key={c.label} to={c.to} className="fct-table-row" style={{ padding: '18px 20px', borderRight: i < panel.length - 1 ? `1px solid ${colors.borderSubtle}` : undefined, display: 'flex', flexDirection: 'column', gap: 8, color: colors.textPrimary, textDecoration: 'none' }}>
                 <span style={{ fontSize: 12, color: colors.textMuted }}>{c.label}</span>
                 <span style={typeScale.tileValue}>{c.value}</span>
                 {c.sub && <span style={{ fontSize: 12, color: c.subTone ?? colors.textSecondary }}>{c.sub}</span>}
               </Link>
             ) : (
-              <div key={c.label} style={{ padding: '18px 20px', borderRight: i < panel.length - 1 ? `1px solid ${colors.borderDefault}` : undefined, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div key={c.label} style={{ padding: '18px 20px', borderRight: i < panel.length - 1 ? `1px solid ${colors.borderSubtle}` : undefined, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <span style={{ fontSize: 12, color: colors.textMuted }}>{c.label}</span>
                 <span style={typeScale.tileValue}>{c.value}</span>
                 {c.sub && <span style={{ fontSize: 12, color: c.subTone ?? colors.textSecondary }}>{c.sub}</span>}
@@ -240,7 +231,7 @@ export function EntityHome() {
         </div>
       </section>
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel }}>
+      <section style={{ ...clay.card, padding: 0, gap: 0, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)' }}>
         {tiles.map((t, i) => (
           <Link
             key={t.label}
@@ -251,7 +242,7 @@ export function EntityHome() {
               flexDirection: 'column',
               gap: 8,
               padding: '18px 20px',
-              borderRight: i < tiles.length - 1 ? `1px solid ${colors.borderDefault}` : undefined,
+              borderRight: i < tiles.length - 1 ? `1px solid ${colors.borderSubtle}` : undefined,
               color: colors.textPrimary,
               textDecoration: 'none',
             }}
@@ -272,29 +263,29 @@ export function EntityHome() {
       {/* §8.2 — connecting callout + consequence strip below the tiles; §8.7 tags the mixed-source screen with its source */}
       {consequenceReady && (
         <>
-          <div style={{ padding: '10px 20px', fontFamily: fonts.mono, fontSize: 11, color: colors.statusAmber, background: colors.bgWarnSoft }}>
+          <div style={{ padding: '12px 20px', fontFamily: fonts.mono, fontSize: 11, color: colors.statusAmber, background: colors.bgWarnSoft, borderRadius: 14, boxShadow: shadows.in }}>
             <Link to={`/entity/${entity.code}/p2p/invoices`} style={{ color: colors.accentText }}>{formatCr(entity.metrics.apBlocked.current)}</Link> blocked →{' '}
             <a href="#fct-consequence" style={{ color: colors.accentText }}>{formatCr(entity.metrics.accrualExposure!)}</a> {CALLOUT_MID[mode]} → COGS understated
           </div>
-          <section id="fct-consequence" style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${colors.borderDefault}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <section id="fct-consequence" style={{ ...clay.card, padding: 0, gap: 0 }}>
+            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${colors.borderSubtle}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Eyebrow style={typeScale.tableHeader}>Financial consequence</Eyebrow>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 {/* §11 — the consequence strip can pose its exposure question to the drawer */}
-                <button type="button" className="fct-ask-btn" onClick={() => assistant?.ask('What is our exposure at close?')} style={{ border: `1px solid ${colors.accent}`, color: colors.textPrimary, padding: '9px 12px', fontSize: 13 }}>Ask about this exposure</button>
+                <button type="button" className="fct-ask-btn" onClick={() => assistant?.ask('What is our exposure at close?')} style={{ padding: '9px 14px', fontSize: 13 }}>Ask about this exposure</button>
                 <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textFaint }}>source: trial balance extract</span>
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
               {consequence.map((c, i) => (
                 c.to ? (
-                  <Link key={c.label} to={c.to} className="fct-table-row" style={{ padding: '18px 20px', borderRight: i < consequence.length - 1 ? `1px solid ${colors.borderDefault}` : undefined, display: 'flex', flexDirection: 'column', gap: 8, color: colors.textPrimary, textDecoration: 'none' }}>
+                  <Link key={c.label} to={c.to} className="fct-table-row" style={{ padding: '18px 20px', borderRight: i < consequence.length - 1 ? `1px solid ${colors.borderSubtle}` : undefined, display: 'flex', flexDirection: 'column', gap: 8, color: colors.textPrimary, textDecoration: 'none' }}>
                     <span style={{ fontSize: 12, color: colors.textMuted }}>{c.label}</span>
                     <span style={typeScale.tileValue}>{c.value}</span>
                     <span style={{ fontSize: 12, color: colors.textSecondary }}>{c.explanation}</span>
                   </Link>
                 ) : (
-                  <div key={c.label} style={{ padding: '18px 20px', borderRight: i < consequence.length - 1 ? `1px solid ${colors.borderDefault}` : undefined, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div key={c.label} style={{ padding: '18px 20px', borderRight: i < consequence.length - 1 ? `1px solid ${colors.borderSubtle}` : undefined, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <span style={{ fontSize: 12, color: colors.textMuted }}>{c.label}</span>
                     <span style={typeScale.tileValue}>{c.value}</span>
                     <span style={{ fontSize: 12, color: colors.textSecondary }}>{c.explanation}</span>
@@ -307,7 +298,7 @@ export function EntityHome() {
               ))}
             </div>
 
-            <div style={{ padding: '12px 20px', borderTop: `1px solid ${colors.borderDefault}` }}>
+            <div style={{ padding: '12px 20px', borderTop: `1px solid ${colors.borderSubtle}` }}>
               {/* §8.10 — the accrual row above is the chain's third point; the strip carries the full trace */}
               <CrossProcessTrace code={entity.code} current="accrual" />
             </div>
@@ -317,8 +308,8 @@ export function EntityHome() {
 
       {/* §7.10 — "What moves this score": every from/to is recomputed at render; while a cap binds,
           ordinary actions deliver zero and only the cap-clearing action is shown (promoted above). */}
-      <section id="fct-moves" style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${colors.borderDefault}` }}>
+      <section id="fct-moves" style={{ ...clay.card, padding: 0, gap: 0 }}>
+        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${colors.borderSubtle}` }}>
           <Eyebrow style={typeScale.tableHeader}>What moves this score</Eyebrow>
         </div>
         {capRow && (
@@ -332,7 +323,7 @@ export function EntityHome() {
         {moveRows.map((row, i) => (
           <MoveRow key={row.action} row={row} last={i === moveRows.length - 1} />
         ))}
-        <div style={{ padding: '12px 20px', borderTop: `1px solid ${colors.borderDefault}` }}>
+        <div style={{ padding: '12px 20px', borderTop: `1px solid ${colors.borderSubtle}` }}>
           <button type="button" onClick={() => setWeightsOpen(!weightsOpen)} style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: '0.08em', background: 'transparent', border: 'none', color: colors.accentText, cursor: 'pointer', padding: 0 }}>
             {weightsOpen ? 'Hide how this score is built' : 'How this score is built'}
           </button>
@@ -351,8 +342,8 @@ export function EntityHome() {
       </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: spacing.gapCards }}>
-        <section style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '16px 20px', borderBottom: `1px solid ${colors.borderDefault}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <section style={{ ...clay.card, padding: 0, gap: 0 }}>
+          <div style={{ padding: '16px 20px', borderBottom: `1px solid ${colors.borderSubtle}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Eyebrow style={typeScale.tableHeader}>Top issues requiring attention</Eyebrow>
             <Link to={`/entity/${entity.code}/p2p/invoices`} style={{ fontSize: 12, color: colors.accentText, textDecoration: 'none' }}>Open worklist →</Link>
           </div>
@@ -382,7 +373,7 @@ export function EntityHome() {
         </section>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.gapCards }}>
-          <section style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <section style={{ ...clay.card, padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Eyebrow style={typeScale.tableHeader}>Root cause insights</Eyebrow>
               <Link to={defaultRootCauseTo(entity.code)} style={{ fontSize: 12, color: colors.accentText, textDecoration: 'none' }}>Analyse →</Link>
@@ -398,7 +389,7 @@ export function EntityHome() {
             ))}
           </section>
 
-          <section style={{ border: `1px solid ${colors.borderAccent}`, background: colors.bgAccentPanel, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <section style={{ ...clay.cardAccent, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Eyebrow style={{ ...typeScale.tableHeader, color: colors.accentText }}>Recommended actions</Eyebrow>
             <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0, lineHeight: 1.5 }}>{`${formatCr(entity.metrics.releasableCash)} working-capital release available by clearing GR compliance on ${entity.metrics.unpostedGr?.vendors ?? '—'} vendors.`}</p>
             <div style={{ display: 'flex', gap: 20, fontFamily: fonts.mono, fontSize: 12, color: colors.textMuted }}>
@@ -407,7 +398,7 @@ export function EntityHome() {
               <span>{`${causeBacklog(m.causeElimination!).notStarted} systemic`}</span>
             </div>
             {/* Opens the AI drawer and asks the entity's seed question (spec/07, §11) — capped entities ask why they are capped. */}
-            <button type="button" className="fct-ask-btn" onClick={() => assistant?.ask(askQuestion)} style={{ border: `1px solid ${colors.accent}`, color: colors.textPrimary, padding: '9px 12px', fontSize: 13, textAlign: 'center' }}>{`Ask why this entity is ${capped ? 'capped' : 'amber'}`}</button>
+            <button type="button" className="fct-ask-btn" onClick={() => assistant?.ask(askQuestion)} style={{ padding: '9px 14px', fontSize: 13, textAlign: 'center' }}>{`Ask why this entity is ${capped ? 'capped' : 'amber'}`}</button>
           </section>
         </div>
       </div>
