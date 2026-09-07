@@ -32,4 +32,4 @@
 - [x] Step 21 — Control of the agent
 - [x] Step 21b — Sweep the drill script
 - [x] Step 22 — One exception, end to end
-- [ ] Step 23 — The preventive agent
+- [x] Step 23 — The preventive agent

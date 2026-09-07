@@ -1,4 +1,4 @@
-# DEMO.md — the thirteen-beat walk
+# DEMO.md — the fourteen-beat walk
 
 Run `npm run dev` and open http://localhost:5200. The app opens on the Group view in
 pre-close mode (the default), so beat 1 needs no toggle. Every figure below was verified
@@ -257,10 +257,10 @@ Retail — Entity controller"); the record beneath is how the credit agent handl
 block, and it is the releasable-set boundary the beat is about. Deccan: trigger "Credit
 block on an open customer order"; checks — Cause inside the releasable set PASS ("block
 caused by an uncleared invoice that is not yet due") · Policy cited in the record PASS
-("policy cited — uncleared invoice, not yet due"). Action: "Released the policy-defect
-block — invoice not yet due". Precedent jps-pasir opens as a link to Pasir's page.
-Declined: "I did not raise the customer's limit or clear any exposure — I released only
-the block whose cause sits inside the releasable set." Reversibility: "A release lifts the
+("policy cited — uncleared invoice, not yet due"). Action: "Release approved · not yet
+posted". Precedent jps-pasir opens as a link to Pasir's page.
+Declined: "I did not raise the customer's limit or clear any exposure — I authorised only
+the release whose cause sits inside the releasable set." Reversibility: "A release lifts the
 block; if the read was wrong it can be re-applied and nothing has been paid or written
 off."
 
@@ -276,6 +276,80 @@ item up the human chain."
 invoice that is not yet due) releases with the policy cited in the record; a customer over
 its limit never does — that one escalates. Same block shape, different cause, different
 outcome, and both are readable in the record.
+
+## Beat 14 — The preventive agent: commitments watch on the PO stage
+
+**Click path:** /entity/JGL/p2p (beat 5's cockpit) → click the **PO** stage card ("386 in
+flight · ₹58.4 cr") → /entity/JGL/p2p/commitments. Or ⌘K "commitments" and pick the screen
+row (its meta reads "386 open POs · ₹18.4 cr at risk").
+
+**Figures (verified):** h1 "Commitments watch". Four headline figures: OPEN POS **386**
+(sub "the PO stage pool — 12 named here") · COMMITTED VALUE **₹58.4 cr** ("ties to
+cost-centre commitments") · VALUE AT RISK OF SLIPPING **₹18.4 cr**, red ("2 chased · 1
+proposed — date not yet confirmed") · AMENDMENTS MADE **2** ("date only, on the owner's
+reply"). The claim card states what this agent protects: "This agent keeps the commitment
+data true. Committed spend, accrual planning and close exposure all depend on delivery
+dates being accurate — a stale date silently corrupts the ₹6.4 cr accrual estimate at
+close." Below it, twelve named PO rows ordered by delivery date; the footer reads "Named
+rows are the cost-centre pool — same POs, same values" with "₹58.4 cr committed".
+
+The 386 / ₹58.4 cr is the §7.4 PO-stage in-flight figure for JGL, and it reconciles to the
+cost-centre page: JGL's four cost centres (Roorkee Operations · Nanjangud Operations ·
+Quality & Regulatory · Corporate) carry open POs that sum to exactly ₹58.4 cr — the same
+pool, read two ways. The at-risk figure is only the rows whose date is not yet confirmed
+(2 chased + 1 proposed = ₹18.4 cr); amended and on-track rows are not at risk because their
+date already stands.
+
+**The line:** this agent works upstream of any invoice — there is nothing blocked here, so
+the claim is deliberately not "prevents blocked invoices." Amending a PO date does not stop
+a vendor invoicing early. What it keeps true is the commitment data: committed spend,
+accrual planning and close exposure all ride on delivery dates being accurate, and a stale
+date silently corrupts the ₹6.4 cr accrual estimate at close.
+
+## Beat 14b — The nine-day exchange, and its failure path
+
+**Click path:** from the watch (beat 14) → click row **PO-48115** → /entity/JGL/p2p/
+commitments/PO-48115 (the confirmed-slip beat). For the failure path: row **PO-48307** →
+/entity/JGL/p2p/commitments/PO-48307.
+
+**Figures (verified) — the confirmed slip, PO-48115.** Balaji Engineering Works · Nanjangud
+Operations · ₹7.4 cr · owner R. Iyer. Delivery was due **16 Sep 2026 — nine days out** at
+the walk. The exchange timeline (all on the demo day) reads:
+
+- 08:19 AGENT asked R. Iyer to flag slippage — "PO PO-48115 delivery is due 16 Sep 2026. If
+  it will slip, flag it now so we can amend the date before period-end."
+- 09:54 OWNER replied — "Vendor confirmed the batch is pushed into Oct — should land around
+  07 Oct 2026."
+- 10:04 AGENT understood: delivery moves to **07 Oct 2026** — confidence **0.95**, above the
+  0.85 threshold.
+- 10:11 AGENT amended the delivery date 16 Sep → 07 Oct — **date only**.
+- 10:12 AGENT notified R. Iyer: "Delivery date on PO-48115 amended from 16 Sep 2026 to
+  07 Oct 2026. No other field was changed — value, quantity and vendor stand as released."
+
+The decision record beneath: trigger "Delivery on PO-48115 due 16 Sep 2026"; checks all
+**PASS** (owner reply confirming slippage · confidence ≥ 0.85 → 0.95 · scope is the delivery
+date only); delegation names what it never touches — price, quantity, vendor; action "Amended
+the PO delivery date after the owner confirmed slippage."
+
+**Figures (verified) — the ambiguous reply, PO-48307.** Kaveri Solvents Ltd · Roorkee
+Operations · ₹5.2 cr · owner S. Rao. Due **13 Sep 2026 — six days out**. The timeline:
+
+- 11:21 AGENT asked S. Rao to flag slippage.
+- 12:56 OWNER replied — "Might slip, checking with vendor — will confirm once they respond."
+- 13:06 AGENT understood (uncertain): delivery may move to ~23 Sep 2026 — confidence **0.81**,
+  below the threshold.
+- 13:13 AGENT proposed 23 Sep and escalated to R. Iyer — **no change made**.
+
+The decision record: trigger "Delivery on PO-48307 due 13 Sep 2026; owner reply does not
+confirm a date"; checks — owner replied PASS · confidence ≥ 0.85 **FAIL** (0.81) · scope is
+the delivery date only PASS → two PASS, one FAIL; action "Proposed a new delivery date and
+escalated — reply below confidence threshold."
+
+**The line:** this is the only agent that interprets natural language and then modifies a
+procurement document — so a misread must be as visible as a correct read. A confirmed slip
+(0.95) amends the date, tells the owner exactly what changed, and touches nothing else; an
+ambiguous reply (0.81) fails the confidence check, proposes instead of acting, and escalates
+to a human. The amendment is date only — never value, quantity or vendor.
 
 ---
 

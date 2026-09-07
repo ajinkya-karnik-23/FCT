@@ -35,12 +35,15 @@ describe('P2P cockpit (spec/05)', () => {
     expect(m.getByText('In flight at each stage')).toBeTruthy()
     expect(m.getByText('Open work in progress, not period volumes')).toBeTruthy()
 
-    // Seven stage cards plus the "Open blocked invoices" button-link all target the worklist.
+    // Six stage cards plus the "Open blocked invoices" button-link target the worklist; §15.7 — the Purchase order card drills to the commitments watch instead (open POs by delivery date).
     const toWorklist = m.getAllByRole('link').filter((l) => l.getAttribute('href') === '/entity/JGL/p2p/invoices')
-    expect(toWorklist).toHaveLength(8)
-    for (const name of ['Requisition', 'Purchase order', 'Goods receipt', 'Invoice', 'Three-way match', 'Approval', 'Payment']) {
+    expect(toWorklist).toHaveLength(7)
+    for (const name of ['Requisition', 'Goods receipt', 'Invoice', 'Three-way match', 'Approval', 'Payment']) {
       expect(toWorklist.some((l) => (l.textContent ?? '').includes(name))).toBe(true)
     }
+    const toCommitments = m.getAllByRole('link').filter((l) => l.getAttribute('href') === '/entity/JGL/p2p/commitments')
+    expect(toCommitments).toHaveLength(1)
+    expect((toCommitments[0].textContent ?? '').includes('Purchase order')).toBe(true)
 
     // Stage card contents: thousands-separated volume and the exception rate (Goods receipt stage).
     expect(m.getByText('349')).toBeTruthy()

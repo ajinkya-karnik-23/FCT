@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import App from '../src/App'
-import { agentActions, agentRates, agentReversibility, agentWorkforceSummary, creditBlockDecisionFor, coverageStrip, exceptionWalkthrough, getAgent, getCounterparty, getException, listAgents, listExceptions, listRequests, requestOwnerPool } from '../src/api'
+import { agentActions, agentRates, agentReversibility, agentWorkforceSummary, creditBlockDecisionFor, coverageStrip, exceptionWalkthrough, getAgent, getCounterparty, getException, getPurchaseOrder, listAgents, listExceptions, listRequests, poActionLog, requestOwnerPool } from '../src/api'
 
 // jsdom shares one window across tests in a file; BrowserRouter reads the live
 // pathname on mount, so reset to "/" before each render.
@@ -132,10 +132,15 @@ describe('Agent workforce dataset (§15.2)', () => {
         expect(c).toBeDefined()
         expect(c!.type).toBe('customer')
         expect(c!.creditBlocked).toBe(true)
+      } else if (act.targetType === 'po') {
+        // §15.7 — a PO-stage engagement targets an open purchase order on the commitments watch
+        const po = getPurchaseOrder(act.targetId)
+        expect(po).toBeDefined()
+        expect(po!.entityCode).toBe(act.entityCode)
       }
-      // §15.7 — a precedent may cite an exception, a prior intake or a counterparty; each must resolve to something openable
+      // §15.2.1/§15.7 — a precedent may cite an exception, a prior intake, a counterparty or an earlier PO engagement; each must resolve to something openable
       for (const pid of act.precedents) {
-        expect(getException(pid) !== undefined || requests.some((r) => r.id === pid) || getCounterparty(pid) !== undefined).toBe(true)
+        expect(getException(pid) !== undefined || requests.some((r) => r.id === pid) || getCounterparty(pid) !== undefined || getPurchaseOrder(pid) !== undefined).toBe(true)
       }
       expect(act.withinDelegation).toBe(true)
     }
@@ -374,11 +379,13 @@ describe('Agents screen (§15.5)', () => {
     expect(pp.textContent).toContain('not built; no performance record')
     expect(pp.textContent).toContain('No action log yet.')
 
-    // §15.7 — commitments is live and preventive, but its actions now target exceptions: the log is populated
+    // §15.7 — commitments is live and preventive; its log now carries exception follow-ups plus one PO-stage engagement per open PO it chased, amended or proposed on
     fireEvent.click(section.querySelector('[data-fct-agent-toggle="commitments"]')!)
     const commitments = section.querySelector('[data-fct-record="commitments"]') as HTMLElement
-    expect(commitments.querySelectorAll('[data-fct-action]')).toHaveLength(6)
+    expect(commitments.querySelectorAll('[data-fct-action]')).toHaveLength(6 + poActionLog.length)
     expect(commitments.querySelector('a[href*="/p2p/invoices/"]')).toBeTruthy()
+    // PO-stage engagements open the PO detail page, where the agent–owner exchange lives.
+    expect(commitments.querySelector('a[href*="/p2p/commitments/"]')).toBeTruthy()
   })
 
   it('precedents resolve to openable routes — exceptions, requests and counterparties (§15.2.1)', () => {

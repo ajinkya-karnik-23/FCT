@@ -215,6 +215,13 @@ const SEEDS: Seed[] = [
   { code: 'JRP', totalCr: 10.1, maxAge: 74, plants: ['Kirkland, QC', 'US radiopharmacy network'], vendors: CA_US_VENDORS, owners: ['C. Tremblay', 'N. Okafor'], idBase: 608000, poPrefix: '95' },
 ];
 
+// §7.17 — the named people per entity (JGL's four from its pinned rows). Exported so other datasets (PO owners in
+// commitments) reuse the same pool instead of inventing new names.
+export const OWNER_POOLS: Record<string, string[]> = {
+  JGL: ['P. Nair', 'A. Sethi', 'R. Iyer', 'S. Rao'],
+  ...Object.fromEntries(SEEDS.map((s) => [s.code, s.owners])),
+};
+
 // Splits totalCr into twelve non-increasing values (2dp) that sum exactly to the shown value.
 function splitValues(totalCr: number, rand: () => number): number[] {
   const totalCents = Math.round(totalCr * 100); // integer math keeps the sum exact

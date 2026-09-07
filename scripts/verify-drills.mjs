@@ -1188,12 +1188,12 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item15: follow-up's action log lists its actions with openable targets`, !!agRecord && agRecord.actions >= 3 && agRecord.targetLink, `actions=${agRecord ? agRecord.actions : -1}`)
   check(`${themeName}/item15: the record repeats the §15.1 simulated label`, !!agRecord && agRecord.simulated, 'simulated tag missing in record')
 
-  // Commitments is live and has a performance record now — six actions, each opening the invoice it amended (§15.2.1). The honest-absence case sits with payment-proposal below.
+  // Commitments is live and has a performance record now — exception follow-ups plus one PO-stage engagement per open PO it chased, amended or proposed on (§15.7). The honest-absence case sits with payment-proposal below.
   const agCommit = await evaluate(`(() => { const t = document.querySelector('[data-fct-agent-toggle="commitments"]'); if (!t) return false; t.click(); return true })()`)
   check(`${themeName}/item15: clicking commitments opens its record`, agCommit === true, '')
   await new Promise((r) => setTimeout(r, 200))
-  const agCommitRec = await evaluate(`(() => { const rec = document.querySelector('[data-fct-record="commitments"]'); return rec ? (rec.querySelectorAll('[data-fct-action]').length === 6 && !!rec.querySelector('a[href*="/p2p/invoices/"]')) : false })()`)
-  check(`${themeName}/item15: commitments is live with a performance record — six actions, each opening its invoice`, agCommitRec === true, '')
+  const agCommitRec = await evaluate(`(() => { const rec = document.querySelector('[data-fct-record="commitments"]'); return rec ? (rec.querySelectorAll('[data-fct-action]').length >= 6 && !!rec.querySelector('a[href*="/p2p/invoices/"]') && !!rec.querySelector('a[href*="/p2p/commitments/"]')) : false })()`)
+  check(`${themeName}/item15: commitments is live with a performance record — exception follow-ups plus PO-stage engagements, each opening its target`, agCommitRec === true, '')
   const agPp = await evaluate(`(() => { const t = document.querySelector('[data-fct-agent-toggle="payment-proposal"]'); if (!t) return false; t.click(); return true })()`)
   check(`${themeName}/item15: clicking payment proposal opens its record`, agPp === true, '')
   await new Promise((r) => setTimeout(r, 200))
@@ -1402,13 +1402,13 @@ async function drillPass(themeName, palette) {
     const passSpans = Array.from(dec.querySelectorAll('span')).filter((s) => s.textContent === 'PASS').length
     const failSpans = Array.from(dec.querySelectorAll('span')).filter((s) => s.textContent === 'FAIL').length
     return {
-      released: dec.textContent.includes('Released the policy-defect block — invoice not yet due'),
+      approved: dec.textContent.includes('Release approved · not yet posted'),
       passSpans, failSpans,
       neverActsOn: dec.textContent.includes('credit release against exposure'),
       escalatesWhen: dec.textContent.includes('block caused by exposure over limit'),
     }
   })()`)
-  check(`${themeName}/item17: Deccan's block is released — policy defect, both checks pass`, !!decJgl && decJgl.released && decJgl.passSpans === 2 && decJgl.failSpans === 0, JSON.stringify(decJgl))
+  check(`${themeName}/item17: Deccan's release is approved but not yet posted — policy defect, both checks pass`, !!decJgl && decJgl.approved && decJgl.passSpans === 2 && decJgl.failSpans === 0, JSON.stringify(decJgl))
   check(`${themeName}/item17: its delegation names the line it never crosses — release against exposure`, !!decJgl && decJgl.neverActsOn && decJgl.escalatesWhen, JSON.stringify(decJgl))
 
   await navigate(BASE + '/entity/JPS/customer/jps-pasir')
@@ -1429,6 +1429,118 @@ async function drillPass(themeName, palette) {
   const decNeg = await evaluate(`(() => ({ badge: document.querySelector('main').textContent.includes('CREDIT BLOCKED'), decision: !!document.querySelector('[data-fct-decision]') }))()`)
   check(`${themeName}/item17: a blocked customer with no logged decision shows the block but no record`, decNeg.badge === true && decNeg.decision === false, JSON.stringify(decNeg))
   await screenshot(`${themeName}-credit-block-records.png`)
+
+  // ---- item 18: the preventive agent (§15.2.1) — commitments watch on the PO stage ----
+  console.log('\n-- item 18: commitments watch')
+  await navigate(BASE + '/entity/JGL/p2p/commitments')
+  const cw = await evaluate(`(() => {
+    const main = document.querySelector('main')
+    if (!main) return null
+    const rows = Array.from(document.querySelectorAll('[data-fct-commitments-watch] .fct-table-row'))
+    const claim = document.querySelector('[data-fct-commitments-claim]')
+    // the delivery-date cell is the 5th grid child; parse '16 Sep 2026 · …' for the sort check
+    const MONTHS = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 }
+    const dates = rows.map((r) => {
+      const cell = r.children[4] ? r.children[4].textContent : ''
+      const m = /(\\d{1,2}) ([A-Z][a-z]{2}) (\\d{4})/.exec(cell || '')
+      return m ? new Date(+m[3], MONTHS[m[2]], +m[1]).getTime() : null
+    })
+    return {
+      h1: (main.querySelector('h1') || {}).textContent || null,
+      rowCount: rows.length,
+      rowTexts: rows.map((r) => r.textContent.trim().replace(/\\s+/g, ' ')),
+      sorted: dates.every((d, i) => i === 0 || (d !== null && dates[i - 1] !== null && d >= dates[i - 1])),
+      claim: claim ? claim.textContent : '',
+      mainText: main.textContent.replace(/\\s+/g, ' '),
+      breadcrumb: ((document.querySelector('nav[aria-label="Breadcrumb"]') || {}).textContent || '').trim(),
+    }
+  })()`)
+  check(`${themeName}/item18: the watch loads from its URL with JGL's twelve named POs`, !!cw && cw.h1 === 'Commitments watch' && cw.rowCount === 12, JSON.stringify({ h1: cw ? cw.h1 : null, rowCount: cw ? cw.rowCount : -1 }))
+  check(`${themeName}/item18: rows are ordered by delivery date`, !!cw && cw.sorted, '')
+  const rowHas = (id, word) => cw ? cw.rowTexts.some((t) => t.startsWith(id) && t.includes(word)) : false
+  check(`${themeName}/item18: the nine-day beat and its failure path carry their states — PO-48115 AMENDED, PO-48307 PROPOSED`, rowHas('PO-48115', 'AMENDED') && rowHas('PO-48307', 'PROPOSED'), cw ? cw.rowTexts.filter((t) => t.startsWith('PO-48115') || t.startsWith('PO-48307')).join(' | ') : '')
+  check(`${themeName}/item18: the pool reconciles to the PO stage — 386 open, ₹58.4 cr committed`, !!cw && cw.mainText.includes('386') && cw.mainText.includes('₹58.4 cr'), '')
+  check(`${themeName}/item18: value at risk of slipping is ₹18.4 cr — 2 chased · 1 proposed, date not yet confirmed`, !!cw && cw.mainText.includes('₹18.4 cr') && cw.mainText.includes('2 chased · 1 proposed'), '')
+  check(`${themeName}/item18: the claim is true commitment data — accrual estimate named, no "prevents blocked invoices"`, !!cw && cw.claim.includes('accrual estimate') && !cw.claim.includes('prevents blocked invoices'), JSON.stringify(cw ? cw.claim.slice(0, 140) : null))
+  check(`${themeName}/item18: breadcrumb shows Commitments watch under P2P`, !!cw && cw.breadcrumb.includes('Commitments watch'), JSON.stringify(cw ? cw.breadcrumb : null))
+  const cwNav = await evaluate(NAV_ACTIVE_JS)
+  check(`${themeName}/item18: the PO stage keeps the P2P cockpit active in the rail`, !!cwNav && cwNav.label.startsWith('P2P cockpit'), JSON.stringify(cwNav))
+
+  // The drill is earned from the cockpit itself — the PO stage card links to the watch, not the worklist.
+  await navigate(BASE + '/entity/JGL/p2p')
+  const poStage = await evaluate(`(() => {
+    const a = document.getElementById('fct-stage-PO')
+    if (!a) return null
+    a.scrollIntoView({ block: 'nearest', behavior: 'instant' })
+    const r = a.getBoundingClientRect()
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2, href: a.getAttribute('href') }
+  })()`)
+  check(`${themeName}/item18: the PO stage card points at the commitments watch`, !!poStage && poStage.href === '/entity/JGL/p2p/commitments', JSON.stringify(poStage))
+  if (poStage) { await clickAt(poStage.x, poStage.y); await waitForPath((p) => p === '/entity/JGL/p2p/commitments', 'PO stage card → commitments watch') }
+
+  // ⌘K finds the screen by name; its meta states the pool and at-risk value from the dataset, never literals.
+  await new Promise((r) => setTimeout(r, 400))
+  await ctrlK()
+  await new Promise((r) => setTimeout(r, 400))
+  check(`${themeName}/item18: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('commitments')`)) === true)
+  await new Promise((r) => setTimeout(r, 200))
+  const cwPalette = await evaluate(PALETTE_ROWS_JS)
+  const cwScreenRows = cwPalette.filter((t) => /open POs · ₹[\d.]+ cr at risk/.test(t))
+  check(`${themeName}/item18: "commitments" lists exactly one screen with the pool and at-risk value`, cwScreenRows.length === 1 && cwScreenRows[0].includes('Commitments watch'), JSON.stringify(cwPalette))
+  const cwPick = await evaluate(`(() => { const r = Array.from(document.querySelectorAll('.fct-palette-row')).find((x) => x.textContent.includes('Commitments watch')); if (!r) return false; r.click(); return true })()`)
+  check(`${themeName}/item18: picking the row opens the commitments watch`, cwPick === true, '')
+  await waitForPath((p) => p === '/entity/JGL/p2p/commitments', 'commitments watch from the palette')
+  await screenshot(`${themeName}-commitments-watch.png`)
+
+  // ---- item 18b: the nine-day exchange and its failure path (§15.2.1) ----
+  console.log('\n-- item 18b: PO detail — the agent–owner exchange')
+  const poProbe = `(() => {
+    const main = document.querySelector('main')
+    if (!main) return null
+    const ex = document.querySelector('[data-fct-po-exchange]')
+    const dec = document.querySelector('[data-fct-decision]')
+    const passSpans = dec ? Array.from(dec.querySelectorAll('span')).filter((s) => s.textContent === 'PASS').length : -1
+    const failSpans = dec ? Array.from(dec.querySelectorAll('span')).filter((s) => s.textContent === 'FAIL').length : -1
+    return {
+      h1: (main.querySelector('h1') || {}).textContent || null,
+      exchange: ex ? ex.textContent.replace(/\\s+/g, ' ') : '',
+      decisionId: dec ? dec.getAttribute('data-fct-decision') : null,
+      passSpans, failSpans,
+      mainText: main.textContent.replace(/\\s+/g, ' '),
+    }
+  })()`
+  await navigate(BASE + '/entity/JGL/p2p/commitments/PO-48115')
+  const poA = await evaluate(poProbe)
+  check(`${themeName}/item18b: PO-48115 loads from its URL with the exchange timeline`, !!poA && poA.h1 === 'PO-48115' && poA.exchange.length > 0, JSON.stringify({ h1: poA ? poA.h1 : null }))
+  // The beat is a PO whose delivery was due in nine days — computed against today, not hardcoded.
+  const MONTHS2 = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 }
+  const wasM = poA ? /was (\d{1,2} [A-Z][a-z]{2} \d{4}) — amended/.exec(poA.mainText) : null
+  let nineDays = false
+  if (wasM) {
+    const dm = /(\d{1,2}) ([A-Z][a-z]{2}) (\d{4})/.exec(wasM[1])
+    if (dm) {
+      const orig = new Date(+dm[3], MONTHS2[dm[2]], +dm[1])
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      nineDays = Math.round((orig.getTime() - today.getTime()) / 86400000) === 9
+    }
+  }
+  check(`${themeName}/item18b: the exchange is on a PO whose delivery was due in nine days`, nineDays, JSON.stringify(wasM))
+  // (c) what the agent understood — quoted reply, extracted date, confidence — and (d) date-only amendment + notification.
+  check(`${themeName}/item18b: the owner's reply is quoted verbatim in the timeline`, !!poA && poA.exchange.includes('Vendor confirmed the batch is pushed into'), JSON.stringify(poA ? poA.exchange.slice(0, 200) : null))
+  check(`${themeName}/item18b: the record shows what it understood — extracted date and confidence level`, !!poA && /Understood: delivery moves to \d{1,2} [A-Z][a-z]{2} \d{4} — confidence 0\.\d{2}/.test(poA.exchange), '')
+  check(`${themeName}/item18b: the amendment is date only and the owner was told exactly what changed`, !!poA && poA.exchange.includes('— date only') && poA.exchange.includes('No other field was changed'), '')
+  check(`${themeName}/item18b: its decision record passes all three checks with no FAIL`, !!poA && poA.decisionId === 'commitments-po-PO-48115' && poA.passSpans === 3 && poA.failSpans === 0, JSON.stringify({ id: poA ? poA.decisionId : null, pass: poA ? poA.passSpans : -1, fail: poA ? poA.failSpans : -1 }))
+  check(`${themeName}/item18b: the delegation names what it never touches — price, quantity, vendor`, !!poA && poA.mainText.includes('price, quantity, vendor'), '')
+  await screenshot(`${themeName}-po-exchange-amended.png`)
+
+  // The failure path (item 4): an ambiguous reply below the confidence threshold proposes and escalates instead of acting.
+  await navigate(BASE + '/entity/JGL/p2p/commitments/PO-48307')
+  const poP = await evaluate(poProbe)
+  check(`${themeName}/item18b: PO-48307 loads with the ambiguous reply quoted`, !!poP && poP.h1 === 'PO-48307' && poP.exchange.includes('Might slip, checking with vendor'), JSON.stringify({ h1: poP ? poP.h1 : null }))
+  check(`${themeName}/item18b: below threshold the agent proposes and escalates — no change made`, !!poP && /below the threshold/.test(poP.exchange) && poP.exchange.includes('no change made'), JSON.stringify(poP ? poP.exchange.slice(0, 260) : null))
+  check(`${themeName}/item18b: its record fails exactly the confidence check — two PASS, one FAIL`, !!poP && poP.decisionId === 'commitments-po-PO-48307' && poP.passSpans === 2 && poP.failSpans === 1, JSON.stringify({ id: poP ? poP.decisionId : null, pass: poP ? poP.passSpans : -1, fail: poP ? poP.failSpans : -1 }))
+  check(`${themeName}/item18b: the action line says it proposed and escalated, not amended`, !!poP && poP.mainText.includes('Proposed a new delivery date and escalated'), '')
+  await screenshot(`${themeName}-po-exchange-proposed.png`)
 
   // ---- theme legibility: status colors + ageing-bar fills on the three views ----
   console.log(`\n-- legibility (${themeName}): O2C cockpit + both root-cause variants`)

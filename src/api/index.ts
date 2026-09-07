@@ -27,6 +27,7 @@ import {
 } from './mock/misc';
 import { deflectedSelfServed, requests } from './mock/requests';
 import { agents, agentActionLog, COVERAGE_STRIP, sessionOverrideCount } from './mock/agents';
+import { poActionLog } from './mock/commitments';
 import { jglLeverStages, touchFunnel } from './mock/touchEconomics';
 
 import { computeScore, DIMENSION_KEYS, groupScore, groupScorePrevious, openExceptions, openExceptionsPrevious, valueAtRisk } from './score';
@@ -120,6 +121,9 @@ export type {
   O2cServiceControl,
   PayableReason,
   PlantCounterparty,
+  PoChaseState,
+  PoExchange,
+  PurchaseOrder,
   ProcessKey,
   ProcessStage,
   RankedAction,
@@ -686,14 +690,19 @@ export function getAgent(id: string): Agent | undefined {
   return agents.find((a) => a.id === id);
 }
 
-// §15.5 — an agent's own action log, most recent first. Designed agents have none (honest absence).
+// §15.5 — an agent's own action log, most recent first. Designed agents have none (honest absence). The commitments
+// agent's PO-targeted actions (§15.2.1) join the same log so its record page shows all of its work.
 export function agentActions(agentId: string): AgentAction[] {
-  return agentActionLog.filter((x) => x.agentId === agentId).sort((a, b) => (a.takenAt < b.takenAt ? 1 : -1));
+  return [...agentActionLog, ...poActionLog].filter((x) => x.agentId === agentId).sort((a, b) => (a.takenAt < b.takenAt ? 1 : -1));
 }
 
 // §15.7/§15.1 — the worklist's agent lane: per-row state, pool counts and the one demo cycle control; the detail
 // screen's decision record with its override exit (§15.1.2). Session-local, reset by tests like the worklist store.
 export { agentCycleRan, creditBlockDecisionFor, decisionOverridden, decisionRecordFor, exceptionWalkthrough, laneForException, overrideDecision, resetAgentLaneStore, runNextAgentCycle, worklistAgentCounts } from './mock/agents';
+
+// §15.7 — commitments watch: open POs by delivery date, chase state, amendments and value at risk of slipping past
+// period-end; the PO detail page's decision record (the agent–owner exchange).
+export { commitmentsWatch, getPurchaseOrder, poActionLog, poDaysOut, poDecisionFor, purchaseOrders } from './mock/commitments';
 
 // §15.2.0 — the lifecycle coverage strip: seven P2P and seven O2C stages with agents positioned where they act.
 export function coverageStrip(): CoverageStrip {

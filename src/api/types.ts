@@ -392,6 +392,37 @@ export interface CostCentre {
   openPos: { po: string; valueCr: number }[];
 }
 
+// §15.2.1/§15.7 — commitments watch: one open PO from the cost-centre pool, with its delivery date, chase state and
+// (once the agent engages) the full owner exchange. The named rows are a sample of the stage's in-flight pool; their
+// values tie to CostCentre.openPos exactly, so the watch reconciles to the same ₹ figure as the cost-centre pages.
+export type PoChaseState = 'on-track' | 'chased' | 'amended' | 'proposed';
+
+export interface PoExchange {
+  askedAt: string; // ISO — the agent's chase message to the PO owner
+  askText: string; // what the agent asked, in plain language
+  reply?: { at: string; text: string }; // the quoted owner reply (absent while awaiting)
+  extractedDate?: string; // ISO — the date the agent read out of the reply (§15.2.1: what it understood)
+  confidence?: number; // 0–1 — the agent's reading of the reply; compared against the delegation threshold
+  understoodAt?: string; // ISO — when the agent logged its reading (amended and proposed alike)
+  amendment?: { from: string; to: string; postedAt?: string }; // DATE ONLY — postedAt absent for a proposal
+  proposedAt?: string; // ISO — when the proposal was escalated (proposed only)
+  notificationText?: string; // what the owner was told about exactly what changed (amended only)
+  notifiedAt?: string; // ISO — when that notification went out (amended only)
+}
+
+export interface PurchaseOrder {
+  id: string; // 'PO-48115'
+  entityCode: string;
+  costCentreId: string; // ties to the cost-centre page's pool — same PO, same value
+  vendorName: string;
+  ownerName: string; // the client-side PO owner the agent chases (§7.17 pool)
+  valueCr: number; // equals the CostCentre.openPos entry exactly
+  deliveryDate: string; // ISO — current SAP state (for an amended PO, the new date)
+  originalDeliveryDate?: string; // present when amended — the stale date that would have corrupted the accrual
+  chaseState: PoChaseState;
+  exchange?: PoExchange; // present once the agent has engaged with the owner
+}
+
 // §6/§7.26 — statutory obligations per entity, jurisdiction-matched in the dataset; only JRP carries an overdue item
 // (§7.26). valueAtRiskCr follows the §7.26 exposure table (ITC / input tax at risk, MSMED ageing); failCount carries
 // count-based operational failures where the spec states a number rather than a rupee figure — e-invoice IRN failures
@@ -441,6 +472,7 @@ export type AgentStatus = 'live' | 'designed';
 export interface Delegation {
   valueCapCr?: number;
   toleranceBand?: string;
+  confidenceThreshold?: number; // §15.2.1 — commitments only: below it the agent proposes and escalates rather than amending
   requiresDualControl: boolean;
   neverActsOn: string[]; // e.g. ['vendor bank details']
   escalatesWhen: string[];
@@ -498,7 +530,7 @@ export interface AgentCheck {
 export interface AgentAction {
   id: string;
   agentId: string;
-  targetType: 'exception' | 'request' | 'creditBlock';
+  targetType: 'exception' | 'request' | 'creditBlock' | 'po'; // §15.2.1 — the commitments agent acts on POs, not exceptions
   targetId: string;
   entityCode: string;
   takenAt: string; // relative per §7.21

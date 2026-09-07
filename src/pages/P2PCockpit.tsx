@@ -41,7 +41,8 @@ export function P2PCockpit() {
         )}
       </div>
 
-      <StageFlow stages={stages} to={`/entity/${code}/p2p/invoices`} />
+      {/* §15.7 — the PO stage drills to the commitments watch (open POs by delivery date); every other stage keeps the worklist */}
+      <StageFlow stages={stages} to={`/entity/${code}/p2p/invoices`} stageTo={{ PO: `/entity/${code}/p2p/commitments` }} />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: spacing.gapCards }}>
         <AgeingChart title="Blocked invoices by ageing" buckets={ageing} />

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { agentActions, agentRates, agentReversibility, agentWorkforceSummary, coverageStrip, getCounterparty, getException, listAgents, listRequests } from '../api'
+import { agentActions, agentRates, agentReversibility, agentWorkforceSummary, coverageStrip, getCounterparty, getException, getPurchaseOrder, listAgents, listRequests } from '../api'
 import type { Agent, AgentAction, AgentMetrics, AgentProcess, AgentStatus, AgentType, CoverageStage } from '../api'
 import { Eyebrow, Metric, StatusDot } from '../components'
 import { formatCr } from '../lib/format'
@@ -209,14 +209,18 @@ function targetLink(act: AgentAction): { to: string; label: string } | null {
   if (act.targetType === 'exception') return { to: `/entity/${act.entityCode}/p2p/invoices/${act.targetId}`, label: 'open item →' }
   if (act.targetType === 'request') return { to: '/service-desk', label: 'open request →' }
   if (act.targetType === 'creditBlock') return { to: `/entity/${act.entityCode}/customer/${act.targetId}`, label: 'open customer →' }
+  // §15.7 — a PO-stage engagement opens the PO detail page, where the agent–owner exchange lives.
+  if (act.targetType === 'po') return { to: `/entity/${act.entityCode}/p2p/commitments/${act.targetId}`, label: 'open PO →' }
   return null
 }
 
-// §15.2.1 — a cited precedent must be readable too: exception ids open the invoice, request ids the desk, counterparty ids their page.
+// §15.2.1 — a cited precedent must be readable too: exception ids open the invoice, request ids the desk, counterparty ids their page, PO ids the PO detail.
 function precedentLink(pid: string): string | null {
   const ex = getException(pid)
   if (ex) return `/entity/${ex.entityCode}/p2p/invoices/${pid}`
   if (listRequests().some((r) => r.id === pid)) return '/service-desk'
+  const po = getPurchaseOrder(pid)
+  if (po) return `/entity/${po.entityCode}/p2p/commitments/${pid}`
   const cp = getCounterparty(pid)
   if (!cp) return null
   return cp.type === 'customer' ? `/entity/${cp.entityCode}/customer/${pid}` : `/entity/${cp.entityCode}/vendor/${pid}`

@@ -301,6 +301,9 @@ const ROUTES = [
   ['/agents/follow-up', 'agent-detail'],
   // §15.3/§15.4 — touch economics; mono stat labels and raised stage cards are the audit targets
   ['/touch-economics', 'touch-economics'],
+  // §15.7 — the commitments watch (chase-state badges in all four colours on JGL) and its PO detail (the amended beat)
+  ['/entity/JGL/p2p/commitments', 'commitments-watch'],
+  ['/entity/JGL/p2p/commitments/PO-48115', 'po-detail'],
 ]
 
 // colors each route must show somewhere (evidence from source grep) — resolved via palette
@@ -329,6 +332,8 @@ const EXPECTED_PRESENT = {
   agents: ['accentText', 'statusAmber', 'bgRiskSoft', 'borderDefault'], // type chips (preventive/reactive), never-automate items, sim tags
   'agent-detail': ['bgPanel', 'bgRaised', 'borderDefault', 'textMuted', 'textFaint', 'accentText'], // §15.7 record page: card + raised record block, sim tag, field labels, action-log links
   'touch-economics': ['textFaint', 'textMuted', 'borderDefault', 'bgRaised'], // mono stat/section labels, sim tag + touches-per-thousand captions, card borders, raised lever-stage cards
+  'commitments-watch': ['statusRed', 'statusAmber', 'statusGreen', 'textFaint'], // JGL carries all four chase states (at-risk tile red, chased amber, amended green) + mono metric labels
+  'po-detail': ['statusGreen', 'accentText', 'textFaint', 'borderDefault'], // PO-48115 is the amended beat: green badge/dots, AGENT tags + cost-centre link, time sub-labels, card borders
 }
 
 async function themePass(themeName, palette) {

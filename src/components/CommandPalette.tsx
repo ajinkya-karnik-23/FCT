@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { agentWorkforceSummary, causeBacklogCounts, computeScore, getControlSignals, getEntity, getForecast, listAgents, listCauses, listCompliance, listCostCentres, listCounterparties, listDataQuality, listEntities, listExceptions, listPlants, listRequests, listTouchFunnel, slaBreachSplit } from '../api'
+import { agentWorkforceSummary, causeBacklogCounts, commitmentsWatch, computeScore, getControlSignals, getEntity, getForecast, listAgents, listCauses, listCompliance, listCostCentres, listCounterparties, listDataQuality, listEntities, listExceptions, listPlants, listRequests, listTouchFunnel, slaBreachSplit } from '../api'
 import { formatCr } from '../lib/format'
 import { colors, fonts, layout, paletteShadow } from '../theme/tokens'
 import { DEFAULT_ENTITY, entityCodeFromPath } from '../app/routes'
@@ -44,6 +44,9 @@ function buildItems(entityCode: string): PaletteItem[] {
   items.push({ kind: 'SCREEN', label: 'P2P cockpit', meta: 'process', to: `/entity/${entityCode}/p2p` })
   items.push({ kind: 'SCREEN', label: 'O2C cockpit', meta: 'process', to: `/entity/${entityCode}/o2c` })
   items.push({ kind: 'SCREEN', label: 'Blocked invoices worklist', meta: ctx ? `${ctx.metrics.apBlockedCount} items` : '—', to: `/entity/${entityCode}/p2p/invoices` })
+  // §15.7 — the commitments watch follows the entity in context; its row states the pool and what is at risk of slipping past period-end.
+  const cw = ctx ? commitmentsWatch(entityCode) : undefined
+  items.push({ kind: 'SCREEN', label: 'Commitments watch', meta: cw ? `${cw.openPosCount} open POs · ${formatCr(cw.valueAtRiskCr)} at risk` : '—', to: `/entity/${entityCode}/p2p/commitments` })
   items.push({ kind: 'SCREEN', label: 'Working capital', meta: ctx ? `${formatCr(ctx.metrics.releasableCash)} releasable` : '—', to: `/entity/${entityCode}/working-capital` })
   items.push({ kind: 'SCREEN', label: 'Risk & control', meta: `${getControlSignals().length} open signals`, to: '/risk-control' })
   // §7.26/§7.27 — the ASSURE screens; counts come from the dataset, never literals.

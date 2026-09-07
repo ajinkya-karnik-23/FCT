@@ -110,7 +110,7 @@ export const agents: Agent[] = [
     number: 3, id: 'commitments', name: 'Commitments', process: 'p2p', type: 'preventive',
     scope: 'Watches delivery dates, chases owners, amends confirmed slippage',
     boundedBy: "Date only. Requires the owner's reply as evidence",
-    delegation: { requiresDualControl: false, neverActsOn: ['price', 'quantity', 'vendor'], escalatesWhen: ['no owner reply to confirm slippage'] },
+    delegation: { confidenceThreshold: 0.85, requiresDualControl: false, neverActsOn: ['price', 'quantity', 'vendor'], escalatesWhen: ['no owner reply to confirm slippage', 'owner reply below the confidence threshold'] },
     supervisor: supervisorFor(3), status: 'live', metrics: buildMetrics('commitments'),
   },
   {
@@ -289,7 +289,7 @@ function followUpRecord(x: Exception, outcome: 'awaiting' | 'escalated' | 'resol
       { test: 'Owner response inside the chase window', threshold: 'reply before the chase timer expires', actual: replied ? 'owner reply received' : outcome === 'escalated' ? `${nudgeWord} unanswered — timer expired` : `no reply to ${nudgeWord} so far`, pass: replied },
     ],
     rationale: replied
-      ? 'The chase worked — the owner confirmed receipt and plant stores posted the GR.'
+      ? 'The chase worked — the owner confirmed receipt in writing; posting the GR stays with plant stores, outside this agent.'
       : outcome === 'escalated'
         ? 'Two nudges unanswered; escalation is the agent’s terminal action — it has no financial effect either way.'
         : nudges === 1
@@ -363,7 +363,7 @@ function approvalRoutingRecord(x: Exception, outcome: 'resolved' | 'awaiting' | 
     checks,
     rationale:
       outcome === 'resolved'
-        ? 'Value inside the cap and the approver-absent test passed — auto-approved within DOA.'
+        ? 'Value inside the cap and the approver-absent test passed — auto-approval authorised within DOA · not yet posted.'
         : outcome === 'awaiting'
           ? 'Primary approver absent; the delegate is inside the DOA for this value band. Rerouted on delegation timeout.'
           : 'Inside the cap, but with no delegate to hold the band the approver-absent test fails — the agent proposes nothing and hands it up.',
@@ -372,7 +372,7 @@ function approvalRoutingRecord(x: Exception, outcome: 'resolved' | 'awaiting' | 
         ? 'I did not auto-approve — inside the cap, but with no delegate to hold the band the approver-absent test fails.'
         : 'I did not raise the value band or pick an approver outside DOA — routing stays inside the delegation matrix.',
     reversibility: outcome === 'resolved'
-      ? 'An auto-approval inside DOA can be revoked by the same authority that granted it; the approval log keeps both entries.'
+      ? 'An auto-approval inside DOA can be revoked by the same authority that granted it; if revoked, the approval log keeps both entries.'
       : 'A reroute or escalation posts nothing; it only moves the item along the human chain.',
   };
 }
@@ -402,10 +402,10 @@ function duplicateRecord(outcome: 'resolved' | 'escalated'): DecisionRecord {
       ? 'The two invoices carry different PO line numbers; the suspicion was a same-vendor, same-day coincidence.'
       : 'Without a distinguishing attribute the agent cannot clear it — clearing a true duplicate would pay twice.',
     declined: evidenced
-      ? 'I did not void either invoice on the strength of the flag alone — the pair is cleared only because the lines differ.'
+      ? 'I did not void either invoice on the strength of the flag alone — clearance rests only on the differing lines.'
       : 'I did not guess which copy was genuine — with no evidence, escalation is the only safe move.',
     reversibility: evidenced
-      ? 'Clearing a false positive releases both invoices to normal processing; either can be re-held if the read was wrong.'
+      ? 'Once posted, clearance returns both invoices to normal processing; either can be re-held if the read was wrong.'
       : 'An escalation posts nothing; it only moves the item up the human chain.',
   };
 }
@@ -424,7 +424,7 @@ function creditReleaseRecord(outcome: 'resolved' | 'escalated'): DecisionRecord 
       ? 'The block was caused by an uncleared invoice that is not yet due; a policy defect, not a credit judgment.'
       : 'Release against exposure is never the agent’s call — codify the releasable set, escalate everything else.',
     declined: releasable
-      ? 'I did not raise the customer’s limit or clear any exposure — I released only the block whose cause sits inside the releasable set.'
+      ? 'I did not raise the customer’s limit or clear any exposure — I authorised only the release whose cause sits inside the releasable set.'
       : 'I did not release the block against exposure — over-limit is a credit judgment, never the agent’s call.',
     reversibility: releasable
       ? 'A release lifts the block; if the read was wrong it can be re-applied and nothing has been paid or written off.'
@@ -435,27 +435,27 @@ function creditReleaseRecord(outcome: 'resolved' | 'escalated'): DecisionRecord 
 const baseActionLog: AgentAction[] = [
   { id: 'follow-up-act1', agentId: 'follow-up', targetType: 'exception', targetId: missingGr[0].id, entityCode: missingGr[0].entityCode, takenAt: daysAgo(2), action: 'Chased plant stores, 2nd nudge', outcome: 'awaiting', precedents: causePrecedent(missingGr[0]), evidence: ['GR not posted against the PO line'], reversible: true, withinDelegation: true, ...followUpRecord(missingGr[0], 'awaiting') },
   { id: 'follow-up-act2', agentId: 'follow-up', targetType: 'exception', targetId: missingGr[1].id, entityCode: missingGr[1].entityCode, takenAt: daysAgo(4), action: 'Escalated to the plant controller after the chase timer expired', outcome: 'escalated', precedents: causePrecedent(missingGr[1]), evidence: ['chase log: 2 nudges, no reply'], reversible: true, withinDelegation: true, ...followUpRecord(missingGr[1], 'escalated') },
-  { id: 'follow-up-act3', agentId: 'follow-up', targetType: 'exception', targetId: missingGr[2].id, entityCode: missingGr[2].entityCode, takenAt: daysAgo(6), action: 'Owner replied; GR posted by plant stores', outcome: 'resolved', precedents: causePrecedent(missingGr[2]), evidence: ['owner reply quoted in the record'], reversible: true, withinDelegation: true, ...followUpRecord(missingGr[2], 'resolved') },
+  { id: 'follow-up-act3', agentId: 'follow-up', targetType: 'exception', targetId: missingGr[2].id, entityCode: missingGr[2].entityCode, takenAt: daysAgo(6), action: 'Chase closed on the owner’s reply', outcome: 'resolved', precedents: causePrecedent(missingGr[2]), evidence: ['owner reply quoted in the record'], reversible: true, withinDelegation: true, ...followUpRecord(missingGr[2], 'resolved') },
   { id: 'follow-up-act4', agentId: 'follow-up', targetType: 'exception', targetId: missingGr[1].id, entityCode: missingGr[1].entityCode, takenAt: daysAgo(6), action: 'Chased plant stores, 1st nudge', outcome: 'awaiting', precedents: causePrecedent(missingGr[1]), evidence: ['GR not posted against the PO line'], reversible: true, withinDelegation: true, ...followUpRecord(missingGr[1], 'awaiting', 1) },
 
-  { id: 'master-data-act1', agentId: 'master-data', targetType: 'exception', targetId: vendorMaster[0].id, entityCode: vendorMaster[0].entityCode, takenAt: daysAgo(3), action: 'Completed the missing tax registration on the vendor record', outcome: 'resolved', precedents: causePrecedent(vendorMaster[0]), evidence: ['IRN history shows a consistent GSTIN'], reversible: true, withinDelegation: true, ...masterDataRecord(vendorMaster[0]) },
+  { id: 'master-data-act1', agentId: 'master-data', targetType: 'exception', targetId: vendorMaster[0].id, entityCode: vendorMaster[0].entityCode, takenAt: daysAgo(3), action: 'Tax registration sourced · not yet posted', outcome: 'resolved', precedents: causePrecedent(vendorMaster[0]), evidence: ['IRN history shows a consistent GSTIN'], reversible: true, withinDelegation: true, ...masterDataRecord(vendorMaster[0]) },
   { id: 'master-data-act2', agentId: 'master-data', targetType: 'request', targetId: bankChangeRequest.id, entityCode: bankChangeRequest.entityCode, takenAt: daysAgo(1), action: 'Escalated the bank detail change request to dual control', outcome: 'escalated', rationale: 'Bank details are the one field this agent never touches — the first line of what must never be automated. Dual control is the only path.', precedents: priorIntake(bankChangeRequest), evidence: ['request cites a vendor-issued bank mandate'], reversible: true, withinDelegation: true },
 
-  { id: 'approval-routing-act1', agentId: 'approval-routing', targetType: 'exception', targetId: approvalPending[0].id, entityCode: approvalPending[0].entityCode, takenAt: daysAgo(5), action: 'Auto-approved within DOA after the approver-absent test passed', outcome: 'resolved', precedents: [approvalPending[1].id], evidence: ['DOA matrix row for this value band'], reversible: true, withinDelegation: true, ...approvalRoutingRecord(approvalPending[0], 'resolved') },
+  { id: 'approval-routing-act1', agentId: 'approval-routing', targetType: 'exception', targetId: approvalPending[0].id, entityCode: approvalPending[0].entityCode, takenAt: daysAgo(5), action: 'Auto-approved within DOA · not yet posted', outcome: 'resolved', precedents: [approvalPending[1].id], evidence: ['DOA matrix row for this value band'], reversible: true, withinDelegation: true, ...approvalRoutingRecord(approvalPending[0], 'resolved') },
   { id: 'approval-routing-act2', agentId: 'approval-routing', targetType: 'exception', targetId: approvalPending[1].id, entityCode: approvalPending[1].entityCode, takenAt: daysAgo(2), action: 'Rerouted to the delegate on delegation timeout', outcome: 'awaiting', precedents: causePrecedent(approvalPending[1]), evidence: ['delegation log shows the reroute'], reversible: true, withinDelegation: true, ...approvalRoutingRecord(approvalPending[1], 'awaiting') },
   { id: 'approval-routing-act3', agentId: 'approval-routing', targetType: 'exception', targetId: approvalPending[2].id, entityCode: approvalPending[2].entityCode, takenAt: daysAgo(1), action: 'Escalated: approver absent test fails', outcome: 'escalated', precedents: causePrecedent(approvalPending[2]), evidence: ['value vs cap and the delegation matrix shown in the record'], reversible: true, withinDelegation: true, ...approvalRoutingRecord(approvalPending[2], 'escalated') },
 
-  { id: 'match-resolution-act1', agentId: 'match-resolution', targetType: 'exception', targetId: priceMismatch[0].id, entityCode: priceMismatch[0].entityCode, takenAt: daysAgo(3), action: 'Accepted the price variance inside the tolerance band; contract precedent cited', outcome: 'resolved', precedents: [priceMismatch[1].id], evidence: ['contract price vs PO price shown in the record'], reversible: true, withinDelegation: true, ...matchResolutionRecord('resolved') },
+  { id: 'match-resolution-act1', agentId: 'match-resolution', targetType: 'exception', targetId: priceMismatch[0].id, entityCode: priceMismatch[0].entityCode, takenAt: daysAgo(3), action: 'Variance accepted within tolerance · not yet posted', outcome: 'resolved', precedents: [priceMismatch[1].id], evidence: ['contract price vs PO price shown in the record'], reversible: true, withinDelegation: true, ...matchResolutionRecord('resolved') },
   { id: 'match-resolution-act2', agentId: 'match-resolution', targetType: 'exception', targetId: priceMismatch[1].id, entityCode: priceMismatch[1].entityCode, takenAt: daysAgo(1), action: 'Escalated: no contract price precedent for the vendor', outcome: 'escalated', precedents: causePrecedent(priceMismatch[1]), evidence: ['no contract on file for this vendor'], reversible: true, withinDelegation: true, ...matchResolutionRecord('escalated') },
 
-  { id: 'duplicate-adjudication-act1', agentId: 'duplicate-adjudication', targetType: 'exception', targetId: duplicateSuspicion[0].id, entityCode: duplicateSuspicion[0].entityCode, takenAt: daysAgo(4), action: 'Cleared the false positive — distinguishing attribute evidenced', outcome: 'resolved', precedents: causePrecedent(duplicateSuspicion[0]), evidence: ['PO line numbers differ across the two invoices'], reversible: true, withinDelegation: true, ...duplicateRecord('resolved') },
+  { id: 'duplicate-adjudication-act1', agentId: 'duplicate-adjudication', targetType: 'exception', targetId: duplicateSuspicion[0].id, entityCode: duplicateSuspicion[0].entityCode, takenAt: daysAgo(4), action: 'Clearance authorised · not yet posted', outcome: 'resolved', precedents: causePrecedent(duplicateSuspicion[0]), evidence: ['PO line numbers differ across the two invoices'], reversible: true, withinDelegation: true, ...duplicateRecord('resolved') },
   { id: 'duplicate-adjudication-act2', agentId: 'duplicate-adjudication', targetType: 'exception', targetId: duplicateSuspicion[1].id, entityCode: duplicateSuspicion[1].entityCode, takenAt: daysAgo(0), action: 'Escalated: no evidence of a distinguishing attribute', outcome: 'escalated', precedents: causePrecedent(duplicateSuspicion[1]), evidence: ['matched fields listed in the record'], reversible: true, withinDelegation: true, ...duplicateRecord('escalated') },
 
   { id: 'provisioning-act1', agentId: 'provisioning', targetType: 'request', targetId: serviceCreditRequest.id, entityCode: serviceCreditRequest.entityCode, takenAt: daysAgo(2), action: 'Posted a reversing accrual rather than a Service Entry Sheet', outcome: 'resolved', rationale: 'An SES would assert the service was delivered; the accounting outcome at close is the same and nothing irreversible happens.', precedents: priorIntake(serviceCreditRequest), evidence: ['accrual posted with reversal scheduled for the next period'], reversible: true, withinDelegation: true },
 
   { id: 'cash-application-act1', agentId: 'cash-application', targetType: 'request', targetId: balanceEnquiryRequest.id, entityCode: balanceEnquiryRequest.entityCode, takenAt: daysAgo(1), action: 'Matched an unapplied receipt to open AR before the balance was stated', outcome: 'resolved', rationale: 'Above the match confidence threshold; matching changes no balance — it only states one correctly.', precedents: priorIntake(balanceEnquiryRequest), evidence: ['match score and matched fields in the record'], reversible: true, withinDelegation: true },
 
-  { id: 'credit-release-act1', agentId: 'credit-release', targetType: 'creditBlock', targetId: blockedCustomers[0].id, entityCode: blockedCustomers[0].entityCode, takenAt: daysAgo(3), action: 'Released the policy-defect block — invoice not yet due', outcome: 'resolved', precedents: [blockedCustomers[1].id], evidence: ['invoice due date after the block date'], reversible: true, withinDelegation: true, ...creditReleaseRecord('resolved') },
+  { id: 'credit-release-act1', agentId: 'credit-release', targetType: 'creditBlock', targetId: blockedCustomers[0].id, entityCode: blockedCustomers[0].entityCode, takenAt: daysAgo(3), action: 'Release approved · not yet posted', outcome: 'resolved', precedents: [blockedCustomers[1].id], evidence: ['invoice due date after the block date'], reversible: true, withinDelegation: true, ...creditReleaseRecord('resolved') },
   { id: 'credit-release-act2', agentId: 'credit-release', targetType: 'creditBlock', targetId: blockedCustomers[1].id, entityCode: blockedCustomers[1].entityCode, takenAt: daysAgo(0), action: 'Escalated: block caused by exposure over limit', outcome: 'escalated', precedents: [blockedCustomers[0].id], evidence: ['exposure vs limit shown in the record'], reversible: true, withinDelegation: true, ...creditReleaseRecord('escalated') },
 ];
 
@@ -484,26 +484,26 @@ function seededExceptionActions(): AgentAction[] {
     const mg = rows('missing-gr');
     push({ agentId: 'provisioning', targetType: 'exception', targetId: mg[0].id, entityCode: code, takenAt: daysAgo(1 + (e % 3)), action: 'Posted a reversing accrual rather than a Service Entry Sheet', outcome: 'resolved', precedents: causePrecedent(mg[0]), evidence: ['accrual posted with reversal scheduled for the next period'], ...provisioningRecord(mg[0]) });
     push({ agentId: 'follow-up', targetType: 'exception', targetId: mg[1].id, entityCode: code, takenAt: daysAgo(2 + (e % 3)), action: 'Chased plant stores, 2nd nudge', outcome: 'awaiting', precedents: causePrecedent(mg[1]), evidence: ['GR not posted against the PO line'], ...followUpRecord(mg[1], 'awaiting') });
-    push({ agentId: 'follow-up', targetType: 'exception', targetId: mg[2].id, entityCode: code, takenAt: daysAgo(3 + (e % 3)), action: 'Owner replied; GR posted by plant stores', outcome: 'resolved', precedents: causePrecedent(mg[2]), evidence: ['owner reply quoted in the record'], ...followUpRecord(mg[2], 'resolved') });
+    push({ agentId: 'follow-up', targetType: 'exception', targetId: mg[2].id, entityCode: code, takenAt: daysAgo(3 + (e % 3)), action: 'Chase closed on the owner’s reply', outcome: 'resolved', precedents: causePrecedent(mg[2]), evidence: ['owner reply quoted in the record'], ...followUpRecord(mg[2], 'resolved') });
     push({ agentId: 'commitments', targetType: 'exception', targetId: mg[3].id, entityCode: code, takenAt: daysAgo(1 + ((e + 1) % 3)), action: 'Amended the PO delivery date after the owner confirmed slippage', outcome: 'awaiting', precedents: causePrecedent(mg[3]), evidence: commitmentsEvidence(mg[3]), ...commitmentsRecord(mg[3]) });
 
     const pp = rows('po-price-mismatch');
-    push({ agentId: 'match-resolution', targetType: 'exception', targetId: pp[0].id, entityCode: code, takenAt: daysAgo(2 + (e % 3)), action: 'Accepted the price variance inside the tolerance band; contract precedent cited', outcome: 'resolved', precedents: causePrecedent(pp[0]), evidence: ['contract price vs PO price shown in the record'], ...matchResolutionRecord('resolved') });
+    push({ agentId: 'match-resolution', targetType: 'exception', targetId: pp[0].id, entityCode: code, takenAt: daysAgo(2 + (e % 3)), action: 'Variance accepted within tolerance · not yet posted', outcome: 'resolved', precedents: causePrecedent(pp[0]), evidence: ['contract price vs PO price shown in the record'], ...matchResolutionRecord('resolved') });
     push({ agentId: 'match-resolution', targetType: 'exception', targetId: pp[1].id, entityCode: code, takenAt: daysAgo(e % 3), action: 'Escalated: no contract price precedent for the vendor', outcome: 'escalated', precedents: causePrecedent(pp[1]), evidence: ['no contract on file for this vendor'], ...matchResolutionRecord('escalated') });
-    push({ agentId: 'match-resolution', targetType: 'exception', targetId: pp[2].id, entityCode: code, takenAt: daysAgo(3 + ((e + 1) % 3)), action: 'Accepted the price variance inside the tolerance band; contract precedent cited', outcome: 'resolved', precedents: causePrecedent(pp[2]), evidence: ['contract price vs PO price shown in the record'], ...matchResolutionRecord('resolved') });
+    push({ agentId: 'match-resolution', targetType: 'exception', targetId: pp[2].id, entityCode: code, takenAt: daysAgo(3 + ((e + 1) % 3)), action: 'Variance accepted within tolerance · not yet posted', outcome: 'resolved', precedents: causePrecedent(pp[2]), evidence: ['contract price vs PO price shown in the record'], ...matchResolutionRecord('resolved') });
 
     const ap = rows('approval-pending');
     if (code !== 'JBL') {
-      push({ agentId: 'approval-routing', targetType: 'exception', targetId: ap[0].id, entityCode: code, takenAt: daysAgo(2 + ((e + 2) % 3)), action: 'Auto-approved within DOA after the approver-absent test passed', outcome: 'resolved', precedents: causePrecedent(ap[0]), evidence: ['DOA matrix row for this value band'], ...approvalRoutingRecord(ap[0], 'resolved') });
+      push({ agentId: 'approval-routing', targetType: 'exception', targetId: ap[0].id, entityCode: code, takenAt: daysAgo(2 + ((e + 2) % 3)), action: 'Auto-approved within DOA · not yet posted', outcome: 'resolved', precedents: causePrecedent(ap[0]), evidence: ['DOA matrix row for this value band'], ...approvalRoutingRecord(ap[0], 'resolved') });
     }
-    push({ agentId: 'approval-routing', targetType: 'exception', targetId: ap[1].id, entityCode: code, takenAt: daysAgo(1 + ((e + 2) % 3)), action: 'Auto-approved within DOA after the approver-absent test passed', outcome: 'resolved', precedents: causePrecedent(ap[1]), evidence: ['DOA matrix row for this value band'], ...approvalRoutingRecord(ap[1], 'resolved') });
+    push({ agentId: 'approval-routing', targetType: 'exception', targetId: ap[1].id, entityCode: code, takenAt: daysAgo(1 + ((e + 2) % 3)), action: 'Auto-approved within DOA · not yet posted', outcome: 'resolved', precedents: causePrecedent(ap[1]), evidence: ['DOA matrix row for this value band'], ...approvalRoutingRecord(ap[1], 'resolved') });
 
     const vm = rows('vendor-master');
-    push({ agentId: 'master-data', targetType: 'exception', targetId: vm[0].id, entityCode: code, takenAt: daysAgo(2 + (e % 2)), action: 'Completed the missing tax registration on the vendor record', outcome: 'resolved', precedents: causePrecedent(vm[0]), evidence: ['IRN history shows a consistent GSTIN'], ...masterDataRecord(vm[0]) });
+    push({ agentId: 'master-data', targetType: 'exception', targetId: vm[0].id, entityCode: code, takenAt: daysAgo(2 + (e % 2)), action: 'Tax registration sourced · not yet posted', outcome: 'resolved', precedents: causePrecedent(vm[0]), evidence: ['IRN history shows a consistent GSTIN'], ...masterDataRecord(vm[0]) });
 
     if (code !== 'JBL') {
       const dup = rows('duplicate-suspicion');
-      push({ agentId: 'duplicate-adjudication', targetType: 'exception', targetId: dup[0].id, entityCode: code, takenAt: daysAgo(3 + (e % 2)), action: 'Cleared the false positive — distinguishing attribute evidenced', outcome: 'resolved', precedents: causePrecedent(dup[0]), evidence: ['PO line numbers differ across the two invoices'], ...duplicateRecord('resolved') });
+      push({ agentId: 'duplicate-adjudication', targetType: 'exception', targetId: dup[0].id, entityCode: code, takenAt: daysAgo(3 + (e % 2)), action: 'Clearance authorised · not yet posted', outcome: 'resolved', precedents: causePrecedent(dup[0]), evidence: ['PO line numbers differ across the two invoices'], ...duplicateRecord('resolved') });
     }
   });
 

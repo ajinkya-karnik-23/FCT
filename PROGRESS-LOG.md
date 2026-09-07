@@ -62,3 +62,5 @@ Built /touch-economics per §15.3/§15.4: six-entity funnel (JGL 54/46/32.2/13.8
 
 ## 2026-09-06 · Step 22 — One exception, end to end
 Added the missing-GR walkthrough on AP-104402 (eight steps, stepped by hand) and both credit-block decision records (Deccan released / Pasir escalated); beats 12–13 in DEMO.md. Item 0 closed: six always-passing milestone checks removed and a minimum-count guard added to FILL_AUDIT — the count ran 630→624→630, but every check can now fail; Step 22 adds 22 drill checks. Gates: tests 387/387 · build clean · theme 72/72 · drills 652/652.
+
+2026-09-07 — Step 23, The preventive agent. Reworded six outcome strings so no agent record claims a SAP state change beside a live badge. Added the commitments data layer (open POs reconciling to the §7.4 pool), the Commitments watch on the P2P PO stage, and the PO detail page with the agent–owner exchange — confirmed slips amend date-only; ambiguous replies propose and escalate. DEMO.md beats 14/14b. Gates: test 405, theme 76, drills 698, build clean.
