@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FCT — Cash Attribution Spine</title>
+  <style>
+    :root{
+      --void:#090807;--deep:#12100e;--panel:rgba(26,23,20,.9);--raised:#1a1714;
+      --line:#3c3731;--line2:#29251f;
+      --text:#eeeae4;--second:#b9b2aa;--muted:#898078;--faint:#5e5751;
+      --amber:#e8b34b;--blue:#8eafd1;--green:#73d29d;--red:#ff8580;
+      --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+      --sans:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{width:100%;height:100%;overflow:hidden}
+    body{margin:0;min-width:1240px;min-height:760px;color:var(--text);background:var(--void);font:14px var(--sans)}
+    button{font:inherit;color:inherit}
+
+    #stage{position:relative;width:100vw;height:100vh;display:grid;
+      grid-template-columns:236px 1fr 314px;grid-template-rows:64px 1fr 204px;
+      background:radial-gradient(70vw 50vw at 50% 0%,rgba(113,80,35,.10),transparent 70%),var(--void)}
+    #stage > *:not(#stars){position:relative;z-index:1}
+    #stars{position:absolute!important;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.55}
+
+    .ml{font:10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+
+    /* ---------- header ---------- */
+    header{grid-column:1/-1;display:flex;align-items:center;gap:20px;
+      padding:0 20px;border-bottom:1px solid var(--line2);background:rgba(14,12,11,.7)}
+    header h1{margin:0;font:650 14px/1 var(--sans);letter-spacing:.02em;white-space:nowrap}
+    header h1 b{color:var(--amber);font-weight:650}
+    .scope{display:flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;
+      color:var(--second);font:10px var(--mono);letter-spacing:.05em;white-space:nowrap}
+    .scope i{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 7px var(--amber)}
+    .lede{color:var(--muted);font:11px/1.3 var(--sans);max-width:280px}
+    .clock{margin-left:auto;display:flex;align-items:center;gap:10px;
+      padding:7px 11px;border:1px solid rgba(232,179,75,.3);border-radius:6px;background:rgba(232,179,75,.06)}
+    .clock b{color:var(--amber);font:10px var(--mono);letter-spacing:.1em;font-weight:400}
+    .clock span{color:var(--faint);font:10px var(--mono)}
+    .clock i{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);animation:tick 2.4s ease-in-out infinite}
+    @keyframes tick{0%,100%{opacity:1}50%{opacity:.28}}
+    .recon{display:flex;align-items:baseline;gap:8px;padding-left:18px;border-left:1px solid var(--line2)}
+    .recon b{font:700 21px var(--mono);letter-spacing:-.04em}
+    .recon span{color:var(--faint);font:10px var(--mono)}
+
+    /* ---------- left lens rail ---------- */
+    .rail{border-right:1px solid var(--line2);padding:14px 0;overflow-y:auto}
+    .rail .ml{display:block;padding:0 16px 9px}
+    .segrow{display:flex;gap:0;margin:0 16px 12px;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+    .seg{flex:1;padding:7px 0;border:0;border-right:1px solid var(--line);background:transparent;
+      color:var(--muted);font:10px var(--mono);letter-spacing:.06em;cursor:pointer;transition:background .15s ease,color .15s ease}
+    .seg:last-child{border-right:0}
+    .seg:hover{background:rgba(255,255,255,.03);color:var(--second)}
+    .seg.on{background:rgba(232,179,75,.14);color:var(--amber)}
+    .seg.on.proc-ar{background:rgba(142,175,209,.16);color:var(--blue)}
+    .lens{display:block;width:100%;padding:9px 16px;border:0;border-left:2px solid transparent;
+      background:transparent;color:var(--second);text-align:left;cursor:pointer}
+    .lens:hover{background:rgba(255,255,255,.03)}
+    .lens.on{border-left-color:var(--amber);background:rgba(232,179,75,.07);color:var(--text)}
+    .lens strong{display:block;font:600 12px var(--sans)}
+    .lens em{display:block;margin-top:3px;font-style:normal;color:var(--faint);font:10px/1.35 var(--mono)}
+    .lens.on em{color:var(--muted)}
+    .rail hr{margin:12px 16px;border:0;border-top:1px solid var(--line2)}
+    .readout{padding:0 16px}
+    .readout .big{font:700 19px var(--mono);letter-spacing:-.03em;color:var(--amber)}
+    .readout p{margin:6px 0 0;color:var(--muted);font:10px/1.5 var(--mono)}
+    .key{padding:0 16px;margin-top:14px}
+    .key .ml{padding:0 0 8px}
+    .krow{display:flex;align-items:center;gap:8px;margin-bottom:6px;color:var(--second);font:9.5px var(--mono)}
+    .krow i{width:4px;height:13px;border-radius:1px;flex:none}
+
+    /* ---------- spine ---------- */
+    .spine{position:relative;overflow:hidden}
+    #svg{width:100%;height:100%;display:block}
+    .band{cursor:pointer}
+    .band rect{transition:opacity .25s ease}
+    .band .hit{fill:transparent}
+    .cname{fill:var(--text);font:600 11.5px var(--sans);pointer-events:none}
+    .cval{fill:var(--second);font:10px var(--mono);pointer-events:none}
+    .cmeta{fill:var(--faint);font:9px var(--mono);pointer-events:none}
+    .ogroup{fill:var(--muted);font:9px var(--mono);letter-spacing:.13em;pointer-events:none}
+    .ribbon{transition:opacity .3s ease}
+    .pname{fill:var(--text);font:650 13px var(--sans);pointer-events:none}
+    .pval{font:700 17px var(--mono);letter-spacing:-.03em;pointer-events:none}
+    .psub{fill:var(--faint);font:9.5px var(--mono);pointer-events:none}
+    .colhead{fill:var(--muted);font:9px var(--mono);letter-spacing:.16em;pointer-events:none}
+    .dimmed{opacity:.13!important}
+    .band.dimmed{pointer-events:none}
+    .band:focus{outline:none}
+    .band:focus-visible rect.node{stroke:var(--text);stroke-width:1.5}
+
+    /* hover: tell a first-time user these rows are live */
+    .band .rowbg{fill:#fff;fill-opacity:0;transition:fill-opacity .16s ease}
+    .band:hover .rowbg{fill-opacity:.035}
+    .band:hover .cname{fill:#fff}
+    /* selection: brightness + weight + a marker, not opacity alone */
+    .band .mark{opacity:0;transition:opacity .2s ease}
+    .band.sel .mark{opacity:1}
+    .band.sel .rowbg{fill-opacity:.06}
+    .band.sel .cname{fill:#fff;font-weight:700}
+    .band.sel .cval{fill:var(--text)}
+    .cname,.cval{transition:fill .2s ease}
+    .band:not(.sel) .cname{fill:var(--muted)}
+    .band:not(.sel) .cmeta{opacity:.55}
+    .ribbon.sel{filter:drop-shadow(0 0 7px rgba(255,255,255,.28))}
+    .poolbar{transition:opacity .25s ease}
+    .flowcap{fill:var(--text);font:600 10.5px var(--mono);letter-spacing:.02em;pointer-events:none}
+    .flowcapbg{fill:#15120f;stroke:var(--line);rx:4;pointer-events:none}
+    .comet{pointer-events:none}
+
+    .hint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);
+      display:flex;align-items:center;gap:8px;padding:6px 12px;
+      border:1px solid var(--line);border-radius:999px;background:rgba(20,17,15,.9);
+      color:var(--muted);font:10px var(--mono);letter-spacing:.06em;white-space:nowrap;
+      transition:opacity .4s ease;pointer-events:none}
+    .hint.gone{opacity:0}
+    .hint b{color:var(--amber);font-weight:400}
+
+    /* ---------- right: what needs a human ---------- */
+    .side{border-left:1px solid var(--line2);padding:14px 0;overflow-y:auto}
+    .side .ml{display:block;padding:0 16px 10px}
+    .srow{display:grid;grid-template-columns:1fr auto;gap:3px 10px;padding:10px 16px;border-top:1px solid var(--line2);cursor:pointer}
+    .srow:hover{background:rgba(255,255,255,.03)}
+    .srow .n{font:600 11.5px var(--sans)}
+    .srow .v{font:600 11px var(--mono);color:var(--amber);text-align:right}
+    .srow .m{grid-column:1/-1;color:var(--faint);font:9.5px/1.4 var(--mono)}
+    .sfoot{padding:12px 16px 0;color:var(--faint);font:9.5px/1.55 var(--mono)}
+
+    /* ---------- bottom inspector ---------- */
+    .inspector{grid-column:1/-1;display:grid;grid-template-columns:1fr 244px 430px;gap:22px;
+      padding:14px 20px;border-top:1px solid var(--line2);background:rgba(14,12,11,.72);overflow:hidden}
+    .itop{display:flex;align-items:center;gap:10px}
+    .ichip{padding:3px 8px;border-radius:4px;font:9px var(--mono);letter-spacing:.09em}
+    .inspector h2{margin:8px 0 6px;font:650 17px var(--sans);letter-spacing:-.01em}
+    .chain{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+    .chain span{color:var(--second);font:9.5px var(--mono)}
+    .chain b{padding:3px 7px;border:1px solid var(--line);border-radius:4px;color:var(--text);font:9.5px var(--mono);font-weight:400;background:var(--raised)}
+    .chain i{color:var(--faint);font-style:normal}
+    .imetrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .imetrics div{padding-top:7px;border-top:1px solid var(--line)}
+    .imetrics small{display:block;color:var(--faint);font:9px var(--mono);letter-spacing:.07em}
+    .imetrics b{display:block;margin-top:4px;font:700 14px var(--mono);letter-spacing:-.02em}
+
+    .pane{padding:11px 13px;border:1px solid var(--line2);border-radius:9px;background:var(--raised);overflow:hidden}
+    .pane > .ml{display:block;margin-bottom:9px}
+    .remstat{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+    .remstat i{width:8px;height:8px;border-radius:50%;flex:none}
+    .remstat b{font:650 13px var(--sans)}
+    .meta{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0}
+    .meta dt{color:var(--faint);font:9px var(--mono);letter-spacing:.06em}
+    .meta dd{margin:0;color:var(--second);font:10px var(--mono)}
+    .note{margin:9px 0 0;color:var(--faint);font:9.5px/1.45 var(--mono)}
+
+    .acts{list-style:none;margin:0;padding:0;counter-reset:a}
+    .acts li{counter-increment:a;position:relative;padding:0 0 7px 24px;color:var(--second);font:11.5px/1.4 var(--sans)}
+    .acts li:before{content:counter(a);position:absolute;left:0;top:0;width:16px;height:16px;
+      border:1px solid var(--line);border-radius:3px;color:var(--faint);
+      font:9px/15px var(--mono);text-align:center}
+    .acts li.done{color:var(--faint);text-decoration:line-through;text-decoration-color:var(--line)}
+    .acts li.done:before{content:"✓";border-color:rgba(115,210,157,.5);color:var(--green)}
+    .opp{margin-top:8px;padding-top:9px;border-top:1px solid var(--line2);
+      display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+    .opp b{color:var(--green);font:650 11px var(--mono)}
+    .opp span{color:var(--second);font:11px var(--sans)}
+    .opp em{font-style:normal;color:var(--faint);font:9.5px var(--mono)}
+    .opp.none{color:var(--faint);font:10px var(--mono)}
+
+    @media (prefers-reduced-motion:reduce){
+      .clock i{animation:none}
+      .ribbon,.band rect{transition:none}
+    }
+  </style>
+</head>
+<body>
+  <main id="stage">
+    <canvas id="stars" aria-hidden="true"></canvas>
+
+    <header>
+      <h1>Finance <b>Control</b> Tower</h1>
+      <span class="scope"><i></i>JGL · Jubilant Generics Ltd</span>
+      <p class="lede">Where cash is stuck, which function causes it, and whether a fix is in flight.</p>
+      <div class="recon"><b id="total">₹37.4 cr</b><span>stuck<br>12 causes · ties to AP blocked ₹18.6 cr</span></div>
+      <div class="clock"><i></i><b>DAY 4 OF CLOSE</b><span>cut-off 18:00 IST · 6h 12m</span></div>
+    </header>
+
+    <nav class="rail">
+      <span class="ml">Process</span>
+      <div class="segrow" role="group" aria-label="Filter by process">
+        <button class="seg on" data-proc="all">Both</button>
+        <button class="seg" data-proc="ap">P2P</button>
+        <button class="seg proc-ar" data-proc="ar">O2C</button>
+      </div>
+      <hr>
+      <span class="ml">Lens</span>
+      <button class="lens on" data-lens="all"><strong>All stuck cash</strong><em>₹37.4 cr · 12 causes</em></button>
+      <button class="lens" data-lens="outside"><strong>Caused outside the owning team</strong><em>the structural lever</em></button>
+      <button class="lens" data-lens="human"><strong>Needs a human</strong><em>after the agents clear</em></button>
+      <button class="lens" data-lens="noowner"><strong>No fix in flight</strong><em>not on the register</em></button>
+      <button class="lens" data-lens="close"><strong>At risk of missing cut-off</strong><em>resolution already runs past 6 d</em></button>
+      <hr>
+      <div class="readout">
+        <span class="ml">Reading</span>
+        <div class="big" id="ro-big">₹37.4 cr</div>
+        <p id="ro-note">Twelve causes, two pools.</p>
+      </div>
+      <div class="key">
+        <span class="ml">Fix status</span>
+        <div class="krow"><i style="background:#73d29d"></i>Eliminated · stops new cases</div>
+        <div class="krow"><i style="background:#e8b34b"></i>In progress · owner + target</div>
+        <div class="krow"><i style="background:#898078"></i>Identified · no target set</div>
+        <div class="krow"><i style="background:#ff8580"></i>Not on the register</div>
+      </div>
+    </nav>
+
+    <section class="spine"><svg id="svg" preserveAspectRatio="xMidYMid meet" role="img"
+      aria-label="Attribution of stuck cash from originating function to where the cash sits, with remediation status"></svg>
+      <div class="hint" id="hint">Select any cause to trace its cash — <b>the ribbon shows where it lands</b></div>
+    </section>
+
+    <aside class="side">
+      <span class="ml">Needs a human today</span>
+      <div id="human"></div>
+      <p class="sfoot">Agent coverage is modelled for P2P causes only (§15.2). O2C bands show full value until those rates are measured.</p>
+    </aside>
+
+    <section class="inspector">
+      <div>
+        <div class="itop">
+          <span class="ichip" id="i-chip">PLANT &amp; WAREHOUSE</span>
+          <span class="ml" id="i-key">P2P · MISSING-GR</span>
+        </div>
+        <h2 id="i-name">Missing GR</h2>
+        <div class="chain" id="i-chain"></div>
+        <div class="imetrics">
+          <div><small>VALUE STUCK</small><b id="m-val">₹6.4 cr</b></div>
+          <div><small>AVG DELAY</small><b id="m-delay">8.4 d</b></div>
+          <div><small>RECURRING</small><b id="m-recur">5 months</b></div>
+          <div><small>AGENTS CLEAR</small><b id="m-agent">75%</b></div>
+        </div>
+      </div>
+
+      <div class="pane">
+        <span class="ml">Remediation · §7.30 register</span>
+        <div class="remstat"><i id="r-dot"></i><b id="r-status">Eliminated</b></div>
+        <dl class="meta" id="r-meta"></dl>
+        <p class="note" id="r-note"></p>
+      </div>
+
+      <div class="pane">
+        <span class="ml" id="a-head">Interventions</span>
+        <ol class="acts" id="i-actions"></ol>
+        <div class="opp" id="i-opp"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+  /* ------------------------------------------------------------------
+     Every figure below is copied from the committed mock data — nothing
+     is invented here:
+       src/api/mock/causes.ts      valueAtRisk, avgDelayDays, recurrence,
+                                   concentration, plants/vendors, actions[]
+       src/api/mock/causeBacklog.ts §7.30 register rows for JGL
+       src/api/mock/misc.ts         cashOpportunities
+     Cause keys match the app's §6.1 taxonomy keys exactly — one cause,
+     one name.
+     ------------------------------------------------------------------ */
+  const CAUSES = [
+    {k:'missing-gr',        n:'Missing GR',                o:'Plant & warehouse',  pool:'ap', v:6.4, d:8.4,  r:5, agent:75,   conc:'11 vendors',           loc:'Nanjangud 43% · Roorkee 29%',       drv:'Consignment chemicals 38%'},
+    {k:'po-price-mismatch', n:'PO price mismatch',         o:'Procurement',        pool:'ap', v:4.1, d:6.1,  r:3, agent:60,   conc:'4 vendors',            loc:'Roorkee 41% · Noida 27%',           drv:'Solvents 34%'},
+    {k:'approval-pending',  n:'Approval pending',          o:'Business approvers', pool:'ap', v:3.3, d:5.2,  r:2, agent:80,   conc:'7 approvers hold 64%', loc:'Ambernath 36% · Noida 31%',         drv:'Services 44%'},
+    {k:'vendor-master',     n:'Vendor master',             o:'Master data',        pool:'ap', v:2.0, d:9.7,  r:4, agent:50,   conc:'—',                    loc:'Noida 39% · Ambernath 28%',         drv:'Services 51%'},
+    {k:'duplicate-suspicion',n:'Duplicate suspicion',      o:'AP & tax',           pool:'ap', v:1.5, d:3.1,  r:1, agent:85,   conc:'—',                    loc:'Nanjangud 34% · Roorkee 30%',       drv:'Chemicals 40%'},
+    {k:'tax-mismatch',      n:'Tax mismatch',              o:'AP & tax',           pool:'ap', v:1.3, d:4.4,  r:2, agent:65,   conc:'Uttarakhand 66%',      loc:'Roorkee 46% · Noida 24%',           drv:'Services 55%'},
+    {k:'pricing-disputes',  n:'Pricing disputes',          o:'Commercial',         pool:'ar', v:5.4, d:11.2, r:6, agent:null, conc:'Distribution 41%',     loc:'Distribution 41% · Institutional 28%', drv:'Rate revision lag 44%'},
+    {k:'deductions',        n:'Deductions & short-pay',    o:'Commercial',         pool:'ar', v:4.1, d:9.6,  r:5, agent:null, conc:'Retail 38%',           loc:'Retail 38% · Distribution 31%',     drv:'Scheme claims 42%'},
+    {k:'cash-application',  n:'Cash application mismatch', o:'Treasury',           pool:'ar', v:3.1, d:5.1,  r:4, agent:null, conc:'Distribution 37%',     loc:'Distribution 37% · Retail 29%',     drv:'No remittance advice 48%'},
+    {k:'billing-errors',    n:'Billing errors',            o:'Billing',            pool:'ar', v:2.9, d:6.8,  r:3, agent:null, conc:'Institutional 44%',    loc:'Institutional 44% · Export 24%',    drv:'Missing PO reference 39%'},
+    {k:'credit-block',      n:'Credit block delays',       o:'Credit',             pool:'ar', v:2.1, d:4.4,  r:2, agent:null, conc:'Distribution 46%',     loc:'Distribution 46% · Retail 25%',     drv:'Stale credit limit 51%'},
+    {k:'customer-master',   n:'Customer master',           o:'Master data',        pool:'ar', v:1.2, d:3.9,  r:3, agent:null, conc:'Retail 41%',           loc:'Retail 41% · Distribution 27%',     drv:'Tax registration 45%'}
+  ];
+
+  /* causes.ts → actions[] — the committed interventions, verbatim */
+  const ACTIONS = {
+    'missing-gr':['GR compliance alert for the top 11 vendor/plant pairs','Auto-escalate to plant controller after 48 hours','Move consignment vendors to GR-based invoicing'],
+    'po-price-mismatch':['Sync contract escalations to info records monthly','Tolerance review with category managers','Block PO release when the price source is stale'],
+    'approval-pending':['Enforce the delegation-of-authority calendar','Reminder at 24h, escalation at 72h','Reduce approval tiers below ₹10 lakh'],
+    'vendor-master':['Close the manual onboarding route','Validate bank details at creation, not at payment','Quarterly dormant-vendor purge'],
+    'duplicate-suspicion':['Single intake channel per vendor','Fuzzy duplicate check at capture','Auto-clear matched pairs after 5 days'],
+    'tax-mismatch':['Place-of-supply rule in the capture template','Vendor education pack for two states','Pre-booking tax validation'],
+    'pricing-disputes':['Load contract revisions to billing before the effective date','Attach pricing evidence to the invoice at issue','Escalate disputes above ₹10 lakh to the commercial owner in 48 hours'],
+    'deductions':['Pre-approve recurring scheme deductions','Auto-clear deductions below the write-off threshold','Monthly claim reconciliation with the top 14 customers'],
+    'billing-errors':['Mandatory PO reference at order entry for institutional customers','Validate customer tax registration at master creation','Close the manual order-entry route'],
+    'credit-block':['Annual credit limit refresh, risk-scored','Auto-release for customers with a 12-month clean record','Same-day review SLA for held orders'],
+    'cash-application':['Request structured remittance advice from the top 20 payers','Tolerance-based auto-matching for part payments','Daily unapplied cash review with a named owner'],
+    'customer-master':['Complete-record enforcement at customer creation','Quarterly master data review with commercial','Block billing on incomplete records']
+  };
+
+  /* causeBacklog.ts → the eight JGL rows. The other four causes have no row. */
+  const REGISTER = {
+    'po-price-mismatch':{id:'CB-JGL-01',owner:'P. Nair', status:'in-progress',target:'+70 d'},
+    'pricing-disputes': {id:'CB-JGL-02',owner:'A. Sethi',status:'in-progress',target:'+125 d'},
+    'approval-pending': {id:'CB-JGL-03',owner:'R. Iyer', status:'identified'},
+    'deductions':       {id:'CB-JGL-04',owner:'P. Nair', status:'identified'},
+    'cash-application': {id:'CB-JGL-05',owner:'A. Sethi',status:'identified'},
+    'missing-gr':       {id:'CB-JGL-06',owner:'P. Nair', status:'eliminated',period:1},
+    'vendor-master':    {id:'CB-JGL-07',owner:'A. Sethi',status:'eliminated',period:2},
+    'tax-mismatch':     {id:'CB-JGL-08',owner:'R. Iyer', status:'eliminated',period:4}
+  };
+  const STATUS = {
+    'eliminated' :{label:'Eliminated',  col:'#73d29d'},
+    'in-progress':{label:'In progress', col:'#e8b34b'},
+    'identified' :{label:'Identified',  col:'#898078'},
+    'none'       :{label:'Not on the register', col:'#ff8580'}
+  };
+  const regOf = k => REGISTER[k] || {status:'none'};
+
+  /* misc.ts → cashOpportunities, matched to the cause each one works on.
+     The fourth row (intercompany netting with Ingrevia, R2R) has no cause
+     in this taxonomy and is deliberately not shown. */
+  const OPP = {
+    'missing-gr':      {name:'Release invoices where GR posted this week', v:4.2, items:38, effort:'Low',    owner:'P2P tower'},
+    'cash-application':{name:'Apply matched receipts to open AR',          v:2.1, items:19, effort:'Low',    owner:'Cash application'},
+    'pricing-disputes':{name:'Settle pricing disputes under ₹10 lakh',     v:1.4, items:27, effort:'Medium', owner:'Collections'}
+  };
+
+  const POOLS = {
+    ap:{n:'Blocked AP', sub:'liability that cannot clear', col:'#e8b34b', next:'Understated accrual · R2R'},
+    ar:{n:'Overdue AR', sub:'revenue not yet cash',        col:'#8eafd1', next:'Working-capital drag'}
+  };
+  const INSIDE = {ap:['AP & tax'], ar:['Treasury']};
+
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cr = v => '₹' + v.toFixed(1) + ' cr';
+  const sum = a => a.reduce((t,c)=>t+c.v,0);
+  const TOTAL = sum(CAUSES);
+  const poolTotal = p => sum(CAUSES.filter(c=>c.pool===p));
+  const human = c => c.agent==null ? c.v : c.v*(1-c.agent/100);
+  document.getElementById('total').textContent = cr(TOTAL);
+
+  /* ---------------- layout ---------------- */
+  const NS='http://www.w3.org/2000/svg';
+  const W=1180;
+  const _box=document.getElementById('svg').getBoundingClientRect();
+  const H=Math.max(560,Math.min(940,Math.round(W*_box.height/Math.max(_box.width,1))));
+  const TOP=74, BOT=H-26, SPAN=BOT-TOP;
+  const NODE_X=498, NODE_W=13, STAT_X=NODE_X-7, STAT_W=4;
+  const POOL_X=880, POOL_W=15;
+  const GAP=7, GROUP_GAP=15, POOL_GAP=54;
+
+  const groups=[...new Set(CAUSES.map(c=>c.o))]
+    .map(o=>({o, cs:CAUSES.filter(c=>c.o===o), v:sum(CAUSES.filter(c=>c.o===o))}))
+    .sort((a,b)=>b.v-a.v);
+  const ordered=groups.flatMap(g=>g.cs.slice().sort((a,b)=>b.v-a.v));
+
+  const gapTotal = GAP*(CAUSES.length-1) + GROUP_GAP*(groups.length-1);
+  const SCALE = (SPAN-gapTotal)/TOTAL;
+  const h = v => Math.max(11, v*SCALE);
+
+  const geo={}; let y=TOP;
+  groups.forEach((g,gi)=>{
+    g.y0=y;
+    const cs=g.cs.slice().sort((a,b)=>b.v-a.v);
+    cs.forEach((c,ci)=>{ geo[c.k]={y,h:h(c.v)}; y+=h(c.v); if(ci<cs.length-1) y+=GAP; });
+    g.y1=y;
+    if(gi<groups.length-1) y+=GROUP_GAP;
+  });
+
+  const poolH = p => h(poolTotal(p));
+  const poolsY = {};
+  { const tot=poolH('ap')+poolH('ar')+POOL_GAP;
+    let py=TOP+(SPAN-tot)/2; poolsY.ap=py; py+=poolH('ap')+POOL_GAP; poolsY.ar=py; }
+
+  const svg=document.getElementById('svg');
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const el=(t,a={})=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e};
+  const txt=(cls,x,yy,s,extra={})=>{const t=el('text',Object.assign({class:cls,x,y:yy},extra));t.textContent=s;return t};
+
+  svg.appendChild(txt('colhead',20,44,'WHERE THE FAILURE HAPPENS'));
+  svg.appendChild(txt('colhead',NODE_X-34,44,'CAUSE · FIX'));
+  svg.appendChild(txt('colhead',POOL_X,44,'WHERE THE CASH SITS'));
+
+  // a wipe clip lets the selected ribbon draw itself cause → pool, showing direction
+  const defs=el('defs'); svg.appendChild(defs);
+  const wipeClip=el('clipPath',{id:'flow-wipe'});
+  const wipeRect=el('rect',{x:0,y:0,width:W,height:H});
+  wipeClip.appendChild(wipeRect); defs.appendChild(wipeClip);
+
+  const ribbonLayer=el('g'); svg.appendChild(ribbonLayer);
+  const cursor={ap:poolsY.ap, ar:poolsY.ar};
+  const ribbons={}, land={}, midPath={};
+  const X0=NODE_X+NODE_W, X1=POOL_X;
+  ordered.forEach(c=>{
+    const g0=geo[c.k], y0t=g0.y, y0b=g0.y+g0.h;
+    const y1t=cursor[c.pool], y1b=y1t+g0.h; cursor[c.pool]=y1b;
+    const m0=X0+(X1-X0)*.5, m1=X1-(X1-X0)*.5;
+    const d=`M${X0},${y0t} C${m0},${y0t} ${m1},${y1t} ${X1},${y1t} L${X1},${y1b} C${m1},${y1b} ${m0},${y0b} ${X0},${y0b} Z`;
+    const p=el('path',{class:'ribbon',d,fill:POOLS[c.pool].col,'fill-opacity':.17});
+    ribbons[c.k]=p; ribbonLayer.appendChild(p);
+    land[c.k]={t:y1t,b:y1b,mid:(y1t+y1b)/2,srcMid:(y0t+y0b)/2};
+    midPath[c.k]=`M${X0},${(y0t+y0b)/2} C${m0},${(y0t+y0b)/2} ${m1},${(y1t+y1b)/2} ${X1},${(y1t+y1b)/2}`;
+  });
+
+  groups.forEach(g=>{
+    svg.appendChild(txt('ogroup',20,g.y0+9,g.o.toUpperCase()));
+    svg.appendChild(el('line',{x1:20,y1:g.y0+16,x2:NODE_X-16,y2:g.y0+16,stroke:'#29251f','stroke-width':1}));
+  });
+
+  const bandEls={};
+  ordered.forEach(c=>{
+    const {y,h:bh}=geo[c.k];
+    const st=STATUS[regOf(c.k).status];
+    const g=el('g',{class:'band',tabindex:'0',role:'button',
+      'aria-label':`${c.n}, ${cr(c.v)} stuck, fix status ${st.label}`});
+    g.dataset.k=c.k;
+    g.appendChild(el('rect',{class:'hit',x:14,y:y-3,width:POOL_X-14,height:bh+6}));
+    g.appendChild(el('rect',{class:'rowbg',x:14,y:y-3,width:NODE_X+NODE_W-14,height:bh+6,rx:3}));
+    // selection marker — a caret at the row's left edge, independent of opacity
+    g.appendChild(el('path',{class:'mark',d:`M14,${y+bh/2-5} L20,${y+bh/2} L14,${y+bh/2+5} Z`,fill:'#fff'}));
+    // remediation gutter — status of the fix, alongside the size of the problem
+    g.appendChild(el('rect',{class:'stat',x:STAT_X,y,width:STAT_W,height:bh,fill:st.col,
+      'fill-opacity':regOf(c.k).status==='none'?.55:.9,rx:1}));
+    g.appendChild(el('rect',{class:'node',x:NODE_X,y,width:NODE_W,height:bh,fill:POOLS[c.pool].col,rx:2}));
+    const ty=y+Math.min(bh/2,13);
+    g.appendChild(txt('cname',NODE_X-16,ty+(bh<26?4:0),c.n,{'text-anchor':'end'}));
+    if(bh>=26) g.appendChild(txt('cval',NODE_X-16,ty+15,cr(c.v),{'text-anchor':'end'}));
+    else       g.appendChild(txt('cval',NODE_X+NODE_W+9,ty+4,cr(c.v)));
+    if(bh>=52) g.appendChild(txt('cmeta',NODE_X-16,ty+30,`${c.d} d delay · ${c.r}-month streak`,{'text-anchor':'end'}));
+    bandEls[c.k]=g; svg.appendChild(g);
+  });
+
+  const poolBar={};
+  Object.keys(POOLS).forEach(p=>{
+    const P=POOLS[p], py=poolsY[p], ph=poolH(p), tx=POOL_X+POOL_W+14;
+    const bar=el('rect',{class:'poolbar',x:POOL_X,y:py,width:POOL_W,height:ph,fill:P.col,rx:2});
+    poolBar[p]=bar; svg.appendChild(bar);
+    svg.appendChild(txt('pval',tx,py+22,cr(poolTotal(p)),{fill:P.col}));
+    svg.appendChild(txt('pname',tx,py+42,P.n));
+    svg.appendChild(txt('psub',tx,py+58,P.sub));
+    svg.appendChild(el('line',{x1:tx,y1:py+70,x2:tx+150,y2:py+70,stroke:'#29251f'}));
+    svg.appendChild(txt('psub',tx,py+86,'↳ '+P.next,{fill:'#898078'}));
+    const out=sum(CAUSES.filter(c=>c.pool===p&&!INSIDE[p].includes(c.o)));
+    svg.appendChild(txt('psub',tx,py+104,`${Math.round(out/poolTotal(p)*100)}% originates outside the team`,{fill:'#ff8580'}));
+    const noFix=sum(CAUSES.filter(c=>c.pool===p&&regOf(c.k).status==='none'));
+    if(noFix>0) svg.appendChild(txt('psub',tx,py+120,`${cr(noFix)} has no fix in flight`,{fill:'#ff8580'}));
+  });
+
+  /* ---------------- lenses × process ----------------
+     Process (P2P/O2C) and lens are independent axes, combined with AND.
+     Because pool===process exactly here (6 P2P causes → Blocked AP, 6 O2C
+     causes → Overdue AR — verified, no cause spans both), the process
+     filter is just "which pool(s)". The readout recomputes over whatever
+     subset survives both filters, so the headline never lies about scope. */
+  const PROC_LABEL={all:'both processes', ap:'P2P only', ar:'O2C only'};
+  function passesLens(c,lensKey){
+    if(lensKey==='outside') return !INSIDE[c.pool].includes(c.o);
+    if(lensKey==='human')   return human(c)>0.35;
+    if(lensKey==='close')   return c.d>=6;
+    if(lensKey==='noowner') return regOf(c.k).status==='none';
+    return true;
+  }
+  function readFor(subset,lensKey){
+    if(subset.length===0) return {big:'₹0.0 cr', note:'No causes in this process match the lens.'};
+    if(lensKey==='outside'){
+      const out=subset.filter(c=>!INSIDE[c.pool].includes(c.o));
+      const pct=Math.round(sum(out)/sum(subset)*100);
+      return {big:cr(sum(out)), note:`${pct}% of stuck cash is caused by a function that does not hold it. Chasing AP or collections harder cannot reach it.`};
+    }
+    if(lensKey==='human'){
+      const modelled=subset.filter(c=>c.agent!=null);
+      const p2pResidual=modelled.reduce((t,c)=>t+human(c),0);
+      const cleared=sum(modelled)-p2pResidual;
+      const unmodelled=sum(subset.filter(c=>c.agent==null));
+      const note=unmodelled>0
+        ? `Agents already clear ${cr(cleared)} of P2P. ${cr(p2pResidual)} of P2P still needs a person — the ${cr(unmodelled)} of O2C shows in full only because agent coverage there is not yet measured.`
+        : `Agents already clear ${cr(cleared)}. ${cr(p2pResidual)} still needs a person.`;
+      return {big:cr(p2pResidual+unmodelled), note};
+    }
+    if(lensKey==='noowner'){
+      const nf=subset.filter(c=>regOf(c.k).status==='none');
+      return {big:cr(sum(nf)), note:`${nf.length} of ${subset.length} causes have no row on the §7.30 register — no owner, no target, no fix in flight.`};
+    }
+    if(lensKey==='close'){
+      const cl=subset.filter(c=>c.d>=6);
+      return {big:cr(sum(cl)), note:'Causes whose average resolution already runs past six days. At day 4 of close that average no longer fits before cut-off — a proxy for cut-off risk, not a per-item deadline.'};
+    }
+    return {big:cr(sum(subset)), note:`${subset.length} causes${proc==='all'?', two pools':' · '+PROC_LABEL[proc]}. Every band reconciles to the total — nothing is rounded into the headline.`};
+  }
+
+  let lens='all', proc='all';
+  function applyLens(){
+    const procOn = c => proc==='all' || c.pool===proc;
+    CAUSES.forEach(c=>{
+      const on = procOn(c) && passesLens(c,lens);
+      bandEls[c.k].classList.toggle('dimmed',!on);
+      ribbons[c.k].classList.toggle('dimmed',!on);
+    });
+    Object.keys(poolBar).forEach(p=>poolBar[p].classList.toggle('dimmed', proc!=='all' && p!==proc));
+    const subset = CAUSES.filter(procOn);
+    const r = readFor(subset,lens);
+    document.getElementById('ro-big').textContent=r.big;
+    document.getElementById('ro-note').textContent=r.note;
+  }
+  document.querySelectorAll('.lens').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.lens').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); lens=b.dataset.lens; applyLens();
+  }));
+  document.querySelectorAll('.seg').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.seg').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); proc=b.dataset.proc; applyLens();
+  }));
+
+  /* ---------------- highlight: make the claim visible ----------------
+     Four channels rather than opacity alone, because twelve overlapping
+     ribbons on a dark ground cannot be separated by opacity:
+       1. z-order  — the chosen ribbon is raised above the others
+       2. stroke   — it alone gets an outline and a glow
+       3. landing  — its slice of the destination pool is marked
+       4. caption  — the diagram states what the highlight means
+     A one-shot left-to-right wipe plays on select so a first-time user
+     sees that the ribbon is a flow with a direction.                    */
+  const fxLayer=el('g'); svg.appendChild(fxLayer);
+  const slice=el('rect',{x:POOL_X-3,width:POOL_W+6,rx:2,fill:'none',
+    stroke:'#fff','stroke-width':1.6,opacity:0});
+  const capG=el('g',{opacity:0});
+  const capBg=el('rect',{class:'flowcapbg',rx:4});
+  const capTx=el('text',{class:'flowcap','text-anchor':'middle'});
+  capG.append(capBg,capTx);
+  fxLayer.append(slice,capG);
+
+  let cometTimer=null;
+  function playFlow(k,col){
+    if(cometTimer){clearTimeout(cometTimer);cometTimer=null}
+    fxLayer.querySelectorAll('.comet').forEach(n=>n.remove());
+    if(reduceMotion){wipeRect.setAttribute('width',W);return}
+    // directional wipe on the ribbon
+    wipeRect.setAttribute('x',X0); wipeRect.setAttribute('width',0);
+    const anim=el('animate',{attributeName:'width',from:0,to:X1-X0+2,
+      dur:'.55s',fill:'freeze',begin:'0s'});
+    while(wipeRect.firstChild) wipeRect.removeChild(wipeRect.firstChild);
+    wipeRect.appendChild(anim);
+    // two comets tracing the centreline, then they retire
+    [0,.28].forEach(delay=>{
+      const dot=el('circle',{class:'comet',r:3.4,fill:'#fff',opacity:.9,
+        filter:'drop-shadow(0 0 5px '+col+')'});
+      const m=el('animateMotion',{dur:'.85s',begin:delay+'s',path:midPath[k],
+        repeatCount:'2',fill:'remove'});
+      dot.appendChild(m); fxLayer.appendChild(dot);
+    });
+    cometTimer=setTimeout(()=>{
+      fxLayer.querySelectorAll('.comet').forEach(n=>n.remove());cometTimer=null;
+    },2200);
+  }
+
+  function highlight(k){
+    const c=CAUSES.find(x=>x.k===k), col=POOLS[c.pool].col;
+    CAUSES.forEach(o=>{
+      const on=o.k===k, p=ribbons[o.k];
+      p.setAttribute('fill-opacity', on?.5:.055);
+      p.setAttribute('stroke', on?col:'none');
+      p.setAttribute('stroke-width', on?1.2:0);
+      p.setAttribute('stroke-opacity', on?.9:0);
+      p.classList.toggle('sel',on);
+      if(!on) p.removeAttribute('clip-path');
+      const g=bandEls[o.k];
+      g.classList.toggle('sel',on);
+      g.querySelector('.node').setAttribute('opacity', on?1:.4);
+      g.querySelector('.stat').setAttribute('opacity', on?1:.45);
+    });
+    ribbonLayer.appendChild(ribbons[k]);          // raise above the rest
+    ribbons[k].setAttribute('clip-path','url(#flow-wipe)');
+    Object.keys(poolBar).forEach(p=>poolBar[p].setAttribute('opacity', p===c.pool?1:.3));
+
+    const L=land[k];
+    slice.setAttribute('y',L.t-2); slice.setAttribute('height',L.b-L.t+4);
+    slice.setAttribute('stroke',col);
+    const pct=Math.round(c.v/poolTotal(c.pool)*100);
+    capTx.textContent=`${cr(c.v)} · ${pct}% of ${POOLS[c.pool].n}`;
+    const cy=(L.srcMid+L.mid)/2, cxm=(X0+X1)/2;
+    capTx.setAttribute('x',cxm); capTx.setAttribute('y',cy+4);
+    const bb=capTx.getBBox();
+    capBg.setAttribute('x',bb.x-9); capBg.setAttribute('y',bb.y-5);
+    capBg.setAttribute('width',bb.width+18); capBg.setAttribute('height',bb.height+10);
+    capBg.setAttribute('stroke',col);
+    const reveal=()=>{slice.setAttribute('opacity',1);capG.setAttribute('opacity',1)};
+    slice.setAttribute('opacity',0); capG.setAttribute('opacity',0);
+    reduceMotion ? reveal() : setTimeout(reveal,420);
+    playFlow(k,col);
+  }
+
+  /* ---------------- inspector ---------------- */
+  const q=id=>document.getElementById(id);
+  function select(k){
+    const c=CAUSES.find(x=>x.k===k); if(!c) return;
+    highlight(k);
+    const col=POOLS[c.pool].col;
+    const chip=q('i-chip'); chip.textContent=c.o.toUpperCase();
+    chip.style.color=col; chip.style.background=col+'1f'; chip.style.border='1px solid '+col+'59';
+    q('i-key').textContent=(c.pool==='ap'?'P2P · ':'O2C · ')+c.k.toUpperCase();
+    q('i-name').textContent=c.n;
+    q('m-val').textContent=cr(c.v); q('m-val').style.color=col;
+    q('m-delay').textContent=c.d+' d';
+    q('m-recur').textContent=c.r+(c.r===1?' month':' months');
+    q('m-agent').textContent=c.agent==null?'not modelled':c.agent+'%';
+    q('m-agent').style.color=c.agent==null?'var(--faint)':'var(--green)';
+
+    const chain=q('i-chain'); chain.innerHTML='';
+    [c.o, c.n, POOLS[c.pool].n+' '+cr(c.v), POOLS[c.pool].next].forEach((s,i)=>{
+      if(i){const a=document.createElement('i');a.textContent='→';chain.appendChild(a)}
+      const b=document.createElement('b'); b.textContent=s;
+      if(i===2){b.style.borderColor=col;b.style.color=col}
+      chain.appendChild(b);
+    });
+    const w=document.createElement('span'); w.textContent='  '+c.loc+'  ·  '+c.drv+'  ·  '+c.conc;
+    chain.appendChild(w);
+
+    /* --- remediation --- */
+    const reg=regOf(c.k), st=STATUS[reg.status];
+    q('r-dot').style.background=st.col;
+    q('r-dot').style.boxShadow='0 0 8px '+st.col;
+    q('r-status').textContent=st.label;
+    q('r-status').style.color=st.col;
+    const meta=q('r-meta'); meta.innerHTML='';
+    const add=(dt,dd)=>{const a=document.createElement('dt');a.textContent=dt;
+      const b=document.createElement('dd');b.textContent=dd;meta.append(a,b)};
+    if(reg.status==='none'){
+      add('OWNER','— none assigned');
+      add('TARGET','— none set');
+    } else {
+      add('REGISTER',reg.id);
+      add('OWNER',reg.owner);
+      add('TARGET',reg.target || (reg.status==='eliminated' ? 'met · period '+reg.period : '— none set'));
+    }
+    const note=q('r-note');
+    if(reg.status==='eliminated')
+      note.textContent=`Eliminated stops the cause generating new exceptions. The ${cr(c.v)} above is the existing stock still draining.`;
+    else if(reg.status==='identified')
+      note.textContent='Identified but not started — the register carries no target date rather than an invented commitment.';
+    else if(reg.status==='in-progress')
+      note.textContent='Fix in flight. Recheck the value against the target date to see whether it is working.';
+    else
+      note.textContent='No row on the register, so nobody owns eliminating this and no date exists to review it against.';
+
+    /* --- interventions, verbatim from causes.ts actions[] --- */
+    q('a-head').textContent = reg.status==='eliminated'
+      ? 'Interventions · applied' : 'Interventions · from the taxonomy';
+    const list=q('i-actions'); list.innerHTML='';
+    (ACTIONS[c.k]||[]).forEach(a=>{
+      const li=document.createElement('li');
+      li.textContent=a;
+      if(reg.status==='eliminated') li.className='done';
+      list.appendChild(li);
+    });
+
+    const opp=q('i-opp'), o=OPP[c.k];
+    opp.className='opp';
+    if(o){
+      opp.innerHTML='';
+      const b=document.createElement('b'); b.textContent=cr(o.v);
+      const s=document.createElement('span'); s.textContent=o.name;
+      const e=document.createElement('em'); e.textContent=`${o.items} items · ${o.effort} effort · ${o.owner}`;
+      opp.append(b,s,e);
+    } else {
+      opp.className='opp none';
+      opp.textContent='No cash opportunity listed against this cause.';
+    }
+  }
+  const hint=document.getElementById('hint');
+  const dismissHint=()=>hint.classList.add('gone');
+  Object.entries(bandEls).forEach(([k,g])=>{
+    g.addEventListener('click',()=>{dismissHint();select(k)});
+    g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();dismissHint();select(k)}});
+  });
+
+  /* ---------------- needs a human panel ---------------- */
+  const side=document.getElementById('human');
+  CAUSES.slice().sort((a,b)=>human(b)-human(a)).slice(0,5).forEach(c=>{
+    const reg=regOf(c.k), st=STATUS[reg.status];
+    const d=document.createElement('div'); d.className='srow'; d.tabIndex=0;
+    d.innerHTML=`<span class="n">${c.n}</span><span class="v">${cr(human(c))}</span>`+
+      `<span class="m" style="color:${reg.status==='none'?'#ff8580':'var(--faint)'}">`+
+      `${st.label.toLowerCase()}${reg.owner?' · '+reg.owner:''}${reg.target?' · '+reg.target:''}</span>`;
+    d.addEventListener('click',()=>select(c.k));
+    d.addEventListener('keydown',e=>{if(e.key==='Enter')select(c.k)});
+    side.appendChild(d);
+  });
+
+  select('missing-gr'); applyLens();
+
+  /* ---------------- quiet constellation ground ---------------- */
+  const reduce=reduceMotion;
+  const cv=document.getElementById('stars'),cx=cv.getContext('2d');
+  let SW,SH,stars=[],dpr=Math.min(devicePixelRatio||1,2);
+  function seed(){
+    SW=cv.width=innerWidth*dpr; SH=cv.height=innerHeight*dpr;
+    const n=Math.round(SW*SH/(dpr*dpr)/26000);
+    stars=Array.from({length:n},()=>({x:Math.random()*SW,y:Math.random()*SH,z:.4+Math.random()*.6,
+      vx:(Math.random()-.5)*.05*dpr,vy:(Math.random()-.5)*.05*dpr,ph:Math.random()*6.28}));
+  }
+  function draw(t){
+    cx.clearRect(0,0,SW,SH); const L=130*dpr;
+    if(!reduce)for(const s of stars){s.x+=s.vx;s.y+=s.vy;
+      if(s.x<0)s.x=SW; if(s.x>SW)s.x=0; if(s.y<0)s.y=SH; if(s.y>SH)s.y=0}
+    cx.lineWidth=dpr*.55;
+    for(let i=0;i<stars.length;i++){const a=stars[i];
+      for(let j=i+1;j<stars.length;j++){const b=stars[j];
+        const dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy;
+        if(d2<L*L){cx.strokeStyle=`rgba(238,234,228,${(1-Math.sqrt(d2)/L)*.11*Math.min(a.z,b.z)})`;
+          cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y);cx.stroke()}}}
+    for(const s of stars){const tw=reduce?1:.65+.35*Math.sin(t*.001+s.ph);
+      cx.fillStyle=`rgba(238,234,228,${.22*s.z*tw})`;
+      cx.beginPath();cx.arc(s.x,s.y,(.5+s.z)*dpr*tw,0,6.283);cx.fill()}
+    if(!reduce)requestAnimationFrame(draw);
+  }
+  seed(); addEventListener('resize',()=>{seed(); if(reduce)draw(0)}); draw(0);
+  </script>
+</body>
+</html>
