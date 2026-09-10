@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { LiquidLogoSplash } from './LiquidLogoSplash'
 import { colors } from '../theme/tokens'
 
 /**
- * SplashScreen — full-screen animated shader gradient shown on app boot.
- *
- * Supports two high-fidelity visual modes:
- *   1. "3d" — 3D ShaderGradient liquid sphere/water plane with animated gold icon & shimmer title
- *   2. "liquid-logo" — Paper Design Liquid Metal Logo WebGL2 shader with distance field relaxation
+ * SplashScreen — full-screen animated shader gradient shown on app boot:
+ * a 3D ShaderGradient liquid sphere/water plane with animated gold icon &
+ * shimmer title.
  *
  * Auto-dismisses after ~3.5s, or click anywhere to skip.
  */
@@ -15,7 +12,6 @@ import { colors } from '../theme/tokens'
 const MIN_SPLASH_MS = 3500
 
 export function SplashScreen({ onComplete }: { onComplete: () => void }) {
-  const [mode, setMode] = useState<'3d' | 'liquid-logo'>('3d')
   const [fading, setFading] = useState(false)
   const completeCalled = useRef(false)
 
@@ -31,10 +27,6 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
     const timer = setTimeout(finish, MIN_SPLASH_MS)
     return () => clearTimeout(timer)
   }, [finish])
-
-  if (mode === 'liquid-logo') {
-    return <LiquidLogoSplash onComplete={onComplete} />
-  }
 
   return (
     <div
@@ -288,32 +280,6 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
           Finance Control Tower
         </div>
       </div>
-
-      {/* Alternative Liquid Logo Toggle button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          setMode(mode === '3d' ? 'liquid-logo' : '3d')
-        }}
-        style={{
-          position: 'absolute',
-          bottom: 24,
-          right: 24,
-          zIndex: 10,
-          padding: '8px 16px',
-          borderRadius: 20,
-          border: '1px solid rgba(255, 255, 255, 0.35)',
-          background: 'rgba(0, 0, 0, 0.55)',
-          backdropFilter: 'blur(8px)',
-          color: '#ffffff',
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: 'pointer',
-          transition: 'all 0.2s ease',
-        }}
-      >
-        ✨ Switch to Liquid Logo Alternative
-      </button>
 
       <style>{`
         @keyframes splash-icon-in {
