@@ -12,7 +12,7 @@ const groupLabelStyle: CSSProperties = {
   padding: '0 14px',
 }
 
-export function Rail({ onSearch }: { onSearch: () => void }) {
+export function Rail({ onSearch, collapsed = false }: { onSearch: () => void; collapsed?: boolean }) {
   const { pathname } = useLocation()
   const active = activeNavKey(pathname)
   const code = entityCodeFromPath(pathname)
@@ -21,11 +21,13 @@ export function Rail({ onSearch }: { onSearch: () => void }) {
     <nav
       aria-label="Primary"
       style={{
-        width: layout.railWidth,
+        width: collapsed ? 0 : layout.railWidth,
         flexShrink: 0,
         background: colors.bgPanelAlt,
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
+        transition: 'width 0.15s ease',
       }}
     >
       <div style={{ padding: '22px 20px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
