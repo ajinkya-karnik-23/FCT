@@ -24,6 +24,9 @@ export function TopBar({ drawerOpen, onToggleDrawer }: { drawerOpen: boolean; on
   const entity = getEntity(code)
   // §10 — colour must never be the only carrier of meaning; the dot is read with its score.
   const score = entity ? computeScore(entity) : null
+  // Cash attribution collapses the rail for room (AppShell), so the breadcrumb
+  // alone isn't enough of a way back — give it an explicit button here too.
+  const showBack = pathname.startsWith('/cash-attribution')
 
   return (
     <header
@@ -38,6 +41,12 @@ export function TopBar({ drawerOpen, onToggleDrawer }: { drawerOpen: boolean; on
         overflow: 'hidden',
       }}
     >
+      {showBack && (
+        <Link to="/" className="fct-press" style={{ ...controlPill(false), display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, textDecoration: 'none' }}>
+          <span aria-hidden>←</span>
+          Back
+        </Link>
+      )}
       <nav
         aria-label="Breadcrumb"
         style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: fonts.mono, fontSize: 12, letterSpacing: '0.06em' }}
