@@ -44,11 +44,13 @@
     body{margin:0;color:var(--text);background:var(--void);font:14px var(--sans)}
     button{font:inherit;color:inherit}
 
-    /* Below the 1240×760 design size, #fit scales the whole stage down to
-       whatever viewport it's given rather than clipping or scrolling it. */
-    #fit{position:absolute;top:0;left:0;width:1240px;height:760px;transform-origin:top left}
+    #fit{position:absolute;left:0;top:0;width:100%;height:100%}
 
-    #stage{position:relative;width:1240px;height:760px;display:grid;
+    /* The chrome (header/rail/side/inspector) keeps its designed pixel sizes;
+       only the spine's SVG content rescales (see the layout comment in the
+       script below) so the diagram always fills whatever room is left over
+       after those fixed panels, on any window size. */
+    #stage{position:relative;width:100%;height:100%;min-width:900px;min-height:560px;display:grid;
       grid-template-columns:236px 1fr 314px;grid-template-rows:64px 1fr 204px;
       background:radial-gradient(70vw 50vw at 50% 0%,rgba(113,80,35,.10),transparent 70%),var(--void)}
     #stage > *:not(#stars){position:relative;z-index:1}
@@ -287,16 +289,27 @@
   </main></div>
 
   <script>
-  /* scale the fixed 1240×760 stage to fit whatever viewport it's given
-     (e.g. a laptop, or a narrower iframe) instead of clipping it */
+  /* #stage fills #fit at 100%/100% (see layout comment further down for how
+     the spine's own SVG content sizes itself to match) so on a normal or
+     large window it uses all the room the rail-collapsed iframe gives it —
+     no letterboxing. #stage does carry a 900×560 min-size floor below which
+     the chrome can't usefully shrink further, so on a smaller window than
+     that we fall back to uniformly scaling #fit down (centered) instead of
+     letting the browser clip it. */
   (function fitStage(){
     const fit=document.getElementById('fit');
-    const DESIGN_W=1240, DESIGN_H=760;
+    const MIN_W=900, MIN_H=560;
     function apply(){
-      const scale=Math.min(innerWidth/DESIGN_W, innerHeight/DESIGN_H, 1);
-      fit.style.transform='scale('+scale+')';
-      fit.style.left=Math.max(0,(innerWidth-DESIGN_W*scale)/2)+'px';
-      fit.style.top=Math.max(0,(innerHeight-DESIGN_H*scale)/2)+'px';
+      const scale=Math.min(innerWidth/MIN_W, innerHeight/MIN_H, 1);
+      if(scale<1){
+        fit.style.width=MIN_W+'px'; fit.style.height=MIN_H+'px';
+        fit.style.transform='scale('+scale+')'; fit.style.transformOrigin='top left';
+        fit.style.left=Math.max(0,(innerWidth-MIN_W*scale)/2)+'px';
+        fit.style.top=Math.max(0,(innerHeight-MIN_H*scale)/2)+'px';
+      } else {
+        fit.style.width='100%'; fit.style.height='100%';
+        fit.style.transform='none'; fit.style.left='0'; fit.style.top='0';
+      }
     }
     apply();
     addEventListener('resize',apply);
@@ -390,14 +403,21 @@
   const human = c => c.agent==null ? c.v : c.v*(1-c.agent/100);
   document.getElementById('total').textContent = cr(TOTAL);
 
-  /* ---------------- layout ---------------- */
+  /* ---------------- layout ----------------
+     The spine section is measured directly (rather than assuming a fixed
+     1180×760 canvas) so the diagram fills whatever room the rail-collapsed
+     iframe actually has instead of letterboxing inside it. SX rescales the
+     handful of x-axis pixel constants that were tuned against the original
+     1180-wide design; row heights already derive from the real H, so the
+     vertical axis needed no change. */
   const NS='http://www.w3.org/2000/svg';
-  const W=1180;
-  const _box=document.getElementById('svg').getBoundingClientRect();
-  const H=Math.max(560,Math.min(940,Math.round(W*_box.height/Math.max(_box.width,1))));
+  const _box=document.querySelector('.spine').getBoundingClientRect();
+  const W=Math.max(600,Math.round(_box.width));
+  const H=Math.max(420,Math.round(_box.height));
+  const SX=W/1180;
   const TOP=74, BOT=H-26, SPAN=BOT-TOP;
-  const NODE_X=498, NODE_W=13, STAT_X=NODE_X-7, STAT_W=4;
-  const POOL_X=880, POOL_W=15;
+  const NODE_X=498*SX, NODE_W=13*SX, STAT_X=NODE_X-7*SX, STAT_W=4*SX;
+  const POOL_X=880*SX, POOL_W=15*SX;
   const GAP=7, GROUP_GAP=15, POOL_GAP=54;
 
   const groups=[...new Set(CAUSES.map(c=>c.o))]
@@ -428,8 +448,8 @@
   const el=(t,a={})=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e};
   const txt=(cls,x,yy,s,extra={})=>{const t=el('text',Object.assign({class:cls,x,y:yy},extra));t.textContent=s;return t};
 
-  svg.appendChild(txt('colhead',20,44,'WHERE THE FAILURE HAPPENS'));
-  svg.appendChild(txt('colhead',NODE_X-34,44,'CAUSE · FIX'));
+  svg.appendChild(txt('colhead',20*SX,44,'WHERE THE FAILURE HAPPENS'));
+  svg.appendChild(txt('colhead',NODE_X-34*SX,44,'CAUSE · FIX'));
   svg.appendChild(txt('colhead',POOL_X,44,'WHERE THE CASH SITS'));
 
   // a wipe clip lets the selected ribbon draw itself cause → pool, showing direction
@@ -454,8 +474,8 @@
   });
 
   groups.forEach(g=>{
-    svg.appendChild(txt('ogroup',20,g.y0+9,g.o.toUpperCase()));
-    svg.appendChild(el('line',{x1:20,y1:g.y0+16,x2:NODE_X-16,y2:g.y0+16,stroke:'#29251f','stroke-width':1}));
+    svg.appendChild(txt('ogroup',20*SX,g.y0+9,g.o.toUpperCase()));
+    svg.appendChild(el('line',{x1:20*SX,y1:g.y0+16,x2:NODE_X-16*SX,y2:g.y0+16,stroke:'#29251f','stroke-width':1}));
   });
 
   const bandEls={};
@@ -465,31 +485,31 @@
     const g=el('g',{class:'band',tabindex:'0',role:'button',
       'aria-label':`${c.n}, ${cr(c.v)} stuck, fix status ${st.label}`});
     g.dataset.k=c.k;
-    g.appendChild(el('rect',{class:'hit',x:14,y:y-3,width:POOL_X-14,height:bh+6}));
-    g.appendChild(el('rect',{class:'rowbg',x:14,y:y-3,width:NODE_X+NODE_W-14,height:bh+6,rx:3}));
+    g.appendChild(el('rect',{class:'hit',x:14*SX,y:y-3,width:POOL_X-14*SX,height:bh+6}));
+    g.appendChild(el('rect',{class:'rowbg',x:14*SX,y:y-3,width:NODE_X+NODE_W-14*SX,height:bh+6,rx:3}));
     // selection marker — a caret at the row's left edge, independent of opacity
-    g.appendChild(el('path',{class:'mark',d:`M14,${y+bh/2-5} L20,${y+bh/2} L14,${y+bh/2+5} Z`,fill:INK}));
+    g.appendChild(el('path',{class:'mark',d:`M${14*SX},${y+bh/2-5} L${20*SX},${y+bh/2} L${14*SX},${y+bh/2+5} Z`,fill:INK}));
     // remediation gutter — status of the fix, alongside the size of the problem
     g.appendChild(el('rect',{class:'stat',x:STAT_X,y,width:STAT_W,height:bh,fill:st.col,
       'fill-opacity':regOf(c.k).status==='none'?.55:.9,rx:1}));
     g.appendChild(el('rect',{class:'node',x:NODE_X,y,width:NODE_W,height:bh,fill:POOLS[c.pool].col,rx:2}));
     const ty=y+Math.min(bh/2,13);
-    g.appendChild(txt('cname',NODE_X-16,ty+(bh<26?4:0),c.n,{'text-anchor':'end'}));
-    if(bh>=26) g.appendChild(txt('cval',NODE_X-16,ty+15,cr(c.v),{'text-anchor':'end'}));
-    else       g.appendChild(txt('cval',NODE_X+NODE_W+9,ty+4,cr(c.v)));
-    if(bh>=52) g.appendChild(txt('cmeta',NODE_X-16,ty+30,`${c.d} d delay · ${c.r}-month streak`,{'text-anchor':'end'}));
+    g.appendChild(txt('cname',NODE_X-16*SX,ty+(bh<26?4:0),c.n,{'text-anchor':'end'}));
+    if(bh>=26) g.appendChild(txt('cval',NODE_X-16*SX,ty+15,cr(c.v),{'text-anchor':'end'}));
+    else       g.appendChild(txt('cval',NODE_X+NODE_W+9*SX,ty+4,cr(c.v)));
+    if(bh>=52) g.appendChild(txt('cmeta',NODE_X-16*SX,ty+30,`${c.d} d delay · ${c.r}-month streak`,{'text-anchor':'end'}));
     bandEls[c.k]=g; svg.appendChild(g);
   });
 
   const poolBar={};
   Object.keys(POOLS).forEach(p=>{
-    const P=POOLS[p], py=poolsY[p], ph=poolH(p), tx=POOL_X+POOL_W+14;
+    const P=POOLS[p], py=poolsY[p], ph=poolH(p), tx=POOL_X+POOL_W+14*SX;
     const bar=el('rect',{class:'poolbar',x:POOL_X,y:py,width:POOL_W,height:ph,fill:P.col,rx:2});
     poolBar[p]=bar; svg.appendChild(bar);
     svg.appendChild(txt('pval',tx,py+22,cr(poolTotal(p)),{fill:P.col}));
     svg.appendChild(txt('pname',tx,py+42,P.n));
     svg.appendChild(txt('psub',tx,py+58,P.sub));
-    svg.appendChild(el('line',{x1:tx,y1:py+70,x2:tx+150,y2:py+70,stroke:'#29251f'}));
+    svg.appendChild(el('line',{x1:tx,y1:py+70,x2:tx+150*SX,y2:py+70,stroke:'#29251f'}));
     svg.appendChild(txt('psub',tx,py+86,'↳ '+P.next,{fill:cssVar('--muted')}));
     const out=sum(CAUSES.filter(c=>c.pool===p&&!INSIDE[p].includes(c.o)));
     svg.appendChild(txt('psub',tx,py+104,`${Math.round(out/poolTotal(p)*100)}% originates outside the team`,{fill:cssVar('--red')}));
