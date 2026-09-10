@@ -15,10 +15,14 @@
     }
     *{box-sizing:border-box}
     html,body{width:100%;height:100%;overflow:hidden}
-    body{margin:0;min-width:1240px;min-height:760px;color:var(--text);background:var(--void);font:14px var(--sans)}
+    body{margin:0;color:var(--text);background:var(--void);font:14px var(--sans)}
     button{font:inherit;color:inherit}
 
-    #stage{position:relative;width:100vw;height:100vh;display:grid;
+    /* Below the 1240×760 design size, #fit scales the whole stage down to
+       whatever viewport it's given rather than clipping or scrolling it. */
+    #fit{position:absolute;top:0;left:0;width:1240px;height:760px;transform-origin:top left}
+
+    #stage{position:relative;width:1240px;height:760px;display:grid;
       grid-template-columns:236px 1fr 314px;grid-template-rows:64px 1fr 204px;
       background:radial-gradient(70vw 50vw at 50% 0%,rgba(113,80,35,.10),transparent 70%),var(--void)}
     #stage > *:not(#stars){position:relative;z-index:1}
@@ -174,7 +178,7 @@
   </style>
 </head>
 <body>
-  <main id="stage">
+  <div id="fit"><main id="stage">
     <canvas id="stars" aria-hidden="true"></canvas>
 
     <header>
@@ -254,8 +258,24 @@
         <div class="opp" id="i-opp"></div>
       </div>
     </section>
-  </main>
+  </main></div>
 
+  <script>
+  /* scale the fixed 1240×760 stage to fit whatever viewport it's given
+     (e.g. a laptop, or a narrower iframe) instead of clipping it */
+  (function fitStage(){
+    const fit=document.getElementById('fit');
+    const DESIGN_W=1240, DESIGN_H=760;
+    function apply(){
+      const scale=Math.min(innerWidth/DESIGN_W, innerHeight/DESIGN_H, 1);
+      fit.style.transform='scale('+scale+')';
+      fit.style.left=Math.max(0,(innerWidth-DESIGN_W*scale)/2)+'px';
+      fit.style.top=Math.max(0,(innerHeight-DESIGN_H*scale)/2)+'px';
+    }
+    apply();
+    addEventListener('resize',apply);
+  })();
+  </script>
   <script>
   /* ------------------------------------------------------------------
      Every figure below is copied from the committed mock data — nothing
