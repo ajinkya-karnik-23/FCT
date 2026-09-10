@@ -46,21 +46,51 @@
 
     #fit{position:absolute;left:0;top:0;width:100%;height:100%}
 
-    /* The chrome (header/rail/side/inspector) keeps its designed pixel sizes;
-       only the spine's SVG content rescales (see the layout comment in the
-       script below) so the diagram always fills whatever room is left over
-       after those fixed panels, on any window size. */
-    #stage{position:relative;width:100%;height:100%;min-width:900px;min-height:560px;display:grid;
-      grid-template-columns:236px 1fr 314px;grid-template-rows:64px 1fr 204px;
+    /* Fully fluid: no min-size floor and no scale-to-fit transform, so the
+       layout uses every pixel it is given at any window size instead of
+       locking to a design width and centring itself. The lens picker and the
+       "needs a human" list live in header dropdowns rather than side panels,
+       which is what buys the spine its width. */
+    #stage{position:relative;width:100%;height:100%;display:grid;
+      grid-template-columns:200px 1fr;grid-template-rows:56px 1fr 190px;
       background:radial-gradient(70vw 50vw at 50% 0%,rgba(113,80,35,.10),transparent 70%),var(--void)}
+    /* short viewports (a laptop with browser chrome + taskbar) give the spine
+       the room back rather than squeezing it between fixed-height furniture */
+    @media (max-height:700px){
+      #stage{grid-template-rows:52px 1fr 150px}
+      .inspector{padding:10px 16px;gap:14px}
+      .inspector h2{margin:4px 0 4px;font-size:15px}
+      .rail{padding:10px 0}
+    }
+    @media (max-height:560px){
+      #stage{grid-template-rows:48px 1fr 124px}
+    }
     #stage > *:not(#stars){position:relative;z-index:1}
     #stars{position:absolute!important;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.55}
 
     .ml{font:10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
 
     /* ---------- header ---------- */
-    header{grid-column:1/-1;display:flex;align-items:center;gap:20px;
-      padding:0 20px;border-bottom:1px solid var(--line2);background:var(--scrim)}
+    header{grid-column:1/-1;display:flex;align-items:center;gap:14px;z-index:5;
+      padding:0 16px;border-bottom:1px solid var(--line2);background:var(--scrim)}
+
+    /* ---------- header dropdowns (lens · needs a human) ---------- */
+    .dd{position:relative;flex:none}
+    .dd>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+      padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--raised);
+      color:var(--second);font:10px var(--mono);letter-spacing:.06em;white-space:nowrap}
+    .dd>summary::-webkit-details-marker{display:none}
+    .dd>summary::marker{content:""}
+    .dd>summary:after{content:"▾";color:var(--muted);font-size:9px}
+    .dd>summary b{color:var(--text);font-weight:400}
+    .dd[open]>summary{border-color:var(--amber);color:var(--text)}
+    .dd:hover>summary{border-color:var(--line)}
+    .ddp{position:absolute;top:calc(100% + 6px);left:0;z-index:60;width:320px;
+      max-height:min(66vh,520px);overflow-y:auto;padding:10px 0;
+      border:1px solid var(--line);border-radius:9px;background:var(--deep);
+      box-shadow:0 16px 38px rgba(0,0,0,.55)}
+    .ddp.right{left:auto;right:0;width:340px}
+    .ddp .sfoot{padding:10px 16px 2px}
     header h1{margin:0;font:650 14px/1 var(--sans);letter-spacing:.02em;white-space:nowrap}
     header h1 b{color:var(--amber);font-weight:650}
     .scope{display:flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;
@@ -73,7 +103,7 @@
     .clock span{color:var(--faint);font:10px var(--mono)}
     .clock i{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);animation:tick 2.4s ease-in-out infinite}
     @keyframes tick{0%,100%{opacity:1}50%{opacity:.28}}
-    .recon{display:flex;align-items:baseline;gap:8px;padding-left:18px;border-left:1px solid var(--line2)}
+    .recon{display:flex;flex:none;align-items:baseline;gap:8px;padding-left:18px;border-left:1px solid var(--line2);white-space:nowrap}
     .recon b{font:700 21px var(--mono);letter-spacing:-.04em}
     .recon span{color:var(--faint);font:10px var(--mono)}
 
@@ -162,7 +192,7 @@
 
     /* ---------- bottom inspector ---------- */
     .inspector{grid-column:1/-1;display:grid;grid-template-columns:1fr 244px 430px;gap:22px;
-      padding:14px 20px;border-top:1px solid var(--line2);background:var(--scrim);overflow:hidden}
+      padding:14px 20px;border-top:1px solid var(--line2);background:var(--scrim);overflow-y:auto}
     .itop{display:flex;align-items:center;gap:10px}
     .ichip{padding:3px 8px;border-radius:4px;font:9px var(--mono);letter-spacing:.09em}
     .inspector h2{margin:8px 0 6px;font:650 17px var(--sans);letter-spacing:-.01em}
@@ -203,6 +233,14 @@
       .clock i{animation:none}
       .ribbon,.band rect{transition:none}
     }
+
+    /* Narrow viewports: drop the header's secondary readouts rather than let
+       them wrap into a stack and eat the height the spine needs. Kept last in
+       the sheet so these win over the base rules at equal specificity. */
+    @media (max-width:1240px){ .clock{display:none} }
+    @media (max-width:1060px){ .recon{display:none} }
+    @media (max-width:900px){ header h1{display:none} }
+    @media (max-width:780px){ .scope{display:none} }
   </style>
 </head>
 <body>
@@ -212,7 +250,28 @@
     <header>
       <h1>Finance <b>Control</b> Tower</h1>
       <span class="scope"><i></i>JGL · Jubilant Generics Ltd</span>
-      <p class="lede">Where cash is stuck, which function causes it, and whether a fix is in flight.</p>
+
+      <!-- lens and the needs-a-human list are dropdowns rather than side
+           panels, so the spine gets the width they used to occupy -->
+      <details class="dd" id="dd-lens">
+        <summary>LENS · <b id="dd-lens-label">All stuck cash</b></summary>
+        <div class="ddp">
+          <button class="lens on" data-lens="all"><strong>All stuck cash</strong><em>₹37.4 cr · 12 causes</em></button>
+          <button class="lens" data-lens="outside"><strong>Caused outside the owning team</strong><em>the structural lever</em></button>
+          <button class="lens" data-lens="human"><strong>Needs a human</strong><em>after the agents clear</em></button>
+          <button class="lens" data-lens="noowner"><strong>No fix in flight</strong><em>not on the register</em></button>
+          <button class="lens" data-lens="close"><strong>At risk of missing cut-off</strong><em>resolution already runs past 6 d</em></button>
+        </div>
+      </details>
+
+      <details class="dd" id="dd-human">
+        <summary>NEEDS A HUMAN TODAY <b id="dd-human-count"></b></summary>
+        <div class="ddp">
+          <div id="human"></div>
+          <p class="sfoot">Agent coverage is modelled for P2P causes only (§15.2). O2C bands show full value until those rates are measured.</p>
+        </div>
+      </details>
+
       <div class="recon"><b id="total">₹37.4 cr</b><span>stuck<br>12 causes · ties to AP blocked ₹18.6 cr</span></div>
       <div class="clock"><i></i><b>DAY 4 OF CLOSE</b><span>cut-off 18:00 IST · 6h 12m</span></div>
     </header>
@@ -225,13 +284,6 @@
         <button class="seg proc-ar" data-proc="ar">O2C</button>
       </div>
       <hr>
-      <span class="ml">Lens</span>
-      <button class="lens on" data-lens="all"><strong>All stuck cash</strong><em>₹37.4 cr · 12 causes</em></button>
-      <button class="lens" data-lens="outside"><strong>Caused outside the owning team</strong><em>the structural lever</em></button>
-      <button class="lens" data-lens="human"><strong>Needs a human</strong><em>after the agents clear</em></button>
-      <button class="lens" data-lens="noowner"><strong>No fix in flight</strong><em>not on the register</em></button>
-      <button class="lens" data-lens="close"><strong>At risk of missing cut-off</strong><em>resolution already runs past 6 d</em></button>
-      <hr>
       <div class="readout">
         <span class="ml">Reading</span>
         <div class="big" id="ro-big">₹37.4 cr</div>
@@ -239,10 +291,10 @@
       </div>
       <div class="key">
         <span class="ml">Fix status</span>
-        <div class="krow"><i style="background:#73d29d"></i>Eliminated · stops new cases</div>
-        <div class="krow"><i style="background:#e8b34b"></i>In progress · owner + target</div>
-        <div class="krow"><i style="background:#898078"></i>Identified · no target set</div>
-        <div class="krow"><i style="background:#ff8580"></i>Not on the register</div>
+        <div class="krow"><i style="background:var(--green)"></i>Eliminated · stops new cases</div>
+        <div class="krow"><i style="background:var(--amber)"></i>In progress · owner + target</div>
+        <div class="krow"><i style="background:var(--muted)"></i>Identified · no target set</div>
+        <div class="krow"><i style="background:var(--red)"></i>Not on the register</div>
       </div>
     </nav>
 
@@ -250,12 +302,6 @@
       aria-label="Attribution of stuck cash from originating function to where the cash sits, with remediation status"></svg>
       <div class="hint" id="hint">Select any cause to trace its cash — <b>the ribbon shows where it lands</b></div>
     </section>
-
-    <aside class="side">
-      <span class="ml">Needs a human today</span>
-      <div id="human"></div>
-      <p class="sfoot">Agent coverage is modelled for P2P causes only (§15.2). O2C bands show full value until those rates are measured.</p>
-    </aside>
 
     <section class="inspector">
       <div>
@@ -289,31 +335,11 @@
   </main></div>
 
   <script>
-  /* #stage fills #fit at 100%/100% (see layout comment further down for how
-     the spine's own SVG content sizes itself to match) so on a normal or
-     large window it uses all the room the rail-collapsed iframe gives it —
-     no letterboxing. #stage does carry a 900×560 min-size floor below which
-     the chrome can't usefully shrink further, so on a smaller window than
-     that we fall back to uniformly scaling #fit down (centered) instead of
-     letting the browser clip it. */
-  (function fitStage(){
-    const fit=document.getElementById('fit');
-    const MIN_W=900, MIN_H=560;
-    function apply(){
-      const scale=Math.min(innerWidth/MIN_W, innerHeight/MIN_H, 1);
-      if(scale<1){
-        fit.style.width=MIN_W+'px'; fit.style.height=MIN_H+'px';
-        fit.style.transform='scale('+scale+')'; fit.style.transformOrigin='top left';
-        fit.style.left=Math.max(0,(innerWidth-MIN_W*scale)/2)+'px';
-        fit.style.top=Math.max(0,(innerHeight-MIN_H*scale)/2)+'px';
-      } else {
-        fit.style.width='100%'; fit.style.height='100%';
-        fit.style.transform='none'; fit.style.left='0'; fit.style.top='0';
-      }
-    }
-    apply();
-    addEventListener('resize',apply);
-  })();
+  /* The layout is fluid at every size now (no design-width floor, no
+     scale-to-fit transform), so there is nothing to fit on load. The spine's
+     SVG geometry is measured once at build time and the <svg> box is 100%/100%
+     with preserveAspectRatio, so a later resize rescales it cleanly — no
+     redraw, and the selected cause and lens survive. */
   addEventListener('storage',e=>{ if(e.key==='fct-theme') location.reload() });
   </script>
   <script>
@@ -573,10 +599,20 @@
     document.getElementById('ro-big').textContent=r.big;
     document.getElementById('ro-note').textContent=r.note;
   }
+  const ddLens=document.getElementById('dd-lens'), ddHuman=document.getElementById('dd-human');
   document.querySelectorAll('.lens').forEach(b=>b.addEventListener('click',()=>{
     document.querySelectorAll('.lens').forEach(x=>x.classList.remove('on'));
     b.classList.add('on'); lens=b.dataset.lens; applyLens();
+    document.getElementById('dd-lens-label').textContent=b.querySelector('strong').textContent;
+    ddLens.open=false;
   }));
+  // dropdowns close on outside click and on Escape, like any other menu
+  addEventListener('click',e=>{
+    [ddLens,ddHuman].forEach(d=>{ if(d.open && !d.contains(e.target)) d.open=false });
+  });
+  addEventListener('keydown',e=>{
+    if(e.key==='Escape') [ddLens,ddHuman].forEach(d=>d.open=false);
+  });
   document.querySelectorAll('.seg').forEach(b=>b.addEventListener('click',()=>{
     document.querySelectorAll('.seg').forEach(x=>x.classList.remove('on'));
     b.classList.add('on'); proc=b.dataset.proc; applyLens();
@@ -746,16 +782,21 @@
 
   /* ---------------- needs a human panel ---------------- */
   const side=document.getElementById('human');
-  CAUSES.slice().sort((a,b)=>human(b)-human(a)).slice(0,5).forEach(c=>{
+  const humanRows=CAUSES.slice().sort((a,b)=>human(b)-human(a)).slice(0,5);
+  humanRows.forEach(c=>{
     const reg=regOf(c.k), st=STATUS[reg.status];
     const d=document.createElement('div'); d.className='srow'; d.tabIndex=0;
     d.innerHTML=`<span class="n">${c.n}</span><span class="v">${cr(human(c))}</span>`+
       `<span class="m" style="color:${reg.status==='none'?'var(--red)':'var(--faint)'}">`+
       `${st.label.toLowerCase()}${reg.owner?' · '+reg.owner:''}${reg.target?' · '+reg.target:''}</span>`;
-    d.addEventListener('click',()=>select(c.k));
-    d.addEventListener('keydown',e=>{if(e.key==='Enter')select(c.k)});
+    const pick=()=>{select(c.k); ddHuman.open=false};
+    d.addEventListener('click',pick);
+    d.addEventListener('keydown',e=>{if(e.key==='Enter')pick()});
     side.appendChild(d);
   });
+  // the summary carries the headline so the list stays useful while closed
+  document.getElementById('dd-human-count').textContent=
+    `${humanRows.length} · ${cr(humanRows.reduce((t,c)=>t+human(c),0))}`;
 
   select('missing-gr'); applyLens();
 
