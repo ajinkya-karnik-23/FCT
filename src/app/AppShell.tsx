@@ -12,6 +12,9 @@ import { TopBar } from './TopBar'
 export function AppShell() {
   const { pathname, search, hash } = useLocation()
   const code = entityCodeFromPath(pathname) ?? DEFAULT_ENTITY
+  // The cash attribution spine is a fixed-size prototype (public/cash-attribution.html)
+  // that needs all the room it can get, so the rail collapses off this route.
+  const railCollapsed = pathname.startsWith('/cash-attribution')
 
   // §8.2 — cross-page drill anchors (e.g. #fct-stage-COL): pushState does not scroll to the fragment, so do it here post-commit.
   useEffect(() => {
@@ -51,7 +54,7 @@ export function AppShell() {
             overflow: 'hidden',
           }}
         >
-          <Rail onSearch={openPalette} />
+          <Rail onSearch={openPalette} collapsed={railCollapsed} />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
             <TopBar
               drawerOpen={assistantOpen}

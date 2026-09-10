@@ -35,6 +35,7 @@ export function TopBar({ drawerOpen, onToggleDrawer }: { drawerOpen: boolean; on
         display: 'flex',
         alignItems: 'center',
         gap: 18,
+        overflow: 'hidden',
       }}
     >
       <nav
