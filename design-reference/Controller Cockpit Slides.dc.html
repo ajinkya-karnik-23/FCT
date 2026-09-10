@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #EFEDE8; }
+  a { color: #1B6BE3; text-decoration: none; }
+  a:hover { color: #12459B; }
+</style>
+</helmet>
+<x-import component-from-global-scope="deck-stage" from="./deck-stage.js" width="1920" height="1080" hint-size="100%,100%">
+
+  <section data-label="Title" data-screen-label="01" data-speaker-notes="Open with the positioning line. The incumbent reports volumes; we report financial risk, cause, ownership and action. Frame the cockpit as a signature innovation of the bid, not an appendix feature." style="background: #FAF9F6; color: #1A1917; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: flex; flex-direction: column; justify-content: space-between; padding: 100px 100px 80px;">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; font-size: 26px; letter-spacing: 0.14em; text-transform: uppercase; color: #6E6A63; font-family: 'IBM Plex Mono', monospace;">
+      <div>Jubilant Pharmova &middot; Finance Managed Services</div>
+      <div>Signature solution 01</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 40px; max-width: 1500px;">
+      <div style="width: 96px; height: 6px; background: #1B6BE3;"></div>
+      <h1 style="margin: 0; font-size: 132px; line-height: 0.94; letter-spacing: -0.035em; font-weight: 600;">Controller Cockpit</h1>
+      <p style="margin: 0; font-size: 44px; line-height: 1.3; color: #3C3A35; max-width: 1180px; text-wrap: pretty;">One view of finance health. Every exception traceable. Every root cause actionable.</p>
+    </div>
+    <div style="display: flex; gap: 64px; align-items: flex-end; border-top: 1px solid #E3DFD7; padding-top: 36px;">
+      <p style="margin: 0; font-size: 32px; line-height: 1.4; color: #1A1917; max-width: 1220px; text-wrap: pretty;">Instead of reporting how many transactions we processed, we show where financial risk is building, why it is happening, who owns it, and what action will resolve it.</p>
+      <div style="margin-left: auto; font-size: 26px; color: #6E6A63; font-family: 'IBM Plex Mono', monospace; white-space: nowrap;">KPMG</div>
+    </div>
+  </section>
+
+  <section data-label="Three questions" data-screen-label="02" data-speaker-notes="Every screen in the cockpit answers these three in sequence. Today the controller can answer question one from operational reporting; two and three require weeks of manual analysis. That gap is the incumbent problem." style="background: #FAF9F6; color: #1A1917; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: flex; flex-direction: column; padding: 100px 100px 80px;">
+    <h2 style="margin: 0; font-size: 64px; line-height: 1.05; letter-spacing: -0.02em; font-weight: 600;">The three questions a controller asks</h2>
+    <p style="margin: 28px 0 0; font-size: 32px; color: #6E6A63; max-width: 1100px;">The cockpit is built to answer them in sequence, on one screen, without leaving the entity.</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 56px; margin-top: 56px;">
+      <div style="display: flex; flex-direction: column; gap: 26px; border-top: 3px solid #1B6BE3; padding-top: 32px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; color: #1B6BE3; letter-spacing: 0.1em;">01</div>
+        <h3 style="margin: 0; font-size: 44px; line-height: 1.15; font-weight: 600;">Where do I have a problem?</h3>
+        <p style="margin: 0; font-size: 30px; line-height: 1.45; color: #3C3A35; text-wrap: pretty;">Entity health across cash, AP, AR, close, reconciliations and controls &mdash; situational awareness in thirty seconds.</p>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #6E6A63; line-height: 1.6;">Legal entity health view</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 26px; border-top: 3px solid #1B6BE3; padding-top: 32px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; color: #1B6BE3; letter-spacing: 0.1em;">02</div>
+        <h3 style="margin: 0; font-size: 44px; line-height: 1.15; font-weight: 600;">Why do I have the problem?</h3>
+        <p style="margin: 0; font-size: 30px; line-height: 1.45; color: #3C3A35; text-wrap: pretty;">Structured root-cause taxonomy per process, drilled to plant, vendor, customer and business unit.</p>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #6E6A63; line-height: 1.6;">Exception &amp; root cause layers</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 26px; border-top: 3px solid #1B6BE3; padding-top: 32px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; color: #1B6BE3; letter-spacing: 0.1em;">03</div>
+        <h3 style="margin: 0; font-size: 44px; line-height: 1.15; font-weight: 600;">What should happen next?</h3>
+        <p style="margin: 0; font-size: 30px; line-height: 1.45; color: #3C3A35; text-wrap: pretty;">Named owner, prioritised action, quantified cash and control benefit, escalation if it ages.</p>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #6E6A63; line-height: 1.6;">Action intelligence layer</div>
+      </div>
+    </div>
+    <div style="margin-top: auto; border-top: 1px solid #E3DFD7; padding-top: 28px; display: flex; flex-direction: column; gap: 18px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; letter-spacing: 0.1em; color: #6E6A63;">ONE DRILL PATH, SIX LEVELS DEEP</div>
+      <div style="display: flex; align-items: stretch; gap: 0;">
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 20px 22px 20px 0; border-top: 6px solid #C9DAF6;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #9A968D;">L0</div>
+          <div style="font-size: 30px; font-weight: 600;">Group</div>
+          <div style="font-size: 24px; color: #6E6A63; line-height: 1.4;">Group finance health</div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 20px 22px; border-top: 6px solid #AECBF3;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #9A968D;">L1</div>
+          <div style="font-size: 30px; font-weight: 600;">Entity</div>
+          <div style="font-size: 24px; color: #6E6A63; line-height: 1.4;">Legal entity scorecard</div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 20px 22px; border-top: 6px solid #85B2EC;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #9A968D;">L2</div>
+          <div style="font-size: 30px; font-weight: 600;">Process</div>
+          <div style="font-size: 24px; color: #6E6A63; line-height: 1.4;">P2P &middot; O2C &middot; R2R</div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 20px 22px; border-top: 6px solid #4E8FE0;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #9A968D;">L3</div>
+          <div style="font-size: 30px; font-weight: 600;">Sub-process</div>
+          <div style="font-size: 24px; color: #6E6A63; line-height: 1.4;">Invoice, cash, recon</div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 20px 22px; border-top: 6px solid #1B6BE3;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #9A968D;">L4</div>
+          <div style="font-size: 30px; font-weight: 600;">Exception</div>
+          <div style="font-size: 24px; color: #6E6A63; line-height: 1.4;">The transaction itself</div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 20px 0 20px 22px; border-top: 6px solid #16223A;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #9A968D;">L5</div>
+          <div style="font-size: 30px; font-weight: 600;">Root cause</div>
+          <div style="font-size: 24px; color: #6E6A63; line-height: 1.4;">Pattern &amp; ownership</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Hero screen" data-screen-label="03" data-speaker-notes="This is the hero screen: the entity controller's homepage. Note it opens on financial risk, not process metrics. Every number is a drill point. Figures shown are placeholders pending the data-discovery workshop." style="background: #FAF9F6; color: #1A1917; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: flex; flex-direction: column; padding: 56px 56px 44px;">
+    <div style="display: flex; align-items: baseline; gap: 28px; padding-bottom: 24px;">
+      <h2 style="margin: 0; font-size: 52px; line-height: 1; letter-spacing: -0.02em; font-weight: 600;">Legal entity health</h2>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; color: #6E6A63;">Entity controller homepage &mdash; illustrative</span>
+    </div>
+
+    <div style="flex: 1; display: flex; background: #FFFFFF; border: 1px solid #DCD7CD; box-shadow: 0 24px 60px -30px rgba(26,25,23,0.35); overflow: hidden;">
+      <div style="width: 250px; background: #16223A; color: #C6CEDC; padding: 26px 0; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #7C8AA3; letter-spacing: 0.1em; padding: 0 26px 22px;">COCKPIT</div>
+        <div style="font-size: 26px; padding: 14px 26px; background: #1B6BE3; color: #FFFFFF;">Entity health</div>
+        <div style="font-size: 26px; padding: 14px 26px;">P2P</div>
+        <div style="font-size: 26px; padding: 14px 26px;">O2C</div>
+        <div style="font-size: 26px; padding: 14px 26px;">R2R</div>
+        <div style="font-size: 26px; padding: 14px 26px;">Close</div>
+        <div style="font-size: 26px; padding: 14px 26px;">Controls</div>
+        <div style="font-size: 26px; padding: 14px 26px;">Working capital</div>
+      </div>
+
+      <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+        <div style="display: flex; align-items: center; gap: 20px; padding: 22px 32px; border-bottom: 1px solid #E7E3DA; background: #FBFAF7;">
+          <div style="font-size: 28px; font-weight: 600;">Entity A &mdash; Jubilant Generics</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #6E6A63; border: 1px solid #DCD7CD; padding: 5px 12px;">Period MM-YYYY</div>
+          <div style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #6E6A63;">Group &rsaquo; Entity A</div>
+        </div>
+
+        <div style="display: flex; align-items: stretch; gap: 40px; padding: 28px 32px; border-bottom: 1px solid #E7E3DA;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #6E6A63; letter-spacing: 0.08em;">FINANCE HEALTH</div>
+            <div style="display: flex; align-items: baseline; gap: 14px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 84px; line-height: 1; font-weight: 600; color: #B4761B;">{{ entityScore }}</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 30px; color: #6E6A63;">/100</div>
+              <div style="font-size: 26px; font-weight: 600; color: #B4761B; background: #FBF1DF; padding: 6px 14px;">AMBER</div>
+            </div>
+          </div>
+          <div style="flex: 1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px; align-items: end;">
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-size: 24px; color: #3C3A35;">Close</div>
+              <div style="height: 12px; background: #EDEAE3;"><div style="width: 78%; height: 12px; background: #2E7D5B;"></div></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-size: 24px; color: #3C3A35;">Control</div>
+              <div style="height: 12px; background: #EDEAE3;"><div style="width: 46%; height: 12px; background: #C0392B;"></div></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-size: 24px; color: #3C3A35;">Working capital</div>
+              <div style="height: 12px; background: #EDEAE3;"><div style="width: 58%; height: 12px; background: #B4761B;"></div></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-size: 24px; color: #3C3A35;">Process</div>
+              <div style="height: 12px; background: #EDEAE3;"><div style="width: 82%; height: 12px; background: #2E7D5B;"></div></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-size: 24px; color: #3C3A35;">Service</div>
+              <div style="height: 12px; background: #EDEAE3;"><div style="width: 70%; height: 12px; background: #B4761B;"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(6, 1fr); border-bottom: 1px solid #E7E3DA;">
+          <div style="padding: 22px 24px; border-right: 1px solid #E7E3DA; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 24px; color: #6E6A63;">Cash applied</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 600;">&#8377; XX.X cr</div>
+            <div style="font-size: 24px; color: #B4761B;">unapplied</div>
+          </div>
+          <div style="padding: 22px 24px; border-right: 1px solid #E7E3DA; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 24px; color: #6E6A63;">AP blocked</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 600;">&#8377; XX.X cr</div>
+            <div style="font-size: 24px; color: #C0392B;">NNN invoices</div>
+          </div>
+          <div style="padding: 22px 24px; border-right: 1px solid #E7E3DA; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 24px; color: #6E6A63;">AR &gt;90 days</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 600;">&#8377; XX.X cr</div>
+            <div style="font-size: 24px; color: #C0392B;">NN customers</div>
+          </div>
+          <div style="padding: 22px 24px; border-right: 1px solid #E7E3DA; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 24px; color: #6E6A63;">Close</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 600;">NN% done</div>
+            <div style="font-size: 24px; color: #B4761B;">N blockers</div>
+          </div>
+          <div style="padding: 22px 24px; border-right: 1px solid #E7E3DA; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 24px; color: #6E6A63;">Reconciliations</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 600;">&#8377; XX.X cr</div>
+            <div style="font-size: 24px; color: #C0392B;">NN aged breaks</div>
+          </div>
+          <div style="padding: 22px 24px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 24px; color: #6E6A63;">Controls</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 600;">N breaches</div>
+            <div style="font-size: 24px; color: #B4761B;">NN high-risk JEs</div>
+          </div>
+        </div>
+
+        <div style="flex: 1; display: grid; grid-template-columns: 1.35fr 1fr; min-height: 0;">
+          <div style="border-right: 1px solid #E7E3DA; padding: 24px 32px; display: flex; flex-direction: column; gap: 16px;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #6E6A63; letter-spacing: 0.08em;">TOP ISSUES REQUIRING ATTENTION</div>
+            <div style="display: flex; align-items: center; gap: 18px; font-size: 26px;"><span style="width: 10px; height: 10px; background: #C0392B; border-radius: 50%;"></span><span style="flex: 1;">AP blocked &gt; 30 days</span><span style="font-family: 'IBM Plex Mono', monospace;">&#8377; XX.X cr</span><span style="color: #6E6A63; width: 210px; text-align: right;">Entity controller</span></div>
+            <div style="display: flex; align-items: center; gap: 18px; font-size: 26px;"><span style="width: 10px; height: 10px; background: #C0392B; border-radius: 50%;"></span><span style="flex: 1;">Overdue AR &gt; 90 days</span><span style="font-family: 'IBM Plex Mono', monospace;">&#8377; XX.X cr</span><span style="color: #6E6A63; width: 210px; text-align: right;">Collections lead</span></div>
+            <div style="display: flex; align-items: center; gap: 18px; font-size: 26px;"><span style="width: 10px; height: 10px; background: #B4761B; border-radius: 50%;"></span><span style="flex: 1;">Unapplied cash</span><span style="font-family: 'IBM Plex Mono', monospace;">&#8377; XX.X cr</span><span style="color: #6E6A63; width: 210px; text-align: right;">Cash application</span></div>
+            <div style="display: flex; align-items: center; gap: 18px; font-size: 26px;"><span style="width: 10px; height: 10px; background: #B4761B; border-radius: 50%;"></span><span style="flex: 1;">Reconciliation breaks &gt; 30 days</span><span style="font-family: 'IBM Plex Mono', monospace;">NN items</span><span style="color: #6E6A63; width: 210px; text-align: right;">R2R tower</span></div>
+            <div style="display: flex; align-items: center; gap: 18px; font-size: 26px;"><span style="width: 10px; height: 10px; background: #B4761B; border-radius: 50%;"></span><span style="flex: 1;">High-risk manual journals</span><span style="font-family: 'IBM Plex Mono', monospace;">N JEs</span><span style="color: #6E6A63; width: 210px; text-align: right;">Financial controller</span></div>
+          </div>
+          <div style="padding: 24px 32px; display: flex; flex-direction: column; gap: 16px; background: #FBFAF7;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #6E6A63; letter-spacing: 0.08em;">ROOT CAUSE INSIGHTS</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; justify-content: space-between; font-size: 26px;"><span>AP &mdash; missing GR</span><span style="font-family: 'IBM Plex Mono', monospace; color: #6E6A63;">NN%</span></div>
+              <div style="height: 10px; background: #EDEAE3;"><div style="width: 54%; height: 10px; background: #1B6BE3;"></div></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; justify-content: space-between; font-size: 26px;"><span>AR &mdash; pricing disputes</span><span style="font-family: 'IBM Plex Mono', monospace; color: #6E6A63;">NN%</span></div>
+              <div style="height: 10px; background: #EDEAE3;"><div style="width: 42%; height: 10px; background: #1B6BE3;"></div></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; justify-content: space-between; font-size: 26px;"><span>Recon &mdash; interface breaks</span><span style="font-family: 'IBM Plex Mono', monospace; color: #6E6A63;">NN%</span></div>
+              <div style="height: 10px; background: #EDEAE3;"><div style="width: 61%; height: 10px; background: #1B6BE3;"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 40px; padding: 20px 32px; background: #16223A; color: #E6EBF3;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #93A2BC; letter-spacing: 0.08em;">RECOMMENDED ACTIONS</div>
+          <div style="font-size: 26px;">&#8377; X.X cr working-capital release identified</div>
+          <div style="font-size: 26px;">NN exceptions resolvable today</div>
+          <div style="font-size: 26px;">N systemic issues for process-owner intervention</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Root cause" data-screen-label="04" data-speaker-notes="This is the capability the incumbent reporting does not provide. Causes are not invented by AI: a fixed taxonomy per process gives determinism and comparability across entities; AI enhances classification and explanation on top of it." style="background: #FAF9F6; color: #1A1917; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: flex; flex-direction: column; padding: 100px 100px 80px;">
+    <h2 style="margin: 0; font-size: 64px; line-height: 1.05; letter-spacing: -0.02em; font-weight: 600;">From exception to root cause</h2>
+    <p style="margin: 28px 0 0; font-size: 32px; color: #6E6A63; max-width: 1250px;">Three clicks from a red tile to the plant, vendor and process owner behind it.</p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; margin-top: 64px; align-items: stretch;">
+      <div style="background: #FFFFFF; border: 1px solid #DCD7CD; padding: 32px; display: flex; flex-direction: column; gap: 18px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #1B6BE3; letter-spacing: 0.08em;">EXCEPTION</div>
+        <div style="font-size: 36px; font-weight: 600;">AP blocked invoices</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 44px; font-weight: 600;">NNN</div>
+        <div style="font-size: 26px; line-height: 1.6; color: #3C3A35;">Vendor, invoice, amount, ageing, blocking reason, owner, last action, next action, SLA breach, control impact.</div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #DCD7CD; padding: 32px; display: flex; flex-direction: column; gap: 18px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #1B6BE3; letter-spacing: 0.08em;">CAUSE DISTRIBUTION</div>
+        <div style="font-size: 36px; font-weight: 600;">Why it keeps happening</div>
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 4px;">
+          <div style="display: flex; align-items: center; gap: 16px; font-size: 26px;"><span style="flex: 1;">Missing GR</span><span style="width: 180px; height: 12px; background: #EDEAE3;"><span style="display: block; width: 84%; height: 12px; background: #16223A;"></span></span><span style="font-family: 'IBM Plex Mono', monospace; color: #6E6A63;">NN%</span></div>
+          <div style="display: flex; align-items: center; gap: 16px; font-size: 26px;"><span style="flex: 1;">PO price mismatch</span><span style="width: 180px; height: 12px; background: #EDEAE3;"><span style="display: block; width: 58%; height: 12px; background: #16223A;"></span></span><span style="font-family: 'IBM Plex Mono', monospace; color: #6E6A63;">NN%</span></div>
+          <div style="display: flex; align-items: center; gap: 16px; font-size: 26px;"><span style="flex: 1;">Approval delay</span><span style="width: 180px; height: 12px; background: #EDEAE3;"><span style="display: block; width: 44%; height: 12px; background: #16223A;"></span></span><span style="font-family: 'IBM Plex Mono', monospace; color: #6E6A63;">NN%</span></div>
+          <div style="display: flex; align-items: center; gap: 16px; font-size: 26px;"><span style="flex: 1;">Vendor master</span><span style="width: 180px; height: 12px; background: #EDEAE3;"><span style="display: block; width: 28%; height: 12px; background: #16223A;"></span></span><span style="font-family: 'IBM Plex Mono', monospace; color: #6E6A63;">NN%</span></div>
+          <div style="display: flex; align-items: center; gap: 16px; font-size: 26px;"><span style="flex: 1;">Duplicate suspicion</span><span style="width: 180px; height: 12px; background: #EDEAE3;"><span style="display: block; width: 18%; height: 12px; background: #16223A;"></span></span><span style="font-family: 'IBM Plex Mono', monospace; color: #6E6A63;">NN%</span></div>
+        </div>
+      </div>
+      <div style="background: #16223A; color: #E6EBF3; padding: 32px; display: flex; flex-direction: column; gap: 18px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #93A2BC; letter-spacing: 0.08em;">DRIVER</div>
+        <div style="font-size: 36px; font-weight: 600;">Missing GR, decomposed</div>
+        <div style="display: flex; flex-direction: column; gap: 14px; font-size: 26px;">
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2B3A57; padding-bottom: 12px;"><span>Plant A</span><span style="font-family: 'IBM Plex Mono', monospace;">NN%</span></div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2B3A57; padding-bottom: 12px;"><span>Business B</span><span style="font-family: 'IBM Plex Mono', monospace;">NN%</span></div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #2B3A57; padding-bottom: 12px;"><span>Vendor group C</span><span style="font-family: 'IBM Plex Mono', monospace;">NN%</span></div>
+        </div>
+        <div style="font-size: 26px; line-height: 1.6; color: #B9C4D6; margin-top: 4px;">GR posted after invoice receipt; concentrated in NN vendors, average delay N days.</div>
+      </div>
+    </div>
+
+    <sc-if value="{{ showTaxonomy }}" hint-placeholder-val="{{ true }}">
+      <div style="margin-top: auto; border-top: 1px solid #E3DFD7; padding-top: 32px; display: grid; grid-template-columns: 200px 1fr; gap: 40px; align-items: start;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #6E6A63; letter-spacing: 0.08em; line-height: 1.5;">FIXED TAXONOMY</div>
+        <div style="display: flex; flex-direction: column; gap: 14px; font-size: 26px; color: #3C3A35;">
+          <div><span style="font-weight: 600;">P2P</span> &nbsp;PO &middot; GR &middot; pricing &middot; approval &middot; vendor master &middot; tax &middot; duplicate &middot; invoice quality &middot; interface</div>
+          <div><span style="font-weight: 600;">O2C</span> &nbsp;billing &middot; pricing &middot; deduction &middot; dispute &middot; collection &middot; cash application &middot; customer master</div>
+          <div><span style="font-weight: 600;">R2R</span> &nbsp;source data &middot; journal &middot; reconciliation &middot; intercompany &middot; master data &middot; interface &middot; close dependency &middot; judgment</div>
+        </div>
+      </div>
+    </sc-if>
+  </section>
+
+  <section data-label="AI layer" data-screen-label="05" data-speaker-notes="Close here. The AI layer is not a chatbot bolted on: it sits on the semantic model and the taxonomy, so every answer is traceable to transactions. Ask, explain, investigate, recommend — a conversational controller interface." style="background: #FAF9F6; color: #1A1917; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: flex; flex-direction: column; padding: 100px 100px 80px;">
+    <h2 style="margin: 0; font-size: 64px; line-height: 1.05; letter-spacing: -0.02em; font-weight: 600;">A conversational controller interface</h2>
+    <div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 80px; margin-top: 56px; flex: 1; min-height: 0;">
+      <div style="display: flex; flex-direction: column; gap: 36px;">
+        <div style="display: grid; grid-template-columns: 220px 1fr; gap: 28px; align-items: baseline;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 30px; font-weight: 600; color: #1B6BE3;">Ask</div>
+          <div style="font-size: 30px; line-height: 1.4; color: #3C3A35;">Plain-language questions against the finance semantic model.</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 220px 1fr; gap: 28px; align-items: baseline;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 30px; font-weight: 600; color: #1B6BE3;">Explain</div>
+          <div style="font-size: 30px; line-height: 1.4; color: #3C3A35;">Decomposition of the exposure by cause, entity and ageing.</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 220px 1fr; gap: 28px; align-items: baseline;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 30px; font-weight: 600; color: #1B6BE3;">Investigate</div>
+          <div style="font-size: 30px; line-height: 1.4; color: #3C3A35;">Drill to the plants, vendors and customers driving it.</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 220px 1fr; gap: 28px; align-items: baseline;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 30px; font-weight: 600; color: #1B6BE3;">Recommend</div>
+          <div style="font-size: 30px; line-height: 1.4; color: #3C3A35;">Prioritised action with quantified cash and control benefit.</div>
+        </div>
+        <div style="margin-top: auto; border-top: 1px solid #E3DFD7; padding-top: 28px; font-size: 28px; line-height: 1.5; color: #6E6A63; text-wrap: pretty;">Every answer resolves to transactions, owners and SLA records &mdash; auditable, not generated.</div>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #DCD7CD; box-shadow: 0 24px 60px -30px rgba(26,25,23,0.35); display: flex; flex-direction: column;">
+        <div style="padding: 20px 32px; border-bottom: 1px solid #E7E3DA; display: flex; align-items: center; gap: 16px; background: #FBFAF7;">
+          <span style="width: 10px; height: 10px; background: #1B6BE3; border-radius: 50%;"></span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; color: #6E6A63; letter-spacing: 0.08em;">COCKPIT ASSISTANT &mdash; ENTITY A</span>
+        </div>
+        <div style="flex: 1; padding: 32px; display: flex; flex-direction: column; gap: 24px; min-height: 0;">
+          <div style="align-self: flex-end; max-width: 78%; background: #16223A; color: #FFFFFF; padding: 20px 26px; font-size: 28px; line-height: 1.4;">Why did the close health score drop this week?</div>
+          <div style="max-width: 88%; background: #F4F2ED; padding: 22px 26px; font-size: 28px; line-height: 1.45; color: #1A1917;">Three balance-sheet reconciliations remain unresolved. Two are intercompany mismatches with Entity B; one late manual journal of &#8377; X.X cr is awaiting approval.</div>
+          <div style="align-self: flex-end; max-width: 78%; background: #16223A; color: #FFFFFF; padding: 20px 26px; font-size: 28px; line-height: 1.4;">What should I do first?</div>
+          <div style="max-width: 88%; background: #F4F2ED; padding: 22px 26px; font-size: 28px; line-height: 1.45; color: #1A1917;">Release the journal, then clear the Entity B mismatch &mdash; together they recover NN points of close health and &#8377; X.X cr of payment capacity.</div>
+          <div style="margin-top: auto; display: flex; gap: 14px; flex-wrap: wrap;">
+            <span style="border: 1px solid #DCD7CD; padding: 12px 18px; font-size: 24px; color: #3C3A35;">Show the journal</span>
+            <span style="border: 1px solid #DCD7CD; padding: 12px 18px; font-size: 24px; color: #3C3A35;">Assign owner</span>
+            <span style="border: 1px solid #DCD7CD; padding: 12px 18px; font-size: 24px; color: #3C3A35;">Escalate to Entity B</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</x-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;entityScore&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:74,&quot;min&quot;:0,&quot;max&quot;:100,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Hero screen&quot;},&quot;showTaxonomy&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Root cause slide&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      entityScore: this.props.entityScore ?? 74,
+      showTaxonomy: this.props.showTaxonomy ?? true,
+    };
+  }
+}
+</script>
+</body>
+</html>

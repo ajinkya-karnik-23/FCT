@@ -1,0 +1,35 @@
+# Progress
+- [x] Step 0 — repo inventory
+- [x] Step 1 — dataset module
+- [x] Step 2 — entities and naming
+- [x] Step 3 — six dimensions and scoring
+- [x] Step 3.5 (§10)
+- [x] Step 4 — trends
+- [x] Step 5 — in-flight funnels and financial consequence
+- [x] Step 6 — mode-aware header
+- [x] Step 7 (§8.9, §5, §7.6, §7.17) — worklist actions and attribution — 0a carry-over: GroupView eyebrow now three labels per §8.2 (close 'Close progress — day 4', bau 'Close readiness', preclose 'Pre-close readiness — 3 days to close') so the countdown only appears where it is true; 0b: seeded exceptions for all six entities per §7.17 — mock/exceptions.ts keeps JGL's twelve pinned spec/05 literals first (palette ordering) and deterministically generates twelve rows each for JBL/JPS/JCP/JHS/JRP from fnv1a+mulberry32 on the entity code: values split in integer cents so each sample sums exactly to its shown value (JGL 12.77 — pinned literals, not the table's 12.8 pool figure) and is non-increasing, ages clamped to [2, oldestDays−1] with the oldest row equal to apBlockedOldestDays, causes drawn from a fixed mix of four missing-gr / three po-price-mismatch / two approval-pending / one each vendor-master·duplicate-suspicion·tax-mismatch (≥3 GR rows per entity so the accrual drill never lands empty), plants/vendors/owners from §7.17 pools; every row now carries attribution per the §7.6 cause mapping (GR/pricing/approval → client, vendor master/tax → provider, duplicate → system) with a one-line reason for it (attributionReason()), control significance by rule (missing-gr High if >30d else Medium; po-price Medium; approval Low; vendor-master Medium ≥₹0.9 cr else Low; duplicate High; tax Low), status 'open' and three seeded evidence lines stamped 'dd-MMM HH:mm' against the 24-Aug-2026 anchor clock; §8.9: new src/api/actions.ts — applyWorklistAction(x, assign|chase|release) appends a wall-clock-stamped line to x.evidence and sets status (assigned/chased/released), session-local mutation of the shared exception objects with an import-time ORIGINALS snapshot so resetWorklistActionStore() restores seeded state exactly; Worklist.tsx rebuilt on the existing DataTable (no visual-style change): checkbox column + per-row Assign/Chase/Release chips, multi-select with a bulk bar ('N SELECTED' + same three actions), released rows read RELEASED and drop their buttons, default sort is value descending (never count) with filter/sort/resolvable kept in the URL query string, '38 resolvable today' chip (JGL only — releasableItems: 38 added to EntityMetrics per §7.3) filters to the Low-effort set (causeEffort(): approval-pending/duplicate-suspicion/tax-mismatch Low; po-price/vendor-master Medium; missing-gr High) and a bar offers 'Release all N' over the visible rows; age-column collision fixed by DataTable's cell ellipsis + overflowX auto instead of hand-rolled widths; ExceptionDetail lifecycle is now data-driven via exceptionTimeline() — seeded lifecycle + session action lines parsed from evidence past the three seeded beats + today's open-status line (dropped once released) — with attribution and its reason rendered under the timeline, not in a separate panel; tests: api.test.ts row count 12→72, new 'seeded exceptions per entity (§7.17)' describe (per entity: sum to shown value + descending order, age ceiling with oldest row equal to it, ≥3 GR rows, §7.6 attribution mapping, three stamped evidence lines + open status), 'cause effort and attribution reason', 'worklist actions' (assign/chase/release line formats + reset restores exactly) and 'exception timeline' (six events for AP-104281; session action appears as a row; release drops the open-status line); p2p-worklist-exception: vendor-sort assertion rewritten for ID-only links (row textContent carries the vendor), three new tests — single-row release (evidence 3→4, row reads RELEASED), multi-select bulk chase ('2 SELECTED' clears after apply), resolvable filter (?resolvable=1 → four low-effort rows AP-104355/104473/104501/104570 value-descending, '4 low-effort items · ₹3.38 cr', Release all 4 empties the bar) — and detail test gains the attribution block assertions; beforeEach now resets the action store; judgment calls: JPS has no vendor pool in §7.17 so it reuses the India list (flagged for confirmation), owner names invented per entity (spec says 'two or three named people' but names none), effort mapping above is the reading of 'low-effort releasable', actions mutate module-singleton exception objects as session-local state (no persistence, no new dependency), action stamps use real wall clock (genuine now-events after every seeded line) while seeded data stays frozen at 24-Aug-2026, bulk bar clears selection on apply and any filter/sort change clears it too so a filtered-out selection can't miscount, released rows stay in the list reading RELEASED, the chip shows the dataset's 38 while the visible sample holds four low-effort rows (bulk button says 'Release all 4' — consistent with EntityHome's existing static span), JGL's pinned literals sum to ₹12.77 cr against §7.17's table figure of ₹12.8 cr so the per-entity sum assertion uses 12.77 for JGL (sample, not pool); gates: npm test 202 passed, verify:theme 41 passed, verify:drills 276 passed
+- [x] Step 8 — service and attribution screen
+- [x] Step 9 — risk and control screen
+- [x] Step 10 — predictive screen
+- [x] Step 10b — forecasts for the other five entities
+- [x] Step 11 — counterparty pages
+- [x] Step 12 — compliance and data quality screens
+- [x] Step 13 — front door
+- [x] Step 14 — cause elimination backlog
+- [x] Step 15 — Ask the Control Tower
+- [x] Step 16 — navigation, freshness, final QA
+- [x] Narrative backing data (§7.13)
+- [x] Six dimensions and scoring (§3, §7.10–§7.10.1)
+- [x] Step 16b — close out the consistency findings
+- [x] Step 17  — the demo script / verify the eleven-beat walk end to end and write it down
+- [x] Step 17b — filtered denominators, and script corrections
+- [x] Step 18  — The agent workforce
+- [x] Step 18b — take the rationale off the screen
+- [x] Step 18c — restore the descriptive titles
+- [x] Step 18d — restore the two eyebrows, then sweep for tests that pass by accident
+- [x] Step 19  — The agent lane
+- [x] Step 20 — Touch economics
+- [x] Step 21 — Control of the agent
+- [x] Step 21b — Sweep the drill script
+- [x] Step 22 — One exception, end to end
+- [x] Step 23 — The preventive agent

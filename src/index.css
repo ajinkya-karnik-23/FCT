@@ -1,0 +1,350 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  color-scheme: dark;
+}
+
+html[data-theme='light'] {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-root);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Screen-reader-only text: carries what a colour strip or glyph shows visually */
+.fct-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Rows inside a clay frame: flat, hairline-separated, raised surface on hover ── */
+.fct-table-row {
+  border-radius: 14px;
+  transition: background 0.12s ease;
+}
+
+.fct-table-row:hover {
+  background: var(--bg-raised);
+}
+
+/* ── Rail navigation ── */
+.fct-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+  border-radius: 999px;
+  text-decoration: none;
+  transition: background 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
+}
+
+.fct-nav-item:hover {
+  background: var(--bg-raised);
+  color: var(--text-primary);
+}
+
+.fct-nav-item--active,
+.fct-nav-item--active:hover {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: var(--shadow-up-sm);
+}
+
+.fct-nav-item--active .fct-nav-count {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.fct-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--bg-panel);
+  border: none;
+  border-radius: 999px;
+  box-shadow: var(--shadow-in);
+  cursor: pointer;
+}
+
+.fct-search-btn:hover {
+  color: var(--text-primary);
+}
+
+.fct-kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* Top bar breadcrumb links */
+.fct-crumb {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.fct-crumb:hover {
+  color: var(--text-primary);
+}
+
+/* ── Buttons & chips: raised pills that press inward ── */
+.fct-press,
+.fct-link,
+.fct-ask-btn,
+.fct-blocked-btn,
+.fct-detail-btn,
+.fct-escalate-btn,
+.fct-action-chip,
+.fct-followup-chip,
+.fct-preset-btn,
+.fct-chip {
+  border: none;
+  border-radius: 999px;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-up-sm);
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.fct-press:hover,
+.fct-link:hover,
+.fct-ask-btn:hover,
+.fct-blocked-btn:hover,
+.fct-detail-btn:hover,
+.fct-escalate-btn:hover,
+.fct-action-chip:hover,
+.fct-followup-chip:hover,
+.fct-preset-btn:hover,
+.fct-chip:hover {
+  transform: translateY(-1px);
+}
+
+.fct-press:active,
+.fct-link:active,
+.fct-ask-btn:active,
+.fct-blocked-btn:active,
+.fct-detail-btn:active,
+.fct-escalate-btn:active,
+.fct-action-chip:active,
+.fct-followup-chip:active,
+.fct-preset-btn:active,
+.fct-chip:active {
+  transform: none;
+  box-shadow: var(--shadow-in);
+}
+
+.fct-escalate-btn {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.fct-ask-btn {
+  color: var(--accent-text);
+}
+
+.fct-chip {
+  padding: 7px 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.fct-chip--active,
+.fct-chip--active:hover {
+  background: var(--accent);
+  color: #ffffff;
+  transform: none;
+}
+
+.fct-action-chip {
+  color: var(--text-secondary);
+}
+
+.fct-followup-chip {
+  padding: 7px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.fct-preset-btn {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: left;
+  border-radius: 14px;
+}
+
+.fct-preset-btn:hover {
+  color: var(--text-primary);
+}
+
+/* Top-causes rows — the label picks up the accent on hover */
+.fct-cause-row:hover .fct-cause-label {
+  color: var(--accent-text);
+}
+
+/* P2P/O2C cockpit stage cards — raised tiles that lift on hover */
+.fct-stage-card {
+  border-radius: 20px;
+  box-shadow: var(--shadow-up);
+  transition: transform 0.15s ease;
+}
+
+.fct-stage-card:hover {
+  transform: translateY(-3px);
+}
+
+/* Root-cause taxonomy rows — selected row is pressed in */
+.fct-tax-row {
+  border-radius: 14px;
+  background: transparent;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.fct-tax-row:hover {
+  background: var(--bg-raised);
+}
+
+.fct-tax-row--selected,
+.fct-tax-row--selected:hover {
+  background: var(--bg-selected);
+  box-shadow: var(--shadow-in);
+}
+
+/* Command palette rows */
+.fct-palette-row {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.fct-palette-row:hover {
+  background: var(--bg-raised);
+}
+
+/* Assistant drawer */
+.fct-drawer-close {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: var(--bg-panel);
+  border: none;
+  border-radius: 50%;
+  box-shadow: var(--shadow-up-sm);
+  cursor: pointer;
+}
+
+.fct-drawer-close:hover {
+  color: var(--text-primary);
+}
+
+.fct-drawer-close:active {
+  box-shadow: var(--shadow-in);
+}
+
+/* Inputs sit in an inset well */
+.fct-input::placeholder {
+  color: var(--text-faint);
+}
+
+.fct-well {
+  background: var(--bg-panel);
+  border-radius: 14px;
+  box-shadow: var(--shadow-in);
+}
+
+/* Status tags keep their class for tests; visual is an inset pill */
+.fct-status-tag {
+  display: inline-block;
+}
+
+/* Expand chip on scan-table rows */
+.fct-expand {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  box-shadow: var(--shadow-up-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.fct-expand[aria-expanded='true'] {
+  box-shadow: var(--shadow-in);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
