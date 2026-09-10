@@ -4,14 +4,40 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FCT — Cash Attribution Spine</title>
+  <script>
+  /* This page is a standalone document embedded via <iframe> (see
+     src/pages/CashAttribution.tsx) — it has its own <html>, so it can't
+     inherit the app shell's theme through CSS inheritance. It reads the
+     same 'fct-theme' localStorage key the app's toggle writes to
+     (src/theme/tokens.ts) instead, applied here before the stylesheet
+     below is parsed so there's no flash of the wrong theme, and reloads
+     if the app changes it while this page stays mounted. */
+  (function(){
+    try{ if(localStorage.getItem('fct-theme')==='light') document.documentElement.dataset.theme='light' }catch(e){}
+  })();
+  </script>
   <style>
     :root{
       --void:#090807;--deep:#12100e;--panel:rgba(26,23,20,.9);--raised:#1a1714;
       --line:#3c3731;--line2:#29251f;
       --text:#eeeae4;--second:#b9b2aa;--muted:#898078;--faint:#5e5751;
       --amber:#e8b34b;--blue:#8eafd1;--green:#73d29d;--red:#ff8580;
+      --wash:#fff;--scrim:rgba(14,12,11,.72);--chip-bg:rgba(20,17,15,.9);
+      --star-rgb:238,234,228;
       --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
       --sans:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+    }
+    /* light mode mirrors the app's clay palette (src/theme/tokens.ts) — this
+       page is a standalone document (loaded in an iframe, own <html>), so it
+       can't inherit the parent's CSS variables and reads the shared
+       fct-theme localStorage key itself instead. See applyPageTheme() below. */
+    :root[data-theme="light"]{
+      --void:#F2F0ED;--deep:#EFECE9;--panel:rgba(245,243,241,.9);--raised:#FBFAF8;
+      --line:#C0BDBA;--line2:#DAD7D4;
+      --text:#2C2824;--second:#4B4742;--muted:#67625D;--faint:#736E69;
+      --amber:#8C6200;--blue:#6B89A9;--green:#00763A;--red:#A90021;
+      --wash:#000;--scrim:rgba(255,255,255,.72);--chip-bg:rgba(255,255,255,.9);
+      --star-rgb:44,40,36;
     }
     *{box-sizing:border-box}
     html,body{width:100%;height:100%;overflow:hidden}
@@ -32,7 +58,7 @@
 
     /* ---------- header ---------- */
     header{grid-column:1/-1;display:flex;align-items:center;gap:20px;
-      padding:0 20px;border-bottom:1px solid var(--line2);background:rgba(14,12,11,.7)}
+      padding:0 20px;border-bottom:1px solid var(--line2);background:var(--scrim)}
     header h1{margin:0;font:650 14px/1 var(--sans);letter-spacing:.02em;white-space:nowrap}
     header h1 b{color:var(--amber);font-weight:650}
     .scope{display:flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;
@@ -96,14 +122,14 @@
     .band:focus-visible rect.node{stroke:var(--text);stroke-width:1.5}
 
     /* hover: tell a first-time user these rows are live */
-    .band .rowbg{fill:#fff;fill-opacity:0;transition:fill-opacity .16s ease}
+    .band .rowbg{fill:var(--wash);fill-opacity:0;transition:fill-opacity .16s ease}
     .band:hover .rowbg{fill-opacity:.035}
-    .band:hover .cname{fill:#fff}
+    .band:hover .cname{fill:var(--text)}
     /* selection: brightness + weight + a marker, not opacity alone */
     .band .mark{opacity:0;transition:opacity .2s ease}
     .band.sel .mark{opacity:1}
     .band.sel .rowbg{fill-opacity:.06}
-    .band.sel .cname{fill:#fff;font-weight:700}
+    .band.sel .cname{fill:var(--text);font-weight:700}
     .band.sel .cval{fill:var(--text)}
     .cname,.cval{transition:fill .2s ease}
     .band:not(.sel) .cname{fill:var(--muted)}
@@ -111,12 +137,12 @@
     .ribbon.sel{filter:drop-shadow(0 0 7px rgba(255,255,255,.28))}
     .poolbar{transition:opacity .25s ease}
     .flowcap{fill:var(--text);font:600 10.5px var(--mono);letter-spacing:.02em;pointer-events:none}
-    .flowcapbg{fill:#15120f;stroke:var(--line);rx:4;pointer-events:none}
+    .flowcapbg{fill:var(--deep);stroke:var(--line);rx:4;pointer-events:none}
     .comet{pointer-events:none}
 
     .hint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);
       display:flex;align-items:center;gap:8px;padding:6px 12px;
-      border:1px solid var(--line);border-radius:999px;background:rgba(20,17,15,.9);
+      border:1px solid var(--line);border-radius:999px;background:var(--chip-bg);
       color:var(--muted);font:10px var(--mono);letter-spacing:.06em;white-space:nowrap;
       transition:opacity .4s ease;pointer-events:none}
     .hint.gone{opacity:0}
@@ -134,7 +160,7 @@
 
     /* ---------- bottom inspector ---------- */
     .inspector{grid-column:1/-1;display:grid;grid-template-columns:1fr 244px 430px;gap:22px;
-      padding:14px 20px;border-top:1px solid var(--line2);background:rgba(14,12,11,.72);overflow:hidden}
+      padding:14px 20px;border-top:1px solid var(--line2);background:var(--scrim);overflow:hidden}
     .itop{display:flex;align-items:center;gap:10px}
     .ichip{padding:3px 8px;border-radius:4px;font:9px var(--mono);letter-spacing:.09em}
     .inspector h2{margin:8px 0 6px;font:650 17px var(--sans);letter-spacing:-.01em}
@@ -275,6 +301,7 @@
     apply();
     addEventListener('resize',apply);
   })();
+  addEventListener('storage',e=>{ if(e.key==='fct-theme') location.reload() });
   </script>
   <script>
   /* ------------------------------------------------------------------
@@ -329,11 +356,14 @@
     'vendor-master':    {id:'CB-JGL-07',owner:'A. Sethi',status:'eliminated',period:2},
     'tax-mismatch':     {id:'CB-JGL-08',owner:'R. Iyer', status:'eliminated',period:4}
   };
+  const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const INK = cssVar('--text');       // themed replacement for the old hardcoded #fff marks/comets
+  const STAR_RGB = cssVar('--star-rgb');
   const STATUS = {
-    'eliminated' :{label:'Eliminated',  col:'#73d29d'},
-    'in-progress':{label:'In progress', col:'#e8b34b'},
-    'identified' :{label:'Identified',  col:'#898078'},
-    'none'       :{label:'Not on the register', col:'#ff8580'}
+    'eliminated' :{label:'Eliminated',  col:cssVar('--green')},
+    'in-progress':{label:'In progress', col:cssVar('--amber')},
+    'identified' :{label:'Identified',  col:cssVar('--muted')},
+    'none'       :{label:'Not on the register', col:cssVar('--red')}
   };
   const regOf = k => REGISTER[k] || {status:'none'};
 
@@ -347,8 +377,8 @@
   };
 
   const POOLS = {
-    ap:{n:'Blocked AP', sub:'liability that cannot clear', col:'#e8b34b', next:'Understated accrual · R2R'},
-    ar:{n:'Overdue AR', sub:'revenue not yet cash',        col:'#8eafd1', next:'Working-capital drag'}
+    ap:{n:'Blocked AP', sub:'liability that cannot clear', col:cssVar('--amber'), next:'Understated accrual · R2R'},
+    ar:{n:'Overdue AR', sub:'revenue not yet cash',        col:cssVar('--blue'), next:'Working-capital drag'}
   };
   const INSIDE = {ap:['AP & tax'], ar:['Treasury']};
 
@@ -438,7 +468,7 @@
     g.appendChild(el('rect',{class:'hit',x:14,y:y-3,width:POOL_X-14,height:bh+6}));
     g.appendChild(el('rect',{class:'rowbg',x:14,y:y-3,width:NODE_X+NODE_W-14,height:bh+6,rx:3}));
     // selection marker — a caret at the row's left edge, independent of opacity
-    g.appendChild(el('path',{class:'mark',d:`M14,${y+bh/2-5} L20,${y+bh/2} L14,${y+bh/2+5} Z`,fill:'#fff'}));
+    g.appendChild(el('path',{class:'mark',d:`M14,${y+bh/2-5} L20,${y+bh/2} L14,${y+bh/2+5} Z`,fill:INK}));
     // remediation gutter — status of the fix, alongside the size of the problem
     g.appendChild(el('rect',{class:'stat',x:STAT_X,y,width:STAT_W,height:bh,fill:st.col,
       'fill-opacity':regOf(c.k).status==='none'?.55:.9,rx:1}));
@@ -460,11 +490,11 @@
     svg.appendChild(txt('pname',tx,py+42,P.n));
     svg.appendChild(txt('psub',tx,py+58,P.sub));
     svg.appendChild(el('line',{x1:tx,y1:py+70,x2:tx+150,y2:py+70,stroke:'#29251f'}));
-    svg.appendChild(txt('psub',tx,py+86,'↳ '+P.next,{fill:'#898078'}));
+    svg.appendChild(txt('psub',tx,py+86,'↳ '+P.next,{fill:cssVar('--muted')}));
     const out=sum(CAUSES.filter(c=>c.pool===p&&!INSIDE[p].includes(c.o)));
-    svg.appendChild(txt('psub',tx,py+104,`${Math.round(out/poolTotal(p)*100)}% originates outside the team`,{fill:'#ff8580'}));
+    svg.appendChild(txt('psub',tx,py+104,`${Math.round(out/poolTotal(p)*100)}% originates outside the team`,{fill:cssVar('--red')}));
     const noFix=sum(CAUSES.filter(c=>c.pool===p&&regOf(c.k).status==='none'));
-    if(noFix>0) svg.appendChild(txt('psub',tx,py+120,`${cr(noFix)} has no fix in flight`,{fill:'#ff8580'}));
+    if(noFix>0) svg.appendChild(txt('psub',tx,py+120,`${cr(noFix)} has no fix in flight`,{fill:cssVar('--red')}));
   });
 
   /* ---------------- lenses × process ----------------
@@ -543,7 +573,7 @@
      sees that the ribbon is a flow with a direction.                    */
   const fxLayer=el('g'); svg.appendChild(fxLayer);
   const slice=el('rect',{x:POOL_X-3,width:POOL_W+6,rx:2,fill:'none',
-    stroke:'#fff','stroke-width':1.6,opacity:0});
+    stroke:INK,'stroke-width':1.6,opacity:0});
   const capG=el('g',{opacity:0});
   const capBg=el('rect',{class:'flowcapbg',rx:4});
   const capTx=el('text',{class:'flowcap','text-anchor':'middle'});
@@ -563,7 +593,7 @@
     wipeRect.appendChild(anim);
     // two comets tracing the centreline, then they retire
     [0,.28].forEach(delay=>{
-      const dot=el('circle',{class:'comet',r:3.4,fill:'#fff',opacity:.9,
+      const dot=el('circle',{class:'comet',r:3.4,fill:INK,opacity:.9,
         filter:'drop-shadow(0 0 5px '+col+')'});
       const m=el('animateMotion',{dur:'.85s',begin:delay+'s',path:midPath[k],
         repeatCount:'2',fill:'remove'});
@@ -700,7 +730,7 @@
     const reg=regOf(c.k), st=STATUS[reg.status];
     const d=document.createElement('div'); d.className='srow'; d.tabIndex=0;
     d.innerHTML=`<span class="n">${c.n}</span><span class="v">${cr(human(c))}</span>`+
-      `<span class="m" style="color:${reg.status==='none'?'#ff8580':'var(--faint)'}">`+
+      `<span class="m" style="color:${reg.status==='none'?'var(--red)':'var(--faint)'}">`+
       `${st.label.toLowerCase()}${reg.owner?' · '+reg.owner:''}${reg.target?' · '+reg.target:''}</span>`;
     d.addEventListener('click',()=>select(c.k));
     d.addEventListener('keydown',e=>{if(e.key==='Enter')select(c.k)});
@@ -727,10 +757,10 @@
     for(let i=0;i<stars.length;i++){const a=stars[i];
       for(let j=i+1;j<stars.length;j++){const b=stars[j];
         const dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy;
-        if(d2<L*L){cx.strokeStyle=`rgba(238,234,228,${(1-Math.sqrt(d2)/L)*.11*Math.min(a.z,b.z)})`;
+        if(d2<L*L){cx.strokeStyle=`rgba(${STAR_RGB},${(1-Math.sqrt(d2)/L)*.11*Math.min(a.z,b.z)})`;
           cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y);cx.stroke()}}}
     for(const s of stars){const tw=reduce?1:.65+.35*Math.sin(t*.001+s.ph);
-      cx.fillStyle=`rgba(238,234,228,${.22*s.z*tw})`;
+      cx.fillStyle=`rgba(${STAR_RGB},${.22*s.z*tw})`;
       cx.beginPath();cx.arc(s.x,s.y,(.5+s.z)*dpr*tw,0,6.283);cx.fill()}
     if(!reduce)requestAnimationFrame(draw);
   }
