@@ -132,18 +132,23 @@ async function evaluate(expression, opts = {}) {
   return res.result.value
 }
 
+// The app is ready when its shell has rendered — the rail or the breadcrumb nav exists in the DOM.
+// A painted background (or readyState) only proves the document loaded: a boot animation can still
+// sit over the shell, and auditing through it produces blank captures and dead clicks.
+async function waitForApp(timeoutMs = 20000) {
+  const t0 = Date.now()
+  while (Date.now() - t0 < timeoutMs) {
+    if (await evaluate(`!!document.querySelector('nav[aria-label="Primary"], nav[aria-label="Breadcrumb"]')`)) return
+    await new Promise((r) => setTimeout(r, 250))
+  }
+  throw new Error('app shell never appeared — no rail or breadcrumb in the DOM')
+}
+
 async function navigate(url) {
   const loaded = waitForEvent('Page.loadEventFired', 20000)
   await send('Page.navigate', { url })
   await loaded
-  for (let i = 0; i < 60; i++) {
-    const ok = await evaluate(`(() => {
-      const bg = getComputedStyle(document.body).backgroundColor || getComputedStyle(document.documentElement).backgroundColor
-      return document.readyState === 'complete' && bg !== 'rgba(0, 0, 0, 0)'
-    })()`)
-    if (ok) break
-    await new Promise((r) => setTimeout(r, 250))
-  }
+  await waitForApp()
 }
 
 async function screenshot(name) {
@@ -244,7 +249,7 @@ const NAV_ACTIVE_JS = `(() => {
   const el = document.querySelector('.fct-nav-item--active')
   if (!el) return null
   const cs = getComputedStyle(el)
-  return { label: el.textContent.trim().replace(/\\s+/g, ' ').slice(0, 40), borderLeft: cs.borderLeftColor, bg: cs.backgroundColor, color: cs.color }
+  return { label: el.textContent.trim().replace(/\\s+/g, ' ').slice(0, 40), borderLeftW: cs.borderLeftWidth, bg: cs.backgroundColor, color: cs.color }
 })()`
 
 // Census of elements filled with one of the given colors (bar fills, status dots)
@@ -390,10 +395,7 @@ async function setTheme(themeName) {
   const reloaded = waitForEvent('Page.loadEventFired', 20000)
   await send('Page.reload')
   await reloaded
-  for (let i = 0; i < 40; i++) {
-    if (await evaluate(`getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)'`)) break
-    await new Promise((r) => setTimeout(r, 250))
-  }
+  await waitForApp()
 }
 
 async function drillPass(themeName, palette) {
@@ -788,10 +790,18 @@ async function drillPass(themeName, palette) {
     check(`${themeName}/item10: ${route} loads with its counterparty name`, cp === name, `h1=${JSON.stringify(cp)}`)
   }
 
-  // Worklist rows drill sideways to vendor and plant pages.
+  // Worklist rows drill sideways to vendor and plant pages — the plant cell is a detail column inside the row's expansion.
   await navigate(BASE + '/entity/JGL/p2p/invoices')
+  const wlExpand = await evaluate(`(() => {
+    const row = Array.from(document.querySelectorAll('.fct-table-row')).find((r) => r.textContent.includes('Suraksha Chemicals Pvt Ltd'))
+    if (!row) return 'no-row'
+    const exp = row.querySelector('.fct-expand')
+    if (exp && exp.getAttribute('aria-expanded') !== 'true') { exp.click(); return 'expanded' }
+    return exp ? 'open' : 'no-expander'
+  })()`)
+  await new Promise((r) => setTimeout(r, 300))
   const wlDrill = await evaluate(`Array.from(document.querySelectorAll('main a')).filter((a) => a.textContent === 'Suraksha Chemicals Pvt Ltd' || a.textContent === 'Nanjangud').map((a) => ({ text: a.textContent, href: a.getAttribute('href') }))`)
-  check(`${themeName}/item10: worklist vendor and plant cells link to counterparty pages`, wlDrill.some((l) => l.text === 'Suraksha Chemicals Pvt Ltd' && l.href === '/entity/JGL/vendor/suraksha-chemicals-pvt-ltd') && wlDrill.some((l) => l.text === 'Nanjangud' && l.href === '/entity/JGL/plant/jgl-nanjangud'), JSON.stringify(wlDrill))
+  check(`${themeName}/item10: worklist vendor and plant cells link to counterparty pages`, wlDrill.some((l) => l.text === 'Suraksha Chemicals Pvt Ltd' && l.href === '/entity/JGL/vendor/suraksha-chemicals-pvt-ltd') && wlDrill.some((l) => l.text === 'Nanjangud' && l.href === '/entity/JGL/plant/jgl-nanjangud'), JSON.stringify({ expanded: wlExpand, links: wlDrill }))
   // In-page synthetic click — a coordinate click after a fresh full load can land on stale layout.
   const wlClick = await evaluate(`(() => { const a = Array.from(document.querySelectorAll('main a')).find((x) => x.textContent === 'Suraksha Chemicals Pvt Ltd' && x.getAttribute('href') === '/entity/JGL/vendor/suraksha-chemicals-pvt-ltd'); if (!a) return false; a.click(); return true })()`)
   check(`${themeName}/item10: clicking the worklist vendor cell opens its page`, wlClick === true, '')
@@ -1254,8 +1264,9 @@ async function drillPass(themeName, palette) {
       return null
     }
     // Each table row renders as a grid: entity, touchless %, manual %, agent-resolved %, human %, touches/1,000.
-    const funnelRows = Array.from(document.querySelectorAll('[data-fct-funnel] .fct-table-row')).map((r) => Array.from(r.children).map((c) => c.textContent.trim()))
-    const causeRows = Array.from(document.querySelectorAll('[data-fct-causes] .fct-table-row')).map((r) => Array.from(r.children).map((c) => c.textContent.trim()))
+    // .fct-table-row wraps the grid in one child (the row frame), so cells are read off firstElementChild.
+    const funnelRows = Array.from(document.querySelectorAll('[data-fct-funnel] .fct-table-row')).map((r) => Array.from(r.firstElementChild.children).map((c) => c.textContent.trim()))
+    const causeRows = Array.from(document.querySelectorAll('[data-fct-causes] .fct-table-row')).map((r) => Array.from(r.firstElementChild.children).map((c) => c.textContent.trim()))
     const stageText = (slug) => { const el = document.querySelector('[data-fct-lever-stage="' + slug + '"]'); return el ? el.textContent : null }
     const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
     return {
@@ -1438,10 +1449,11 @@ async function drillPass(themeName, palette) {
     if (!main) return null
     const rows = Array.from(document.querySelectorAll('[data-fct-commitments-watch] .fct-table-row'))
     const claim = document.querySelector('[data-fct-commitments-claim]')
-    // the delivery-date cell is the 5th grid child; parse '16 Sep 2026 · …' for the sort check
+    // the delivery-date cell is the 5th grid child (the row frame wraps the grid in one child); parse '16 Sep 2026 · …' for the sort check
     const MONTHS = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 }
     const dates = rows.map((r) => {
-      const cell = r.children[4] ? r.children[4].textContent : ''
+      const grid = r.firstElementChild
+      const cell = grid && grid.children[4] ? grid.children[4].textContent : ''
       const m = /(\\d{1,2}) ([A-Z][a-z]{2}) (\\d{4})/.exec(cell || '')
       return m ? new Date(+m[3], MONTHS[m[2]], +m[1]).getTime() : null
     })
@@ -1568,17 +1580,18 @@ async function drillPass(themeName, palette) {
   const expectActive = (nav, labelPrefix, tag) => {
     check(`${tag}: active item is ${labelPrefix}`, !!nav && nav.label.startsWith(labelPrefix), JSON.stringify(nav))
     if (!nav) return null
-    check(`${tag}: active border-left is accent`, sameColor(nav.borderLeft, palette.accent), `got=${nav.borderLeft} want=${palette.accent}`)
-    check(`${tag}: active background is bgSelected`, sameColor(nav.bg, palette.bgSelected), `got=${nav.bg} want=${palette.bgSelected}`)
-    check(`${tag}: active text is textPrimary`, sameColor(nav.color, palette.textPrimary), `got=${nav.color} want=${palette.textPrimary}`)
-    return { borderLeft: nav.borderLeft, bg: nav.bg, color: nav.color }
+    // Clay design — the active pill is an accent fill with ink text and a raised shadow; no left-border indicator (index.css .fct-nav-item--active).
+    check(`${tag}: active background is accent`, sameColor(nav.bg, palette.accent), `got=${nav.bg} want=${palette.accent}`)
+    check(`${tag}: active text is accentInk`, sameColor(nav.color, palette.accentInk), `got=${nav.color} want=${palette.accentInk}`)
+    check(`${tag}: no left-border indicator on the active pill`, nav.borderLeftW === '0px', `width=${nav.borderLeftW}`)
+    return { bg: nav.bg, color: nav.color }
   }
   await navigate(BASE + '/entity/JGL/p2p')
   const p2pActive = expectActive(await evaluate(NAV_ACTIVE_JS), 'P2P cockpit', `${themeName}/nav:p2p`)
   await navigate(BASE + '/entity/JGL/o2c')
   const o2cActive = expectActive(await evaluate(NAV_ACTIVE_JS), 'O2C cockpit', `${themeName}/nav:o2c`)
   check(`${themeName}/nav: O2C active state matches its P2P sibling`,
-    !!p2pActive && !!o2cActive && p2pActive.borderLeft === o2cActive.borderLeft && p2pActive.bg === o2cActive.bg && p2pActive.color === o2cActive.color,
+    !!p2pActive && !!o2cActive && p2pActive.bg === o2cActive.bg && p2pActive.color === o2cActive.color,
     `p2p=${JSON.stringify(p2pActive)} o2c=${JSON.stringify(o2cActive)}`)
 
   return reports

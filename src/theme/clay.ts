@@ -91,7 +91,7 @@ export const pillButton: CSSProperties = {
   gap: 8,
 }
 
-export const pillButtonAccent: CSSProperties = { ...pillButton, background: colors.accent, color: '#FFFFFF' }
+export const pillButtonAccent: CSSProperties = { ...pillButton, background: colors.accent, color: colors.accentInk }
 
 // Small mono control pill (mode switcher, access toggle, reset).
 export function controlPill(active: boolean): CSSProperties {
@@ -103,7 +103,7 @@ export function controlPill(active: boolean): CSSProperties {
     borderRadius: radius.pill,
     border: 'none',
     background: active ? colors.accent : colors.bgPanel,
-    color: active ? '#FFFFFF' : colors.textMuted,
+    color: active ? colors.accentInk : colors.textMuted,
     boxShadow: active ? shadows.upSm : shadows.in,
     cursor: 'pointer',
   }

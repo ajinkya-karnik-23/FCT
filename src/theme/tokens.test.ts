@@ -25,6 +25,7 @@ const FROZEN_DARK = {
   textFaintest: '#62605D',
   accent: '#E6AC3D',
   accentText: '#E9B452',
+  accentInk: '#181512',
   statusGreen: '#63D18F',
   statusAmber: '#E7B643',
   statusRed: '#FF7D7C',
@@ -171,5 +172,11 @@ describe('contrast floor (WCAG AA)', () => {
     // bgRiskSoft hosts statusRed text on the Risk & control screen (§7.8) — small mono type needs full AA in both themes.
     expect(ratio(dark.statusRed, dark.bgRiskSoft)).toBeGreaterThanOrEqual(4.5)
     expect(ratio(light.statusRed, light.bgRiskSoft)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('accentInk is the only text colour on solid-accent surfaces (active nav, chips, pills)', () => {
+    // White fails AA on the amber in both themes; accentInk must clear 4.5 on `accent` in each palette.
+    expect(ratio(dark.accentInk, dark.accent)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(light.accentInk, light.accent)).toBeGreaterThanOrEqual(4.5)
   })
 })

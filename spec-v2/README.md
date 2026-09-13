@@ -15,6 +15,7 @@ names.** The whole spec is roughly 24,000 tokens; no task needs more than two fi
 | `spec-v2/data-detail.md` | §7.17–§7.31 | Exception seeding, counterparties, compliance, cost centres, forecasts, ageing buckets |
 | `spec-v2/ui.md` | §8 · §9 · §11 | Cross-cutting UI rules, screen inventory, the assistant |
 | `spec-v2/agents.md` | §15 | The agent workforce, delegation model, touch economics |
+| `spec-v2/r2r.md` | §16 | Record to report — close calendar, balance sheet integrity, four more agents |
 
 Section numbers are unchanged, so a cross-reference like "§7.19" still resolves — it
 lives in `spec-v2/data-detail.md`.

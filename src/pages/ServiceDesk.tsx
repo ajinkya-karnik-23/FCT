@@ -186,7 +186,7 @@ export function ServiceDesk() {
           <Field label="CATEGORY">
             <input className="fct-input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="What is it about?" style={inputStyle} />
           </Field>
-          <button type="submit" className="fct-escalate-btn" style={{ padding: '10px 16px', fontSize: 13, color: colors.textPrimary }}>Add to queue</button>
+          <button type="submit" className="fct-escalate-btn" style={{ padding: '10px 16px', fontSize: 13 }}>Add to queue</button>
         </form>
       </section>
 

@@ -80,13 +80,11 @@ button {
 .fct-nav-item--active,
 .fct-nav-item--active:hover {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-ink);
   box-shadow: var(--shadow-up-sm);
 }
 
-.fct-nav-item--active .fct-nav-count {
-  color: rgba(255, 255, 255, 0.8);
-}
+/* the active-state count colour is set inline by Rail (accentInk) — no stylesheet rule here */
 
 .fct-search-btn {
   display: flex;
@@ -174,7 +172,7 @@ button {
 
 .fct-escalate-btn {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-ink);
 }
 
 .fct-ask-btn {
@@ -190,7 +188,7 @@ button {
 .fct-chip--active,
 .fct-chip--active:hover {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-ink);
   transform: none;
 }
 

@@ -55,7 +55,7 @@ export function ExceptionDetail() {
           <Link to={`/entity/${code}/root-cause/p2p/${x.reasonKey}`} className="fct-detail-btn" style={{ padding: '10px 16px', fontSize: 13, color: colors.textPrimary, textDecoration: 'none' }}>
             Why does this keep happening?
           </Link>
-          <button type="button" className="fct-escalate-btn" onClick={() => {}} style={{ padding: '10px 16px', fontSize: 13, color: colors.textPrimary }}>
+          <button type="button" className="fct-escalate-btn" onClick={() => {}} style={{ padding: '10px 16px', fontSize: 13 }}>
             Escalate to plant controller
           </button>
         </div>

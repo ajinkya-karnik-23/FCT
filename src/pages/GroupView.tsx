@@ -144,7 +144,7 @@ export function GroupView() {
                 border: 'none',
                 borderRadius: radius.pill,
                 background: grouping === g.key ? colors.accent : 'transparent',
-                color: grouping === g.key ? '#FFFFFF' : colors.textMuted,
+                color: grouping === g.key ? colors.accentInk : colors.textMuted,
                 boxShadow: grouping === g.key ? shadows.upSm : 'none',
                 cursor: 'pointer',
                 transition: 'background 0.2s, color 0.2s, box-shadow 0.2s',
@@ -158,6 +158,9 @@ export function GroupView() {
       </div>
 
       <section style={frame}>
+        {/* The grid's track minimums (~1024px) exceed the content width once the assistant drawer is open;
+            scroll inside the frame instead of letting columns run off under it. */}
+        <div style={{ overflowX: 'auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 16, padding: '10px 18px 10px', borderBottom: `1px solid ${colors.borderSubtle}`, ...typeScale.tableHeader }}>
           <span>{COLUMN_LABELS[grouping]}</span>
           <span>Score</span>
@@ -236,8 +239,9 @@ export function GroupView() {
               <span style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 2, height: 12, padding: 2, borderRadius: radius.sm, boxShadow: shadows.in }}>
                 {DIMENSION_KEYS.map((key) => {
                   const d = r.dimensions[key] - r.dimensionsPrevious[key]
+                  // bgRoot as text colour keeps the sr-only label/score pairs AA on every status band (scoreColor is RAG-only)
                   return (
-                    <span key={key} title={DIMENSION_DEFINITIONS[key]} style={{ borderRadius: 3, background: scoreColor(r.dimensions[key]) }}>
+                    <span key={key} title={DIMENSION_DEFINITIONS[key]} style={{ borderRadius: 3, background: scoreColor(r.dimensions[key]), color: colors.bgRoot }}>
                       <span className="fct-sr-only">{`${DIMENSION_LABELS[key]} ${r.dimensions[key]} `}</span>
                       <span className="fct-sr-only">{`${d > 0 ? '+' : ''}${d}`}</span>
                     </span>
@@ -298,6 +302,7 @@ export function GroupView() {
             </div>
           )
         })}
+        </div>
       </section>
 
       {/* §8.5 — the close-progress card is a close-window figure; in BAU it does not render, so the row drops to two columns */}

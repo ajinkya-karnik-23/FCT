@@ -31,7 +31,7 @@ export function Rail({ onSearch }: { onSearch: () => void }) {
       <div style={{ padding: '22px 20px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {/* Raised amber mark — the one place the brand takes the accent as a fill */}
-          <span aria-hidden style={{ width: 34, height: 34, borderRadius: radius.sm + 2, background: colors.accent, boxShadow: shadows.upSm, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', fontFamily: fonts.mono, fontSize: 12, fontWeight: 700 }}>FC</span>
+          <span aria-hidden style={{ width: 34, height: 34, borderRadius: radius.sm + 2, background: colors.accent, boxShadow: shadows.upSm, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.accentInk, fontFamily: fonts.mono, fontSize: 12, fontWeight: 700 }}>FC</span>
           <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.15 }}>Finance Control Tower</span>
         </div>
         <span
@@ -55,7 +55,7 @@ export function Rail({ onSearch }: { onSearch: () => void }) {
             {NAV_ITEMS.filter((item) => item.group === group).map((item) => (
               <Link key={item.key} to={item.to(code)} className={`fct-nav-item${active === item.key ? ' fct-nav-item--active' : ''}`}>
                 <span>{item.label}</span>
-                <span className="fct-nav-count" style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.textFaint }}>{item.count ?? '—'}</span>
+                <span className="fct-nav-count" style={{ fontFamily: fonts.mono, fontSize: 11, color: active === item.key ? colors.accentInk : colors.textFaint }}>{item.count ?? '—'}</span>
               </Link>
             ))}
           </div>

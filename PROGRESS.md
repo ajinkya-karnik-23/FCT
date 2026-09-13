@@ -33,3 +33,4 @@
 - [x] Step 21b — Sweep the drill script
 - [x] Step 22 — One exception, end to end
 - [x] Step 23 — The preventive agent
+- [x] Step 23b — design-branch QA pass (contrast regression, stale presence lists, splash gate, group table overflow)

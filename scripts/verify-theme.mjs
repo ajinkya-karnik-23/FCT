@@ -16,7 +16,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { dark, light } from '../src/theme/tokens.ts'
+import { dark, light, radius } from '../src/theme/tokens.ts'
 
 const CHROME = process.env.FCT_CHROME ?? 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
 const PORT = Number(process.env.FCT_DEBUG_PORT ?? 9333)
@@ -122,19 +122,23 @@ async function evaluate(expression, opts = {}) {
   return res.result.value
 }
 
+// The app is ready when its shell has rendered — the rail or the breadcrumb nav exists in the DOM.
+// A painted background (or readyState) only proves the document loaded: a boot animation can still
+// sit over the shell, and auditing through it produces blank captures and dead clicks.
+async function waitForApp(timeoutMs = 20000) {
+  const t0 = Date.now()
+  while (Date.now() - t0 < timeoutMs) {
+    if (await evaluate(`!!document.querySelector('nav[aria-label="Primary"], nav[aria-label="Breadcrumb"]')`)) return
+    await new Promise((r) => setTimeout(r, 250))
+  }
+  throw new Error('app shell never appeared — no rail or breadcrumb in the DOM')
+}
+
 async function navigate(url) {
   const loaded = waitForEvent('Page.loadEventFired', 20000)
   await send('Page.navigate', { url })
   await loaded
-  // settle: readyState complete + theme vars applied to body/html background
-  for (let i = 0; i < 60; i++) {
-    const ok = await evaluate(`(() => {
-      const bg = getComputedStyle(document.body).backgroundColor || getComputedStyle(document.documentElement).backgroundColor
-      return document.readyState === 'complete' && bg !== 'rgba(0, 0, 0, 0)'
-    })()`)
-    if (ok) break
-    await new Promise((r) => setTimeout(r, 250))
-  }
+  await waitForApp()
 }
 
 async function screenshot(name) {
@@ -250,8 +254,10 @@ const HOVER_STYLE_JS = `(() => {
   return { bg: cs.backgroundColor, border: cs.borderTopColor, color: cs.color }
 })()`
 
-// AI drawer census: user bubbles (bgAccentSoft fill), assistant bubble borders, follow-up chips.
-const DRAWER_CHECK_JS = `(softHex, borderHex) => {
+// AI drawer census: user bubbles (bgAccentPanel fill, tail bottom-right), assistant bubbles
+// (bgPanel fill, tail bottom-left), follow-up chips. Scoped to the drawer aside so page content can't count.
+// Radii are compared component-wise because Chrome shortens equivalent 4-value border-radius shorthands in computed style.
+const DRAWER_CHECK_JS = `(userBgHex, assistantBgHex, userRadius, assistantRadius) => {
   const toRgb = (h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255] }
   const eq = (css, hex) => {
     const m = css.match(/rgba?\\(([^)]+)\\)/)
@@ -260,14 +266,27 @@ const DRAWER_CHECK_JS = `(softHex, borderHex) => {
     const [r, g, b] = toRgb(hex)
     return Math.abs(p[0]-r) <= 1 && Math.abs(p[1]-g) <= 1 && Math.abs(p[2]-b) <= 1
   }
-  let softBubbles = 0, assistantBorders = 0, followups = 0
-  for (const el of document.querySelectorAll('body *')) {
+  const expand = (s) => {
+    const p = s.split(' ').map(parseFloat)
+    if (p.length === 1) return [p[0], p[0], p[0], p[0]]
+    if (p.length === 2) return [p[0], p[1], p[0], p[1]]
+    if (p.length === 3) return [p[0], p[1], p[2], p[1]]
+    return p
+  }
+  const sameRadius = (computed, expected) => {
+    const c = expand(computed), e = expand(expected)
+    return c.every((v, i) => Math.abs(v - e[i]) < 0.5)
+  }
+  const aside = document.querySelector('aside[aria-label="Cockpit intelligence"]')
+  if (!aside) return null
+  let userBubbles = 0, assistantBubbles = 0, followups = 0
+  for (const el of aside.querySelectorAll('*')) {
     const cs = getComputedStyle(el)
-    if (eq(cs.backgroundColor, softHex)) softBubbles++
-    if (eq(cs.borderTopColor, borderHex)) assistantBorders++
+    if (eq(cs.backgroundColor, userBgHex) && sameRadius(cs.borderRadius, userRadius)) userBubbles++
+    if (eq(cs.backgroundColor, assistantBgHex) && sameRadius(cs.borderRadius, assistantRadius)) assistantBubbles++
     if (el.classList.contains('fct-followup-chip')) followups++
   }
-  return { softBubbles, assistantBorders, followups }
+  return { userBubbles, assistantBubbles, followups }
 }`
 
 // ---------- theme pass ----------
@@ -308,10 +327,10 @@ const ROUTES = [
 
 // colors each route must show somewhere (evidence from source grep) — resolved via palette
 const EXPECTED_PRESENT = {
-  group: ['statusGreen', 'statusRed', 'textFaint', 'borderDefault'],
+  group: ['statusGreen', 'statusRed', 'textFaint'], // clay frames are shadow-raised — no border tokens on this route
   'entity-home': ['statusAmber', 'statusRed', 'accentText'],
-  'p2p-cockpit': ['statusAmber', 'statusRed', 'ageingBarAlt', 'accent'],
-  'o2c-cockpit': ['statusAmber', 'statusRed', 'ageingBarAlt', 'accent'],
+  'p2p-cockpit': ['statusAmber', 'statusRed', 'ageingBarAlt'], // no accent on the page itself — Bar defaults to ageingBarAlt and the mode pills live in the top bar (outside <main>)
+  'o2c-cockpit': ['statusAmber', 'statusRed', 'ageingBarAlt'], // same as p2p: the only accent on these routes is the active mode pill in the top bar (outside <main>)
   worklist: ['accentText', 'textFaint'],
   'exception-detail': ['statusGreen', 'statusRed'],
   'root-cause-p2p': ['accentText', 'textFaint'],
@@ -320,12 +339,12 @@ const EXPECTED_PRESENT = {
   'risk-control': ['statusRed', 'bgRiskSoft', 'accentText'], // + agent governance rows drill into the record via accent links
   compliance: ['statusGreen', 'statusAmber', 'statusRed'], // filed / due / overdue tags
   'data-quality': ['statusGreen', 'statusAmber', 'statusRed'], // DQ-score header colours + interface health tags
-  'service-desk': ['statusRed', 'statusGreen', 'textFaint', 'borderDefault'], // queue SLA words (breached/met) + measuring-since line
-  'cause-backlog': ['statusGreen', 'statusAmber', 'accentText', 'borderDefault'], // elimination status colours + cause back-links
+  'service-desk': ['statusRed', 'statusGreen', 'textFaint'], // queue SLA words (breached/met) + measuring-since line; clay cards are shadow-raised, no border tokens
+  'cause-backlog': ['statusGreen', 'statusAmber', 'accentText'], // elimination status colours + cause back-links; clay cards are shadow-raised, no border tokens
   predictive: ['statusAmber'], // base case renders four OPEN AT MONTH-END tags
   'service-attribution': ['accent', 'ageingBarAlt', 'borderAccent', 'statusAmber'], // SLA split segments (thirdParty folds into system) + JGL health score amber
-  'vendor-page': ['accentText', 'statusRed', 'textFaint', 'accent'], // invoice links; Suraksha items at 41d/52d age red; single non-zero bucket bars accent
-  'customer-page': ['statusGreen', 'textFaint', 'borderDefault', 'accent', 'ageingBarAlt'], // jgl-amrit is OPEN (not credit-blocked); seeded ageing keeps all five buckets non-zero
+  'vendor-page': ['accentText', 'statusRed', 'textFaint'], // invoice links; Suraksha items at 41d/52d age red; bucket bars use Bar's default ageingBarAlt, no accent on the page
+  'customer-page': ['statusGreen', 'textFaint', 'ageingBarAlt'], // jgl-amrit is OPEN (not credit-blocked); seeded ageing keeps all five buckets non-zero; no border/accent tokens in the clay design
   'cost-centre-page': ['statusRed', 'accent', 'statusAmber', 'textFaint'], // Nanjangud Operations runs over budget; booked/committed bars
   'plant-page': ['accentText', 'statusRed', 'statusAmber', 'textFaint'], // Nanjangud items at 41d/52d red, 21d amber
   'jrp-entity-home': ['statusRed', 'statusAmber', 'accentText', 'textFaint', 'bgWarnSoft'], // capped entity: RED score + CAPPED badge, warn-soft cap strips
@@ -344,11 +363,7 @@ async function themePass(themeName, palette) {
   const reloaded = waitForEvent('Page.loadEventFired', 20000)
   await send('Page.reload')
   await reloaded
-  for (let i = 0; i < 40; i++) {
-    const ok = await evaluate(`getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)'`)
-    if (ok) break
-    await new Promise((r) => setTimeout(r, 250))
-  }
+  await waitForApp()
 
   // 1. exact CSS variable values
   const dump = await evaluate(VAR_DUMP_JS)
@@ -428,10 +443,10 @@ async function themePass(themeName, palette) {
         await new Promise((r) => setTimeout(r, 500))
         streamed = await evaluate(`!!document.querySelector('.fct-followup-chip')`)
       }
-      const drawer = await evaluate(`(${DRAWER_CHECK_JS})('${palette.bgAccentSoft}', '${palette.assistantBorder}')`)
+      const drawer = await evaluate(`(${DRAWER_CHECK_JS})('${palette.bgAccentPanel}', '${palette.bgPanel}', '${radius.md} ${radius.md} 4px ${radius.md}', '${radius.md} ${radius.md} ${radius.md} 4px')`)
       check(`${themeName}: AI stream completed (follow-up chips)`, streamed, 'no .fct-followup-chip after 15s')
-      check(`${themeName}: AI drawer shows bgAccentSoft user bubble`, !!drawer && drawer.softBubbles > 0, JSON.stringify(drawer))
-      check(`${themeName}: AI drawer uses assistantBorder on assistant bubble`, !!drawer && drawer.assistantBorders > 0, JSON.stringify(drawer))
+      check(`${themeName}: AI drawer shows bgAccentPanel user bubble with tail bottom-right`, !!drawer && drawer.userBubbles > 0, JSON.stringify(drawer))
+      check(`${themeName}: AI drawer shows assistant bubble with tail bottom-left`, !!drawer && drawer.assistantBubbles > 0, JSON.stringify(drawer))
       await screenshot(`${themeName}-ai-drawer.png`)
     }
     // close the drawer (conditional render — unmounts) so it doesn't overlay the route walk
@@ -573,14 +588,14 @@ async function main() {
     console.log('\n=== PERSISTENCE / TOGGLE ===')
     const reloaded = waitForEvent('Page.loadEventFired', 20000)
     await send('Page.reload'); await reloaded
-    for (let i = 0; i < 40; i++) { if (await evaluate(`getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)'`)) break; await new Promise((r) => setTimeout(r, 250)) }
+    await waitForApp()
     const afterReload = await evaluate(VAR_DUMP_JS)
     check('persistence: reload keeps light theme', sameColor(afterReload.bgRoot, light.bgRoot), `bgRoot=${afterReload.bgRoot}`)
 
     await evaluate(`localStorage.removeItem('fct-theme')`)
     const reloaded2 = waitForEvent('Page.loadEventFired', 20000)
     await send('Page.reload'); await reloaded2
-    for (let i = 0; i < 40; i++) { if (await evaluate(`getComputedStyle(document.body).backgroundColor !== 'rgba(0, 0, 0, 0)'`)) break; await new Promise((r) => setTimeout(r, 250)) }
+    await waitForApp()
     const afterClear = await evaluate(VAR_DUMP_JS)
     check('persistence: cleared storage restores dark default', sameColor(afterClear.bgRoot, dark.bgRoot), `bgRoot=${afterClear.bgRoot}`)
 

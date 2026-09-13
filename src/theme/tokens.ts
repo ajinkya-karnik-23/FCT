@@ -25,6 +25,9 @@ export const dark = {
   textFaintest: '#62605D',
   accent: '#E6AC3D',
   accentText: '#E9B452',
+  // Ink for text on solid-accent surfaces (active nav, chips, control pills). White fails AA on the
+  // amber in both themes; this is the one dark counterpoint that clears 4.5 on `accent` in each palette.
+  accentInk: '#181512',
   statusGreen: '#63D18F',
   statusAmber: '#E7B643',
   statusRed: '#FF7D7C',
@@ -58,11 +61,14 @@ export const light: Palette = {
   textFaintest: '#A39D98',
   accent: '#B27A00',
   accentText: '#8E5C00',
+  // Must clear 4.5 on light `accent` (#B27A00) — the darkest token that does (5.24:1).
+  accentInk: '#100D0A',
   statusGreen: '#00763A',
   statusAmber: '#8C6200',
   statusRed: '#A90021',
   chartArOld: '#B4551E',
-  ageingBarAlt: '#6B89A9',
+  // Non-text fill on the bgSelected bar track — must clear WCAG 1.4.11 (3:1); #6B89A9 measured 2.92 there.
+  ageingBarAlt: '#6682A1',
   bgAccentHover: '#F0DBB9',
   bgWarnSoft: '#F6EFE1',
   bgRiskSoft: '#FAECEC',
@@ -96,6 +102,7 @@ export const colors = {
   textFaintest: 'var(--text-faintest)',
   accent: 'var(--accent)',
   accentText: 'var(--accent-text)',
+  accentInk: 'var(--accent-ink)',
   statusGreen: 'var(--status-green)',
   statusAmber: 'var(--status-amber)',
   statusRed: 'var(--status-red)',
