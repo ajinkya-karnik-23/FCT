@@ -1,4 +1,4 @@
-# DEMO.md — the fourteen-beat walk
+# DEMO.md — the sixteen-beat walk
 
 Run `npm run dev` and open http://localhost:5200. The app opens on the Group view in
 pre-close mode (the default), so beat 1 needs no toggle. Every figure below was verified
@@ -350,6 +350,40 @@ procurement document — so a misread must be as visible as a correct read. A co
 (0.95) amends the date, tells the owner exactly what changed, and touches nothing else; an
 ambiguous reply (0.81) fails the confidence check, proposes instead of acting, and escalates
 to a human. The amendment is date only — never value, quantity or vendor.
+
+## Beat 15 — R2R cockpit: the journal risk panel
+
+**Click path:** /entity/JGL/r2r (rail → PROCESS → R2R cockpit, or ⌘K "r2r"). The Journal
+risk panel sits to the right of Reconciliations.
+
+**Figures (verified):** JOURNALS **847** · HIGH-RISK JEs **12**, drilling to
+/entity/JGL/root-cause/r2r/journal ("drill to the journal root cause"). Seven flags scored
+over the whole population: Top-side entry 5 · Round number 6 · Backdated 3 · Above materiality
+4 · Preparer equals approver 2 · Outside business hours 3 · Sensitive account 7 — each with a
+bar and its count. JGL carries the SAP change documents (CDHDR/CDPOS), so all seven are
+scored; the panel still states that without the extract, preparer-equals-approver and
+outside-hours read not scored. At the foot of the screen the cross-process trace marks Close
+exposure current — the §8.10 chain from missing GR resolves on this screen.
+
+**The line:** the flags are scored over all 847 journals, not just exceptions; one journal
+can trip several flags, so each count sits at or below the 12 high-risk total while their sum
+exceeds it.
+
+## Beat 16 — Close calendar: JRP predicted Day 9 against committed Day 6
+
+**Click path:** /entity/JRP/close-calendar (rail → PROCESS → Close calendar, on the JRP entity).
+
+**Figures (verified):** KPI row: CLOSE **52%** ("120 of 231 tasks complete") · COMMITTED
+**Day 6** ("group close standard") · PREDICTED **Day 9**, red — "slips 3 days past committed"
+· OPEN TASKS **111** ("231 in the pool") · BLOCKERS **11**. Attention slice: thirteen named
+rows, blocked first — Bank reconciliations — current accounts leads at Day 4; the slip sits in
+the blocked critical-path chain Accrual schedule (Day 7, blocked by plant consumption data) →
+Trial balance review (Day 8) → Reporting pack (Day 9). Footer "11 blocked · 8 on the critical
+path" + "5 escalations sent · 4 timers running". Sign-off reads SGN · 56 in flight · 11
+outstanding, AMBER — status only, read from the reconciliation platform.
+
+**The line:** the critical path through open tasks lands Day 9 against the group's committed
+Day 6, and every blocked row names what blocks it and who owns that.
 
 ---
 

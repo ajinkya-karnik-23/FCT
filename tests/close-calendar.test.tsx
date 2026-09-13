@@ -24,8 +24,9 @@ describe('Close calendar (§16.3)', () => {
 
     expect(m.getByRole('heading', { level: 1, name: 'Close calendar' })).toBeTruthy()
     expect(m.getByText(/level 2 — process · record to report/i)).toBeTruthy()
-    // The close tracker is the source of the pool, like the group view's card.
-    expect(m.getByText(/close tracker/i)).toBeTruthy()
+    // §16.8 — the calendar is in-platform: it cites itself as its own source, like the group view's card.
+    // The full stamp string keeps this off the h1, which also reads "Close calendar".
+    expect(m.getByText('Close calendar · as of 06:00 IST')).toBeTruthy()
 
     const cal = closeCalendar('JGL')!
     const entity = getEntity('JGL')!
@@ -67,6 +68,27 @@ describe('Close calendar (§16.3)', () => {
     const kpis = within(document.querySelector('[data-fct-close-kpis]') as HTMLElement)
     expect(kpis.getByText(`Day ${cal.predictedDay}`)).toBeTruthy()
     expect(m.getByText(/slips 2 days past committed/i)).toBeTruthy()
+  })
+
+  it('shows the worst slip in red terms against the committed day (JRP)', () => {
+    window.history.pushState(null, '', '/entity/JRP/close-calendar')
+    render(<App />)
+    const m = main()
+    const cal = closeCalendar('JRP')!
+
+    expect(m.getByRole('heading', { level: 1, name: 'Close calendar' })).toBeTruthy()
+    // JRP is the worst in the group (§16.3): predicted Day 9 against committed Day 6.
+    const kpis = within(document.querySelector('[data-fct-close-kpis]') as HTMLElement)
+    expect(kpis.getByText(`Day ${cal.committedDay}`)).toBeTruthy()
+    expect(kpis.getByText(`Day ${cal.predictedDay}`)).toBeTruthy()
+    expect(m.getByText(/slips 3 days past committed/i)).toBeTruthy()
+
+    // The slip sits in the blocked accrual → trial balance → reporting pack chain; the footer derives from the named slice.
+    const rows = document.querySelectorAll('[data-fct-close-calendar] .fct-table-row')
+    expect(rows).toHaveLength(13)
+    const footer = document.querySelector('[data-fct-close-calendar]')!.textContent ?? ''
+    expect(footer).toContain(`${cal.blockerCount} blocked · 8 on the critical path`)
+    expect(footer).toContain('5 escalations sent · 4 timers running')
   })
 
   it('sits in the rail directly after R2R cockpit, with its badge and active state', () => {

@@ -30,6 +30,7 @@ import { deflectedSelfServed, requests } from './mock/requests';
 import { agents, agentActionLog, COVERAGE_STRIP, sessionOverrideCount } from './mock/agents';
 import { poActionLog } from './mock/commitments';
 import { jglLeverStages, touchFunnel } from './mock/touchEconomics';
+import { JOURNAL_RISK_FLAGS, accrualReversalByEntity, flagAvailable, integrityComponentsByEntity, integrityIndex, intercompanyByEntity, journalRiskByEntity, reconBreaksAgeingByEntity, reconSummaryByEntity } from './mock/balanceSheet';
 
 import { computeScore, DIMENSION_KEYS, groupScore, groupScorePrevious, openExceptions, openExceptionsPrevious, valueAtRisk } from './score';
 import { requestSlaStatusWord, type RequestSlaWord } from '../theme/derive';
@@ -64,6 +65,10 @@ import type {
   GroupRow,
   GroupSummary,
   InterfaceHealth,
+  IntegrityComponents,
+  IntercompanyCounterparty,
+  JournalRiskFlag,
+  JournalRiskPopulation,
   O2cKpis,
   O2cServiceControl,
   PayableReason,
@@ -81,6 +86,7 @@ import type {
 } from './types';
 
 export type {
+  AccrualReversal,
   AgeingBucket,
   Agent,
   AgentAction,
@@ -122,6 +128,10 @@ export type {
   GroupRow,
   GroupSummary,
   InterfaceHealth,
+  IntegrityComponents,
+  IntercompanyCounterparty,
+  JournalRiskFlag,
+  JournalRiskPopulation,
   O2cKpis,
   O2cServiceControl,
   PayableReason,
@@ -132,6 +142,7 @@ export type {
   ProcessKey,
   ProcessStage,
   RankedAction,
+  ReconSummary,
   RecurringCause,
   Request,
   SensitivityItem,
@@ -825,3 +836,68 @@ export function listTouchFunnel(): TouchFunnelRow[] {
 export function getTouchLeverStages(code: string): TouchLeverStage[] | undefined {
   return code === 'JGL' ? jglLeverStages : undefined;
 }
+
+// §16.4 — balance sheet integrity: the weighted composite of six components, computed at read time and never stored.
+// The provision-adequacy component joins from EntityMetrics.provisionAdequacyPct (§8.2) — one number, one meaning.
+export function getBalanceSheetIntegrity(entityCode: string): { index: number; components: IntegrityComponents & { provisionAdequacy: number } } | undefined {
+  const entity = getEntity(entityCode);
+  const c = integrityComponentsByEntity[entityCode];
+  if (!entity || !c) return undefined;
+  const provisionAdequacy = entity.metrics.provisionAdequacyPct ?? 0;
+  return { index: integrityIndex(c, provisionAdequacy), components: { ...c, provisionAdequacy } };
+}
+
+// §16.5 — journal risk panel: the period population with the seven flags scored over it; the high-risk count joins
+// from EntityMetrics.highRiskJEs (§7.2) so the two screens can never disagree.
+export function getJournalRisk(entityCode: string): (JournalRiskPopulation & { highRiskJEs: number }) | undefined {
+  const entity = getEntity(entityCode);
+  const pop = journalRiskByEntity[entityCode];
+  if (!entity || !pop) return undefined;
+  return { ...pop, highRiskJEs: entity.metrics.highRiskJEs };
+}
+
+// §16.5/§16.8 — per-flag availability: the change-document flags degrade to 'not scored' when the CDHDR/CDPOS extract
+// is absent — the panel says which flags are missing rather than silently omitting them.
+export function journalRiskFlagStates(entityCode: string): (JournalRiskFlag & { available: boolean })[] {
+  const pop = journalRiskByEntity[entityCode];
+  return JOURNAL_RISK_FLAGS.map((f) => ({ ...f, available: flagAvailable(f, pop?.changeDocsAvailable ?? false) }));
+}
+
+// §16.5 — intercompany balances by counterparty; each entity's unmatched sum ties to EntityMetrics.fxIntercompanyExposure (§8.2).
+export function getIntercompany(entityCode: string): IntercompanyCounterparty[] | undefined {
+  return intercompanyByEntity[entityCode];
+}
+
+// §16.5 — accruals and provisions: exposure joins from EntityMetrics.accrualExposure (§8.2); unreversed = prior period −
+// reversed (derived at read time, never stored) — the auto-reversal gap a close rarely monitors.
+export function getAccrualProvisions(entityCode: string): { exposureCr: number; provisionAdequacyPct: number; priorPeriodCr: number; reversedCr: number; unreversedCr: number } | undefined {
+  const entity = getEntity(entityCode);
+  const rev = accrualReversalByEntity[entityCode];
+  if (!entity || !rev) return undefined;
+  return {
+    exposureCr: entity.metrics.accrualExposure ?? 0,
+    provisionAdequacyPct: entity.metrics.provisionAdequacyPct ?? 0,
+    priorPeriodCr: rev.priorPeriodCr,
+    reversedCr: rev.reversedCr,
+    unreversedCr: Math.round((rev.priorPeriodCr - rev.reversedCr) * 10) / 10,
+  };
+}
+
+// §16.5 — reconciliation panel from the reconciliation platform; overdue breaks, oldest days and value join from
+// EntityMetrics (§7.2), so the panel can never contradict the rail or the entity home.
+export function getReconPanel(entityCode: string): { accountsReconciled: number; certified: number; breaksWithEvidence: number; overdueBreaks: number; oldestDays: number; valueCr: number; buckets: AgeingBucket[] } | undefined {
+  const entity = getEntity(entityCode);
+  const summary = reconSummaryByEntity[entityCode];
+  if (!entity || !summary) return undefined;
+  return {
+    accountsReconciled: summary.accountsReconciled,
+    certified: summary.certified,
+    breaksWithEvidence: summary.breaksWithEvidence,
+    overdueBreaks: entity.metrics.reconAgedBreaks,
+    oldestDays: entity.metrics.reconOldestDays,
+    valueCr: entity.metrics.reconValue.current,
+    buckets: reconBreaksAgeingByEntity[entityCode] ?? [],
+  };
+}
+
+export { INTEGRITY_WEIGHTS, JOURNAL_RISK_FLAGS } from './mock/balanceSheet';

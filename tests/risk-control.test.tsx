@@ -126,11 +126,11 @@ describe('Risk & control (spec §7.8, §8.8)', () => {
     expect(gov.getByText('0')).toBeTruthy()
     expect(gov.getByText('every logged action stayed inside its delegation')).toBeTruthy()
     expect(gov.getByText('Reversals')).toBeTruthy()
-    expect(gov.getByText('17')).toBeTruthy()
-    expect(gov.getByText('17 of 1427 actions this period')).toBeTruthy()
+    expect(gov.getByText('18')).toBeTruthy()
+    expect(gov.getByText('18 of 1531 actions this period')).toBeTruthy()
     expect(gov.getByText('Overrides by human')).toBeTruthy()
-    expect(gov.getByText('30')).toBeTruthy()
-    expect(gov.getByText('30 of 1081 resolved without human')).toBeTruthy()
+    expect(gov.getByText('33')).toBeTruthy()
+    expect(gov.getByText('33 of 1169 resolved without human')).toBeTruthy()
     expect(gov.getByText('Value acted on without human review')).toBeTruthy()
     expect(gov.getByText('₹252.8 cr')).toBeTruthy()
     expect(gov.getByText('of ₹316.6 cr acted on this period')).toBeTruthy()
@@ -138,12 +138,12 @@ describe('Risk & control (spec §7.8, §8.8)', () => {
     // Every live agent appears — a register evidences absence as well as presence; ordered by value without review,
     // so the first row is match-resolution and it drills into that agent's own record.
     const rows = Array.from(govEl.querySelectorAll('[data-fct-gov-row]'))
-    expect(rows).toHaveLength(9)
+    expect(rows).toHaveLength(10)
     expect(rows[0].getAttribute('data-fct-gov-row')).toBe('match-resolution')
     expect(rows[0].querySelector('a')?.getAttribute('href')).toBe('/agents/match-resolution')
 
     // Agents with no value acted on without review show the honest-absence dash, not a zero figure.
-    expect(gov.getAllByText('without review —')).toHaveLength(4)
+    expect(gov.getAllByText('without review —')).toHaveLength(5)
 
     // The rates are interpreted rather than just displayed: rising override/reversal → delegation set wrong;
     // rising escalation → the policy needs updating, not the agent failing.

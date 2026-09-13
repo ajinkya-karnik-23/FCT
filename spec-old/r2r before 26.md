@@ -176,13 +176,6 @@ breached; this shows what the whole population looks like, which is a different 
 
 High-risk counts must match `highRiskJEs` in §7.2. Assert it.
 
-**`highRiskJEs` is the union of flag hits, not the sum.** A journal that is both
-round-numbered and backdated is one high-risk journal, not two. So each individual flag
-count stays at or below `highRiskJEs`, while the seven flag counts added together exceed
-it — that overlap is correct and must not be "corrected". Anyone adding an eighth flag
-will see a sum that exceeds the total and reach for the wrong fix; say so here rather
-than leaving it in a test.
-
 **This panel requires SAP change documents.** `CDHDR` and `CDPOS` plus posting-user and
 timestamp data are what make preparer-equals-approver and outside-hours detection
 possible. Without that extract the panel degrades to what the trial balance alone can

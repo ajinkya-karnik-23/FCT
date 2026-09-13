@@ -36,3 +36,6 @@
 - [x] Step 23b — design-branch QA pass (contrast regression, stale presence lists, splash gate, group table overflow)
 - [x] Step 24 — Record to report
 - [x] Step 25 — Close calendar
+- [x] Step 26 — R2R consequence layer
+- [x] Step 27 — R2R agents
+- [x] Step 28 — Close exposure on the R2R cockpit (boundary copy, three-mode render, demo beats, map refresh)

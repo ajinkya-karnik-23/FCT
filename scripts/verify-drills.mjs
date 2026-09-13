@@ -344,7 +344,8 @@ const PALETTE_CASES = [
   ['cash application mismatch', 'Cash application mismatch · O2C', '/entity/JGL/root-cause/o2c/cash-application'],
   ['customer master', 'Customer master · O2C', '/entity/JGL/root-cause/o2c/customer-master'],
   // §6.1 — the R2R taxonomy; each query is unique across all twenty causes plus the screen rows, except
-  // 'master data', which also matches agent #2's record (§15) — root causes sort before agents, so it stays first.
+  // 'master data' (agent #2) and 'intercompany' (agent #20), which also match an agent's record (§15/§16.6) —
+  // root causes sort before agents, so they stay first.
   ['reconciliation breaks', 'Reconciliation breaks · R2R', '/entity/JGL/root-cause/r2r/reconciliation'],
   ['interface breaks', 'Interface breaks · R2R', '/entity/JGL/root-cause/r2r/interface'],
   ['journal risk', 'Journal risk · R2R', '/entity/JGL/root-cause/r2r/journal'],
@@ -535,8 +536,9 @@ async function drillPass(themeName, palette) {
     if (!typed) throw new Error('palette input not found while typing ' + query)
     await new Promise((r) => setTimeout(r, 150))
     rows = await evaluate(PALETTE_ROWS_JS)
-    // 'master data' also matches agent #2's record (§15); root causes sort before agents, so the cause is first.
-    const expectedRows = query === 'master data' ? 2 : 1
+    // 'master data' also matches agent #2's record and 'intercompany' also matches agent #20 (§15/§16.6);
+    // root causes sort before agents, so the cause is first in both cases.
+    const expectedRows = query === 'master data' || query === 'intercompany' ? 2 : 1
     check(`${themeName}/item5:"${query}" → ${expectedRows} row(s), cause first`, rows.length === expectedRows && rows[0].includes(label), JSON.stringify(rows))
     await pressKey(ENTER)
     await waitForPath((p) => p === target, `the ${label} cause from the palette`)
@@ -572,7 +574,7 @@ async function drillPass(themeName, palette) {
     const nav = await evaluate(NAV_ACTIVE_JS)
     check(`${themeName}/item5b: rail active item is the R2R cockpit`, !!nav && nav.label.startsWith('R2R cockpit'), JSON.stringify(nav))
   }
-  // Until Step 26's panels land, every stage card drills to the taxonomy's largest node; one card proves the wiring.
+  // All R2R stage cards share one drill target — the R2R taxonomy's first cause (§16.2); one card proves the StageFlow wiring.
   await clickByText('Reconciliations')
   await waitForPath((p) => p === '/entity/JGL/root-cause/r2r/reconciliation', 'the R2R reconciliation cause from a stage card')
   {
@@ -780,8 +782,8 @@ async function drillPass(themeName, palette) {
       reversals: statValue('Reversals'),
       overrides: statValue('Overrides by human'),
       noReview: statValue('Value acted on without human review'),
-      reversalSub: txt.includes('17 of 1427 actions this period'),
-      overrideSub: txt.includes('30 of 1081 resolved without human'),
+      reversalSub: txt.includes('18 of 1531 actions this period'),
+      overrideSub: txt.includes('33 of 1169 resolved without human'),
       noReviewSub: txt.includes('of ₹316.6 cr acted on this period'),
       rows: rows.length,
       firstHref: (() => { const a = rows[0] && rows[0].querySelector('a'); return a ? a.getAttribute('href') : null })(),
@@ -793,9 +795,9 @@ async function drillPass(themeName, palette) {
       ].filter((s) => txt.includes(s)),
     }
   })()`)
-  check(`${themeName}/item8: the governance slice carries only what needs attention — breaches, reversals, overrides, value without review (§15.6)`, !!gov && gov.breaches === '0' && gov.reversals === '17' && gov.overrides === '30' && gov.noReview === '₹252.8 cr', JSON.stringify(gov))
+  check(`${themeName}/item8: the governance slice carries only what needs attention — breaches, reversals, overrides, value without review (§15.6)`, !!gov && gov.breaches === '0' && gov.reversals === '18' && gov.overrides === '33' && gov.noReview === '₹252.8 cr', JSON.stringify(gov))
   check(`${themeName}/item8: the slice states its denominators, names its source and carries the §15.1 label`, !!gov && gov.reversalSub && gov.overrideSub && gov.noReviewSub && gov.caption && gov.simulated, '')
-  check(`${themeName}/item8: all nine live agents appear in the register, ordered by value without review (match resolution first)`, !!gov && gov.rows === 9 && gov.firstHref === '/agents/match-resolution', JSON.stringify({ rows: gov ? gov.rows : -1, firstHref: gov ? gov.firstHref : null }))
+  check(`${themeName}/item8: all ten live agents appear in the register, ordered by value without review (match resolution first)`, !!gov && gov.rows === 10 && gov.firstHref === '/agents/match-resolution', JSON.stringify({ rows: gov ? gov.rows : -1, firstHref: gov ? gov.firstHref : null }))
   check(`${themeName}/item8: agents with no unreviewed value render an honest dash, not a fabricated figure`, !!gov && gov.zeroDash, '')
   check(`${themeName}/item8: the three rising rates are interpreted on screen — delegation vs policy (§15.6)`, !!gov && gov.interpretations.length === 3, JSON.stringify(gov ? gov.interpretations : null))
 
@@ -1214,7 +1216,7 @@ async function drillPass(themeName, palette) {
       dspChips: stageChips('DSP'),
       preCloseNote: invCell ? invCell.textContent.includes('(pre-close)') : false,
       legend: mainText.includes('+ 1, 2 across all stages'),
-      r2r: mainText.includes('Record to report — in the roadmap'),
+      r2rJrnChips: stageChips('JRN'),
       cards: document.querySelectorAll('[data-fct-agent]').length,
       drillLinks: document.querySelectorAll('[data-fct-agent-link]').length,
       liveBadges: Array.from(document.querySelectorAll('[data-fct-agent]')).filter((c) => Array.from(c.querySelectorAll('span')).some((s) => s.textContent === 'Active')).length,
@@ -1229,8 +1231,8 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item15: eyebrow is Agents`, ag.eyebrow === 'Agents', JSON.stringify(ag.eyebrow))
   check(`${themeName}/item15: the §15.1 simulated label renders`, ag.simulated, 'simulated tag missing')
   check(`${themeName}/item15: spec-pinned cycle line renders (last ran 06:42 · next 07:00)`, ag.cycle, 'cycle line missing')
-  check(`${themeName}/item15: active roles read "9 of 18"`, ag.stats.liveRoles === '9 of 18', JSON.stringify(ag.stats.liveRoles))
-  check(`${themeName}/item15: preventive reads "7 of 18"`, ag.stats.preventive === '7 of 18', JSON.stringify(ag.stats.preventive))
+  check(`${themeName}/item15: active roles read "10 of 22"`, ag.stats.liveRoles === '10 of 22', JSON.stringify(ag.stats.liveRoles))
+  check(`${themeName}/item15: preventive reads "8 of 22"`, ag.stats.preventive === '8 of 22', JSON.stringify(ag.stats.preventive))
   const agNum = (s) => Number(String(s).replace(/,/g, ''))
   check(`${themeName}/item15: workforce totals are consistent (resolved + escalated ≤ actions; overridden and reversed ≤ resolved)`,
     !!ag.stats.actions && !!ag.stats.resolved &&
@@ -1238,16 +1240,16 @@ async function drillPass(themeName, palette) {
     agNum(ag.stats.overridden) <= agNum(ag.stats.resolved) &&
     agNum(ag.stats.reversed) <= agNum(ag.stats.resolved),
     JSON.stringify(ag.stats))
-  check(`${themeName}/item15: the coverage strip has fourteen stages (seven P2P + seven O2C)`, ag.stages === 14, `stages=${ag.stages}`)
+  check(`${themeName}/item15: the coverage strip has twenty-two stages (seven P2P + seven O2C + eight R2R)`, ag.stages === 22, `stages=${ag.stages}`)
   check(`${themeName}/item15: the PO stage positions three agents`, ag.poChips === 3, `chips=${ag.poChips}`)
   check(`${themeName}/item15: DLV and DSP are visible gaps — no agent acts there`, ag.dlvChips === 0 && ag.dspChips === 0, JSON.stringify({ dlv: ag.dlvChips, dsp: ag.dspChips }))
   check(`${themeName}/item15: provisioning sits at INV as a pre-close action`, ag.preCloseNote, 'pre-close note missing')
   check(`${themeName}/item15: the legend names agents 1 and 2 across all stages`, ag.legend, 'legend missing')
-  check(`${themeName}/item15: record-to-report is named in the roadmap`, ag.r2r, 'roadmap line missing')
+  check(`${themeName}/item15: the R2R strip row positions cut-off surveillance at JRN (§16.7)`, ag.r2rJrnChips === 1, `chips=${ag.r2rJrnChips}`)
   // Authority fields live inside the expanded record — open each card, let React flush, then read it back.
   // The roster holds one expandedId at a time, so each record must be read before the next card opens.
   let agAuthority = true
-  for (const id of ['payment-proposal', 'buying-compliance', 'receipt-discipline', 'credit-watch', 'billing-readiness']) {
+  for (const id of ['payment-proposal', 'buying-compliance', 'receipt-discipline', 'credit-watch', 'billing-readiness', 'cut-off-surveillance']) {
     const opened = await evaluate(`(() => { const t = document.querySelector('[data-fct-agent-toggle="${id}"]'); if (!t) return false; t.click(); return true })()`)
     await new Promise((r) => setTimeout(r, 200))
     const want = id === 'payment-proposal' ? 'proposes only' : 'advisory'
@@ -1255,9 +1257,9 @@ async function drillPass(themeName, palette) {
     if (!opened || !has) agAuthority = false
   }
   check(`${themeName}/item15: restricted authority sits on each agent's own record — proposes only / advisory (§10.1)`, agAuthority, 'authority fields missing')
-  check(`${themeName}/item15: the roster lists all eighteen roles`, ag.cards === 18, `cards=${ag.cards}`)
-  check(`${themeName}/item15: every card carries a drill into that agent's own record (§15.7)`, ag.drillLinks === 18, `links=${ag.drillLinks}`)
-  check(`${themeName}/item15: nine cards are Active and nine Not active (§15.2)`, ag.liveBadges === 9 && ag.designedBadges === 9, JSON.stringify({ live: ag.liveBadges, designed: ag.designedBadges }))
+  check(`${themeName}/item15: the roster lists all twenty-two roles`, ag.cards === 22, `cards=${ag.cards}`)
+  check(`${themeName}/item15: every card carries a drill into that agent's own record (§15.7)`, ag.drillLinks === 22, `links=${ag.drillLinks}`)
+  check(`${themeName}/item15: ten cards are Active and twelve Not active (§15.2)`, ag.liveBadges === 10 && ag.designedBadges === 12, JSON.stringify({ live: ag.liveBadges, designed: ag.designedBadges }))
   check(`${themeName}/item15: payment proposal is designed and would never act on releasing a run`, ag.ppCard, 'payment-proposal card wrong')
   check(`${themeName}/item15: §15.8 lists all eight never-automate items prominently`, ag.neverItems === 8 && ag.neverTexts, `items=${ag.neverItems}`)
   check(`${themeName}/item15: breadcrumb shows Agents`, !!ag.breadcrumb && ag.breadcrumb.includes('Agents'), JSON.stringify(ag.breadcrumb))
@@ -1271,16 +1273,17 @@ async function drillPass(themeName, palette) {
     const out = []
     for (const g of Array.from(roster.children)) {
       const labelEl = g.firstElementChild
-      if (!labelEl || !/^(SHARED|P2P|O2C)$/.test(labelEl.textContent.trim())) continue
+      if (!labelEl || !/^(SHARED|P2P|O2C|R2R)$/.test(labelEl.textContent.trim())) continue
       out.push({ group: labelEl.textContent.trim(), subs: Array.from(g.children).slice(1).map((sub) => ({ type: sub.firstElementChild ? sub.firstElementChild.textContent.trim() : null, statuses: Array.from(sub.querySelectorAll('[data-fct-agent]')).map((c) => { const b = Array.from(c.querySelectorAll('span')).find((s) => s.textContent === 'Active' || s.textContent === 'Not active'); return b ? b.textContent : '?' }) })) })
     }
     return out
   })()`
   const agOrder = await evaluate(AG_SECTIONS_JS)
-  check(`${themeName}/item15: the roster groups Shared → P2P → O2C with preventive before reactive`, JSON.stringify(agOrder.map((g) => ({ group: g.group, types: g.subs.map((s) => s.type) }))) === JSON.stringify([
+  check(`${themeName}/item15: the roster groups Shared → P2P → O2C → R2R with preventive before reactive`, JSON.stringify(agOrder.map((g) => ({ group: g.group, types: g.subs.map((s) => s.type) }))) === JSON.stringify([
     { group: 'SHARED', types: ['REACTIVE'] },
     { group: 'P2P', types: ['PREVENTIVE', 'REACTIVE'] },
     { group: 'O2C', types: ['PREVENTIVE', 'REACTIVE'] },
+    { group: 'R2R', types: ['PREVENTIVE', 'REACTIVE'] },
   ]), JSON.stringify(agOrder))
 
   // Sort by escalation rate: active agents rank first within their section; not-active sink to the bottom.
@@ -1288,7 +1291,7 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item15: the escalation-rate sort control responds`, agSortClick === true, '')
   await new Promise((r) => setTimeout(r, 200))
   const agSections = await evaluate(AG_SECTIONS_JS)
-  let agSortOk = Array.isArray(agSections) && agSections.length === 3
+  let agSortOk = Array.isArray(agSections) && agSections.length === 4
   for (const g of agSections ?? []) {
     for (const s of g.subs) {
       const firstNotActive = s.statuses.indexOf('Not active')
@@ -1681,7 +1684,7 @@ async function drillPass(themeName, palette) {
   const fillTargets = [palette.accent, palette.ageingBarAlt, palette.statusGreen, palette.statusAmber, palette.statusRed].map(hexToRgb)
   for (const [route, name] of [
     ['/entity/JGL/o2c', 'o2c-cockpit'],
-    // §16.2 — same StageFlow component as O2C (which already carries green stages), so no new fill pairs are introduced
+    // §16.2 — shares StageFlow with O2C; Step 26's panels add fills of their own, so this route carries fill pairs to audit
     ['/entity/JGL/r2r', 'r2r-cockpit'],
     ['/entity/JGL/root-cause/p2p/missing-gr', 'rc-p2p-missing-gr'],
     ['/entity/JGL/root-cause/o2c/pricing-disputes', 'rc-o2c-pricing-disputes'],

@@ -490,12 +490,12 @@ export interface InterfaceHealth {
 }
 
 // --- §15 — the agent workforce ---
-// The task mandates status 'live' | 'designed' (nine live in this prototype, nine specified but not built); that
-// overrides §15.5's 'active' | 'paused' | 'shadow'. metrics is optional: only live agents carry them — designed
-// agents render the honest-absence pattern of §7.7. process / type / boundedBy / advisoryOnly / proposesOnly extend
-// §15.5's shape with the roster-grouping and boundary facts from §15.2 / §15.2.1.
+// Status is 'live' | 'designed' (overrides §15.5's 'active' | 'paused' | 'shadow'): live agents carry metrics, designed
+// ones render the honest-absence pattern of §7.7. The roster started at eighteen roles (§15.2); Step 27 extends it to
+// twenty-two with the four R2R agents (§16.6). process / type / boundedBy / advisoryOnly / proposesOnly extend §15.5's
+// shape with the roster-grouping and boundary facts from §15.2 / §15.2.1.
 
-export type AgentProcess = 'shared' | 'p2p' | 'o2c';
+export type AgentProcess = 'shared' | 'p2p' | 'o2c' | 'r2r';
 
 export type AgentType = 'preventive' | 'reactive';
 
@@ -563,7 +563,7 @@ export interface AgentCheck {
 export interface AgentAction {
   id: string;
   agentId: string;
-  targetType: 'exception' | 'request' | 'creditBlock' | 'po'; // §15.2.1 — the commitments agent acts on POs, not exceptions
+  targetType: 'exception' | 'request' | 'creditBlock' | 'po' | 'r2r'; // §15.2.1 — commitments acts on POs; cut-off surveillance flags live on the R2R cockpit (§16.6)
   targetId: string;
   entityCode: string;
   takenAt: string; // relative per §7.21
@@ -655,7 +655,8 @@ export interface AgentGovernanceSummary {
   valueActedOnCr: number; // denominator context only
 }
 
-// §15.2.0 — lifecycle coverage strip: seven P2P + seven O2C stages with agents positioned where they act.
+// §15.2.0 — lifecycle coverage strip: seven P2P + seven O2C stages, and (Step 27) eight R2R stages (§16.2), with agents
+// positioned where they act.
 export interface CoverageStage {
   code: string; // 'PR' | 'PO' | ...
   agents: string[]; // agent ids acting at this stage, in roster order
@@ -665,4 +666,52 @@ export interface CoverageStage {
 export interface CoverageStrip {
   p2p: CoverageStage[];
   o2c: CoverageStage[];
+  r2r: CoverageStage[]; // §16.2 — SUB ACC REC ICO JRN TB PCK SGN; the four R2R agents positioned, gaps left visible
+}
+
+// §16.4 — balance sheet integrity: the five components not already in EntityMetrics (provision adequacy is
+// provisionAdequacyPct there). The weighted index is computed at read time, never stored.
+export interface IntegrityComponents {
+  reconciliation: number; // 0-100
+  intercompany: number;
+  grIrExposure: number;
+  unappliedCash: number;
+  cutOffIntegrity: number;
+}
+
+// §16.5 — a journal-risk flag scored over the whole journal population (not the exceptions).
+export interface JournalRiskFlag {
+  key: string; // 'top-side' | ...
+  name: string; // 'Top-side entry'
+  requiresChangeDocs?: boolean; // preparer-equals-approver + outside-hours need SAP CDHDR/CDPOS (§16.8)
+}
+
+// §16.5 — per-entity journal population; the high-risk count joins from EntityMetrics.highRiskJEs (§7.2).
+export interface JournalRiskPopulation {
+  journals: number; // period population (the §16.5 table)
+  changeDocsAvailable: boolean; // false → the change-doc flags degrade to 'not scored', never omitted
+  flagCounts: Record<string, number>; // hits per flag over the whole population
+}
+
+// §16.5 — intercompany balances by counterparty; unmatched sums tie to fxIntercompanyExposure (§8.2).
+export interface IntercompanyCounterparty {
+  name: string; // group entity or related party
+  relatedParty?: boolean; // Ingrevia — a related party, not a group entity
+  matchedCr: number;
+  unmatchedCr: number;
+  oldestDays: number; // ageing of the unmatched balance
+  nettingCr: number; // netting opportunity, ≤ unmatchedCr
+}
+
+// §16.5 — prior-period accruals and their auto-reversal; unreversed = priorPeriodCr − reversedCr (derived).
+export interface AccrualReversal {
+  priorPeriodCr: number;
+  reversedCr: number; // the share that auto-reversed on time
+}
+
+// §16.5 — reconciliation status counts; overdue breaks join from EntityMetrics.reconAgedBreaks (§7.2).
+export interface ReconSummary {
+  accountsReconciled: number;
+  certified: number;
+  breaksWithEvidence: number; // of the aged breaks, how many carry attached evidence
 }

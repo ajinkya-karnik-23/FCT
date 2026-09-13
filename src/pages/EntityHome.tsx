@@ -93,8 +93,8 @@ export function EntityHome() {
   let panel: PanelCell[]
   if (mode === 'close') {
     panel = [
-      { label: 'Close status', value: `${m.closePercent.current}%`, sub: countDelta(m.closePercent.current, m.closePercent.previous), subTone: trendColor(pointDirection(m.closePercent.current, m.closePercent.previous, false)), readOnlySource: 'close tracker' },
-      { label: 'Blockers', value: `${m.closeBlockers}`, sub: 'blocking the close', readOnlySource: 'close tracker' },
+      { label: 'Close status', value: `${m.closePercent.current}%`, sub: countDelta(m.closePercent.current, m.closePercent.previous), subTone: trendColor(pointDirection(m.closePercent.current, m.closePercent.previous, false)), readOnlySource: 'close calendar' },
+      { label: 'Blockers', value: `${m.closeBlockers}`, sub: 'blocking the close', readOnlySource: 'close calendar' },
       { label: 'Exposure at close', value: formatCr(m.accrualExposure!), sub: m.accrualExposureNote ?? 'blocked payables not yet accrued', to: `/entity/${entity.code}/p2p/invoices?cause=missing-gr` },
     ]
   } else if (mode === 'bau') {
@@ -153,8 +153,8 @@ export function EntityHome() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 300 }}>
           <Eyebrow>Level 1 — Legal entity</Eyebrow>
           <h1 style={titleStyle}>{entity.name}</h1>
-          {/* §8.7 — mixed sources: SAP ECC for the health figures, close tracker and trial balance extract cited inline below */}
-          <FreshnessStamp sources={['SAP ECC', 'close tracker', 'trial balance extract']} />
+          {/* §8.7/§16.8 — mixed sources: SAP ECC for the health figures; the close calendar is in-platform, and the trial balance extract cited inline below */}
+          <FreshnessStamp sources={['SAP ECC', 'close calendar', 'trial balance extract']} />
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 28, flexWrap: 'wrap', ...clay.card, padding: '18px 22px', flexDirection: 'row' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>

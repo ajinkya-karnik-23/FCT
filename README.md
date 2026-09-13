@@ -412,6 +412,6 @@ taller views are cut at the bottom — the prototype is the authority on full-he
 
 ## Out of scope in this handoff
 
-The R2R cockpit, close tracker, operations-persona view, mobile alert view, authentication,
-real integrations, and the AI retrieval/reasoning backend. The AI answers in the prototype are
-canned strings.
+The operations-persona view, mobile alert view, authentication, real integrations, and the AI
+retrieval/reasoning backend. The AI answers in the prototype are canned strings. (The R2R cockpit
+and close calendar were out of scope at handoff; both are built — the calendar is in-platform per §16.8.)

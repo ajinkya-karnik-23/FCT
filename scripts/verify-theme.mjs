@@ -337,7 +337,7 @@ const EXPECTED_PRESENT = {
   'entity-home': ['statusAmber', 'statusRed', 'accentText'],
   'p2p-cockpit': ['statusAmber', 'statusRed', 'ageingBarAlt'], // no accent on the page itself — Bar defaults to ageingBarAlt and the mode pills live in the top bar (outside <main>)
   'o2c-cockpit': ['statusAmber', 'statusRed', 'ageingBarAlt'], // same as p2p: the only accent on these routes is the active mode pill in the top bar (outside <main>)
-  'r2r-cockpit': ['statusGreen', 'statusAmber', 'statusRed'], // §16.2 — all three status colours sit in the stage flow (JRN/TB green, SUB/REC/PCK/SGN amber, ACC/ICO red); no ageing bars on this shell yet
+  'r2r-cockpit': ['statusGreen', 'statusAmber', 'statusRed', 'ageingBarAlt', 'textFaint', 'accentText'], // §16.4/§16.5 — stage flow carries all three status colours; integrity component bars + recon age-band bars add ageingBarAlt fills; source tags, weights and subs are textFaint; drill links (recon overdue, high-risk JEs, IC netting, accrual exposure) carry accentText
   'close-calendar': ['statusAmber', 'statusRed', 'accent', 'textFaint'], // §16.3 — BLOCKED badges + SGN dot (amber), sent-escalation lines (red), critical-path dots (accent fill), mono metric labels (faint)
   worklist: ['accentText', 'textFaint'],
   'exception-detail': ['statusGreen', 'statusRed'],

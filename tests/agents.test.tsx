@@ -24,30 +24,30 @@ function activeNavLabel(): string | null {
   return document.querySelector('.fct-nav-item--active')?.textContent ?? null
 }
 
-// §15.2 — the Built column pins which nine roles are live in this prototype.
-const LIVE_IDS = ['follow-up', 'master-data', 'commitments', 'approval-routing', 'match-resolution', 'duplicate-adjudication', 'provisioning', 'credit-release', 'cash-application']
+// §15.2 — the Built column pins which ten roles are live in this prototype (Step 27 adds cut-off surveillance).
+const LIVE_IDS = ['follow-up', 'master-data', 'commitments', 'approval-routing', 'match-resolution', 'duplicate-adjudication', 'provisioning', 'credit-release', 'cash-application', 'cut-off-surveillance']
 
-// §15.2.1 — seven of eighteen are preventive; the table (not the prose) is authoritative where they disagree.
-const PREVENTIVE_IDS = ['commitments', 'buying-compliance', 'receipt-discipline', 'contract-price-sync', 'credit-watch', 'billing-readiness', 'collections-outreach']
+// §15.2.1 / §16.6 — eight of twenty-two are preventive; the table (not the prose) is authoritative where they disagree.
+const PREVENTIVE_IDS = ['commitments', 'buying-compliance', 'receipt-discipline', 'contract-price-sync', 'credit-watch', 'billing-readiness', 'collections-outreach', 'cut-off-surveillance']
 
 // §15.2 — advisory only: flag and nudge, change nothing.
-const ADVISORY_IDS = ['buying-compliance', 'receipt-discipline', 'credit-watch', 'billing-readiness']
+const ADVISORY_IDS = ['buying-compliance', 'receipt-discipline', 'credit-watch', 'billing-readiness', 'cut-off-surveillance']
 
 describe('Agent workforce dataset (§15.2)', () => {
-  it('pins eighteen roles — nine live, nine designed — with unique roster numbers 1–18', () => {
+  it('pins twenty-two roles — ten live, twelve designed — with unique roster numbers 1–22', () => {
     const agents = listAgents()
-    expect(agents).toHaveLength(18)
-    expect(agents.map((a) => a.number).sort((x, y) => x - y)).toEqual(Array.from({ length: 18 }, (_, i) => i + 1))
+    expect(agents).toHaveLength(22)
+    expect(agents.map((a) => a.number).sort((x, y) => x - y)).toEqual(Array.from({ length: 22 }, (_, i) => i + 1))
     expect(agents.filter((a) => a.status === 'live').map((a) => a.id).sort()).toEqual([...LIVE_IDS].sort())
-    expect(agents.filter((a) => a.status === 'designed')).toHaveLength(9)
+    expect(agents.filter((a) => a.status === 'designed')).toHaveLength(12)
   })
 
-  it('exactly seven of eighteen are preventive, per the §15.2 table', () => {
+  it('exactly eight of twenty-two are preventive, per the §15.2 and §16.6 tables', () => {
     const agents = listAgents()
     expect(agents.filter((a) => a.type === 'preventive').map((a) => a.id).sort()).toEqual([...PREVENTIVE_IDS].sort())
   })
 
-  it('the four advisory-only agents change nothing; payment proposal proposes but never releases', () => {
+  it('the five advisory-only agents change nothing; payment proposal proposes but never releases', () => {
     for (const id of ADVISORY_IDS) {
       const a = getAgent(id)!
       expect(a.advisoryOnly).toBe(true)
@@ -103,7 +103,7 @@ describe('Agent workforce dataset (§15.2)', () => {
   })
 
   it('agents with no financial effect act on zero value', () => {
-    for (const id of ['follow-up', 'master-data']) {
+    for (const id of ['follow-up', 'master-data', 'cut-off-surveillance']) {
       expect(getAgent(id)!.metrics!.valueActedOnCr).toBe(0)
     }
   })
@@ -137,6 +137,9 @@ describe('Agent workforce dataset (§15.2)', () => {
         const po = getPurchaseOrder(act.targetId)
         expect(po).toBeDefined()
         expect(po!.entityCode).toBe(act.entityCode)
+      } else if (act.targetType === 'r2r') {
+        // §16.6 — a cut-off flag targets the R2R cockpit for that entity; the route exists for every legal entity.
+        expect(['JGL', 'JBL', 'JPS', 'JCP', 'JHS', 'JRP']).toContain(act.entityCode)
       }
       // §15.2.1/§15.7 — a precedent may cite an exception, a prior intake, a counterparty or an earlier PO engagement; each must resolve to something openable
       for (const pid of act.precedents) {
@@ -151,19 +154,28 @@ describe('Agent workforce dataset (§15.2)', () => {
     for (let i = 0; i < log.length - 1; i++) expect(log[i].takenAt >= log[i + 1].takenAt).toBe(true)
   })
 
-  it('the coverage strip is seven P2P and seven O2C stages, with DLV/DSP as visible gaps', () => {
+  it('the coverage strip is seven P2P, seven O2C and eight R2R stages, with the gaps left visible', () => {
     const strip = coverageStrip()
     expect(strip.p2p.map((s) => s.code)).toEqual(['PR', 'PO', 'GR', 'INV', 'MTC', 'APR', 'PAY'])
     expect(strip.o2c.map((s) => s.code)).toEqual(['ORD', 'CRD', 'DLV', 'BIL', 'DSP', 'COL', 'CSH'])
-    const byCode = new Map([...strip.p2p, ...strip.o2c].map((s) => [s.code, s]))
+    // §16.2 — the eight R2R stages in spec order; Step 27 positions the four agents where they act.
+    expect(strip.r2r.map((s) => s.code)).toEqual(['SUB', 'ACC', 'REC', 'ICO', 'JRN', 'TB', 'PCK', 'SGN'])
+    const byCode = new Map([...strip.p2p, ...strip.o2c, ...strip.r2r].map((s) => [s.code, s]))
     expect(byCode.get('DLV')!.agents).toEqual([])
     expect(byCode.get('DSP')!.agents).toEqual([])
+    // R2R gaps — sub-ledger close, trial balance, reporting pack and sign-off carry no agent yet.
+    for (const code of ['SUB', 'TB', 'PCK', 'SGN']) expect(byCode.get(code)!.agents).toEqual([])
+    // the four R2R agents sit on their stages (§16.6)
+    expect(byCode.get('ACC')!.agents).toEqual(['accrual-reversal'])
+    expect(byCode.get('REC')!.agents).toEqual(['reconciliation-clearing'])
+    expect(byCode.get('ICO')!.agents).toEqual(['intercompany-matching'])
+    expect(byCode.get('JRN')!.agents).toEqual(['cut-off-surveillance'])
     expect(byCode.get('INV')!.preClose).toEqual(['provisioning'])
     // billing-readiness acts at both ORD and BIL (§15.2 stage column)
     expect(byCode.get('ORD')!.agents).toContain('billing-readiness')
     expect(byCode.get('BIL')!.agents).toContain('billing-readiness')
     const ids = new Set(listAgents().map((a) => a.id))
-    for (const s of [...strip.p2p, ...strip.o2c]) {
+    for (const s of [...strip.p2p, ...strip.o2c, ...strip.r2r]) {
       for (const id of s.agents) expect(ids.has(id)).toBe(true)
       for (const id of s.preClose ?? []) expect(ids.has(id)).toBe(true)
     }
@@ -172,9 +184,9 @@ describe('Agent workforce dataset (§15.2)', () => {
   it('the workforce summary is computed from live metrics, never stored', () => {
     const s = agentWorkforceSummary()
     const live = listAgents().filter((a) => a.status === 'live')
-    expect(s.liveRoles).toBe(9)
-    expect(s.totalRoles).toBe(18)
-    expect(s.preventive).toBe(7)
+    expect(s.liveRoles).toBe(10)
+    expect(s.totalRoles).toBe(22)
+    expect(s.preventive).toBe(8)
     expect(s.actionsThisPeriod).toBe(live.reduce((t, a) => t + a.metrics!.actionsThisPeriod, 0))
     expect(s.resolvedWithoutHuman).toBe(live.reduce((t, a) => t + a.metrics!.resolvedWithoutHuman, 0))
     expect(s.escalated).toBe(live.reduce((t, a) => t + a.metrics!.escalated, 0))
@@ -197,13 +209,13 @@ describe('Agents screen (§15.5)', () => {
     expect(m.getByRole('heading', { level: 1 }).previousElementSibling?.textContent).toBe('Agents')
     // §15.1 — every agent surface carries the honesty label.
     expect(m.getByText('Simulated data')).toBeTruthy()
-    expect(m.getByText('18 roles · 9 active')).toBeTruthy()
+    expect(m.getByText('22 roles · 10 active')).toBeTruthy()
     // §15.1.1 — spec-pinned cycle times.
     expect(m.getByText('agents last ran 06:42 · next cycle 07:00')).toBeTruthy()
     const summary = m.getByText('Workforce').closest('section') as HTMLElement
     const statValue = (label: string) => within(summary).getAllByText(label).map((el) => el.nextElementSibling?.textContent ?? null).find((v) => v !== null)
-    expect(statValue('ACTIVE ROLES')).toBe('9 of 18')
-    expect(statValue('PREVENTIVE')).toBe('7 of 18')
+    expect(statValue('ACTIVE ROLES')).toBe('10 of 22')
+    expect(statValue('PREVENTIVE')).toBe('8 of 22')
     for (const label of ['ACTIONS THIS PERIOD', 'RESOLVED WITHOUT HUMAN', 'ESCALATED', 'OVERRIDDEN', 'REVERSED']) {
       expect(/^\d+$/.test(statValue(label) ?? '')).toBe(true)
     }
@@ -211,12 +223,12 @@ describe('Agents screen (§15.5)', () => {
     expect(activeNavLabel()).toContain('Agents')
   })
 
-  it('the roster lists all eighteen agents, each card stating live or designed', () => {
+  it('the roster lists all twenty-two agents, each card stating live or designed', () => {
     window.history.pushState(null, '', '/agents')
     render(<App />)
     const m = main()
     const section = m.getByText('The roster').closest('section') as HTMLElement
-    expect(section.querySelectorAll('[data-fct-agent]')).toHaveLength(18)
+    expect(section.querySelectorAll('[data-fct-agent]')).toHaveLength(22)
     for (const a of listAgents()) {
       expect(within(section).getByText(a.name)).toBeTruthy()
     }
@@ -227,8 +239,8 @@ describe('Agents screen (§15.5)', () => {
       if (badges.includes('Active')) live += 1
       else if (badges.includes('Not active')) designed += 1
     }
-    expect(live).toBe(9)
-    expect(designed).toBe(9)
+    expect(live).toBe(10)
+    expect(designed).toBe(12)
   })
 
   it("every card carries a drill into that agent's own record (§15.7)", () => {
@@ -243,7 +255,7 @@ describe('Agents screen (§15.5)', () => {
     }
   })
 
-  it('groups Shared / P2P / O2C with preventive before reactive, in roster order by default', () => {
+  it('groups Shared / P2P / O2C / R2R with preventive before reactive, in roster order by default', () => {
     window.history.pushState(null, '', '/agents')
     render(<App />)
     const m = main()
@@ -251,7 +263,7 @@ describe('Agents screen (§15.5)', () => {
     const sections: Array<{ group: string; type: string; ids: string[] }> = []
     for (const g of Array.from(section.children)) {
       const first = g.firstElementChild?.textContent ?? ''
-      if (!/^(SHARED|P2P|O2C)$/.test(first)) continue
+      if (!/^(SHARED|P2P|O2C|R2R)$/.test(first)) continue
       for (const sub of Array.from(g.children).slice(1)) {
         sections.push({ group: first, type: sub.firstElementChild?.textContent ?? '', ids: Array.from(sub.querySelectorAll('[data-fct-agent]')).map((el) => el.getAttribute('data-fct-agent')!) })
       }
@@ -262,6 +274,9 @@ describe('Agents screen (§15.5)', () => {
       { group: 'P2P', type: 'REACTIVE', ids: ['approval-routing', 'match-resolution', 'duplicate-adjudication', 'tax-determination', 'provisioning', 'payment-proposal'] },
       { group: 'O2C', type: 'PREVENTIVE', ids: ['credit-watch', 'billing-readiness', 'collections-outreach'] },
       { group: 'O2C', type: 'REACTIVE', ids: ['credit-release', 'cash-application', 'deduction-triage'] },
+      // §16.6 — the four R2R agents; cut-off surveillance is preventive, the other three reactive (roster order).
+      { group: 'R2R', type: 'PREVENTIVE', ids: ['cut-off-surveillance'] },
+      { group: 'R2R', type: 'REACTIVE', ids: ['reconciliation-clearing', 'intercompany-matching', 'accrual-reversal'] },
     ])
   })
 
@@ -275,7 +290,7 @@ describe('Agents screen (§15.5)', () => {
     const liveIds = new Set(listAgents().filter((a) => a.status === 'live').map((a) => a.id))
     for (const g of Array.from(section.children)) {
       const first = g.firstElementChild?.textContent ?? ''
-      if (!/^(SHARED|P2P|O2C)$/.test(first)) continue
+      if (!/^(SHARED|P2P|O2C|R2R)$/.test(first)) continue
       for (const sub of Array.from(g.children).slice(1)) {
         const ids = Array.from(sub.querySelectorAll('[data-fct-agent]')).map((el) => el.getAttribute('data-fct-agent')!)
         let seenDesigned = false
@@ -292,16 +307,21 @@ describe('Agents screen (§15.5)', () => {
     render(<App />)
     const m = main()
     const section = m.getByText('Lifecycle coverage').closest('section') as HTMLElement
-    expect(section.querySelectorAll('[data-fct-stage]')).toHaveLength(14)
+    // seven P2P + seven O2C + eight R2R stages (§16.7 — the strip's biggest gap is now closed).
+    expect(section.querySelectorAll('[data-fct-stage]')).toHaveLength(22)
     // PO carries three agents (commitments, buying compliance, contract price sync); DLV and DSP are the visible gaps.
     const chips = (code: string) => section.querySelector(`[data-fct-stage="${code}"]`)!.querySelectorAll('span[title]').length
     expect(chips('PO')).toBe(3)
     expect(chips('DLV')).toBe(0)
     expect(chips('DSP')).toBe(0)
+    // §16.6 — the four R2R agents sit on their stages; SUB, TB, PCK and SGN are visible gaps.
+    expect(chips('ACC')).toBe(1)
+    expect(chips('REC')).toBe(1)
+    expect(chips('ICO')).toBe(1)
+    expect(chips('JRN')).toBe(1)
+    for (const code of ['SUB', 'TB', 'PCK', 'SGN']) expect(chips(code)).toBe(0)
     expect(section.textContent).toContain('(pre-close)')
     expect(section.textContent).toContain('+ 1, 2 across all stages')
-    // §15.2.1 — R2R is named as roadmap rather than shown empty on the strip.
-    expect(within(section).getByText('Record to report — in the roadmap')).toBeTruthy()
   })
 
   it('restricted authority sits on each agent’s own record — proposes-only and advisory', () => {
@@ -331,6 +351,31 @@ describe('Agents screen (§15.5)', () => {
     expect(pp.textContent).toContain('never acts on releasing a payment run')
     for (const id of ADVISORY_IDS) {
       expect(section.querySelector(`[data-fct-agent="${id}"]`)!.textContent).toContain('changes nothing')
+    }
+  })
+
+  it('Step 27 — the four R2R agents: cut-off surveillance is live and advisory; the other three are designed (§16.6)', () => {
+    window.history.pushState(null, '', '/agents')
+    render(<App />)
+    const m = main()
+    const section = m.getByText('The roster').closest('section') as HTMLElement
+    // cut-off surveillance is live — it carries metrics and an action log whose flags open the R2R cockpit.
+    fireEvent.click(section.querySelector('[data-fct-agent-toggle="cut-off-surveillance"]')!)
+    const rec = section.querySelector('[data-fct-record="cut-off-surveillance"]') as HTMLElement
+    expect(rec.textContent).toContain('AUTHORITY')
+    expect(rec.textContent).toContain('advisory')
+    expect(rec.querySelectorAll('[data-fct-action]')).toHaveLength(3)
+    expect(rec.querySelector('a[href*="/r2r"]')).toBeTruthy()
+    // each flag's rationale is on screen (§10.1) — why it flagged, described not persuaded.
+    expect(rec.textContent).toContain('The posting spans the period boundary')
+    // §15.1.2 — the declined line is part of every decision record and now renders on the action log too:
+    // what cut-off deliberately did not do, where a controller reviews it across items.
+    expect(rec.textContent).toContain('I did not re-date or reverse the posting')
+    // the other three are designed — the delegation they would hold, greyed, with dashes where metrics would be.
+    for (const id of ['reconciliation-clearing', 'intercompany-matching', 'accrual-reversal']) {
+      const card = section.querySelector(`[data-fct-agent="${id}"]`)!
+      expect(card.textContent).toContain('WOULD HOLD')
+      expect(card.textContent).toContain('Not active')
     }
   })
 

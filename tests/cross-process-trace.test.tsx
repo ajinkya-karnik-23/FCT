@@ -28,7 +28,7 @@ describe('cross-process trace (§8.10)', () => {
     expect(strip.queryByRole('link', { name: 'Missing goods receipt · P2P' })).toBeNull()
     expect(strip.getByRole('link', { name: 'Blocked invoice' }).getAttribute('href')).toBe('/entity/JGL/p2p/invoices?cause=missing-gr')
     expect(strip.getByRole('link', { name: 'Understated accrual · R2R' }).getAttribute('href')).toBe('/entity/JGL#fct-consequence')
-    expect(strip.getByRole('link', { name: 'Close exposure' }).getAttribute('href')).toBe('/#fct-close-card')
+    expect(strip.getByRole('link', { name: 'Close exposure' }).getAttribute('href')).toBe('/entity/JGL/r2r')
   })
 
   it('follows the chain from missing GR to the blocked invoice worklist', () => {
@@ -53,14 +53,23 @@ describe('cross-process trace (§8.10)', () => {
     expect(traceStrip(m).getByText('Understated accrual · R2R').className).toContain('fct-trace-current')
   })
 
-  it('follows the chain from the entity page to the close exposure card on the group view', () => {
+  it('follows the chain from the entity page to the close exposure on the R2R cockpit (§16.7)', () => {
     window.history.pushState(null, '', '/entity/JGL')
     render(<App />)
     fireEvent.click(traceStrip(main()).getByRole('link', { name: 'Close exposure' }))
-    expect(window.location.pathname).toBe('/')
-    expect(window.location.hash).toBe('#fct-close-card')
-    expect(document.getElementById('fct-close-card')).not.toBeNull()
-    expect(traceStrip(main()).getByText('Close exposure').className).toContain('fct-trace-current')
+    expect(window.location.pathname).toBe('/entity/JGL/r2r')
+    const m = main()
+    // The chain resolves on a real screen, not an anchor on the overview.
+    expect(m.getByText('Record to report, as one flow')).toBeTruthy()
+    expect(traceStrip(m).getByText('Close exposure').className).toContain('fct-trace-current')
+  })
+
+  it('keeps the group close card as a fourth point — current there, links out to the other three', () => {
+    render(<App />)
+    const strip = traceStrip(main())
+    expect(strip.getByText('Close exposure').className).toContain('fct-trace-current')
+    expect(strip.queryByRole('link', { name: 'Close exposure' })).toBeNull()
+    expect(strip.getByRole('link', { name: 'Missing goods receipt · P2P' }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
   })
 
   it('does not render the trace on a worklist that is not filtered to the goods-receipt cause', () => {

@@ -134,10 +134,11 @@ describe('Command palette (spec/07)', () => {
       const input = within(palette()).getByPlaceholderText(PALETTE_INPUT)
       fireEvent.change(input, { target: { value: query } })
 
-      // Each cause name matches exactly one entry — its own process. Exception: 'master data' also
-      // matches agent #2's record (§15); root causes sort before agents, so the cause is still first.
+      // Each cause name matches exactly one entry — its own process. Exceptions: 'master data' also
+      // matches agent #2's record, and 'intercompany' also matches agent #20 (§15/§16.6); root causes sort
+      // before agents, so the cause is still first in both cases.
       const rows = within(palette()).getAllByRole('button')
-      expect(rows).toHaveLength(query === 'master data' ? 2 : 1)
+      expect(rows).toHaveLength(query === 'master data' || query === 'intercompany' ? 2 : 1)
       expect(rows[0].textContent).toContain(label)
 
       fireEvent.keyDown(input, { key: 'Enter' })

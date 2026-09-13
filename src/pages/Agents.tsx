@@ -27,6 +27,7 @@ const GROUPS: Array<{ key: AgentProcess; label: string }> = [
   { key: 'shared', label: 'Shared' },
   { key: 'p2p', label: 'P2P' },
   { key: 'o2c', label: 'O2C' },
+  { key: 'r2r', label: 'R2R' },
 ]
 
 // §15.8 — what must never be automated, verbatim; rendered prominently, not in a footnote.
@@ -211,6 +212,8 @@ function targetLink(act: AgentAction): { to: string; label: string } | null {
   if (act.targetType === 'creditBlock') return { to: `/entity/${act.entityCode}/customer/${act.targetId}`, label: 'open customer →' }
   // §15.7 — a PO-stage engagement opens the PO detail page, where the agent–owner exchange lives.
   if (act.targetType === 'po') return { to: `/entity/${act.entityCode}/p2p/commitments/${act.targetId}`, label: 'open PO →' }
+  // §16.6 — a cut-off flag opens the R2R cockpit, where the posting and its cut-off integrity sit.
+  if (act.targetType === 'r2r') return { to: `/entity/${act.entityCode}/r2r`, label: 'open R2R →' }
   return null
 }
 
@@ -239,6 +242,10 @@ function ActionRow({ act }: { act: AgentAction }) {
       </div>
       <p style={{ ...typeScale.body, color: colors.textPrimary, margin: 0 }}>{act.action}</p>
       <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0 }}>{`why — ${act.rationale}`}</p>
+      {/* §15.1.2 — declined is part of every decision record; on the action log it is what the agent deliberately did not do */}
+      {act.declined && (
+        <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0, paddingLeft: 10, borderLeft: `2px solid ${colors.accent}` }}>{`declined — ${act.declined}`}</p>
+      )}
       {act.precedents.length > 0 && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', color: colors.textFaint }}>PRECEDENTS</span>
@@ -428,8 +435,8 @@ export function Agents() {
         </div>
         <StripRow label="P2P" stages={strip.p2p} byId={byId} />
         <StripRow label="O2C" stages={strip.o2c} byId={byId} />
-        {/* §15.2.1 — R2R is deliberately absent from the strip; named here as roadmap, not shown as empty */}
-        <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0 }}>Record to report — in the roadmap</p>
+        {/* §16.7 — R2R closes the strip's biggest gap: its eight stages with the four agents positioned where they act */}
+        <StripRow label="R2R" stages={strip.r2r} byId={byId} />
       </section>
 
       {/* §15.5.1 layer 3 — the agent list, grouped Shared / P2P / O2C, preventive before reactive within each */}

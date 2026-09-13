@@ -11,6 +11,8 @@ import {
   driverOpenAtMonthEnd,
   entityTileSubs,
   exceptionTimeline,
+  getAccrualProvisions,
+  getBalanceSheetIntegrity,
   getCashOpportunities,
   getBlockedInvoiceAgeing,
   getCause,
@@ -19,6 +21,8 @@ import {
   getException,
   getForecast,
   getGroupSummary,
+  getIntercompany,
+  getJournalRisk,
   groupRows,
   groupScore,
   groupScorePrevious,
@@ -26,10 +30,14 @@ import {
   getO2cServiceControl,
   getPayablesByReason,
   getReceivablesAgeing,
+  getReconPanel,
   getRecurringCauses,
   getServiceControl,
   getServiceMetrics,
+  INTEGRITY_WEIGHTS,
   itemEffort,
+  JOURNAL_RISK_FLAGS,
+  journalRiskFlagStates,
   listCauses,
   listEntities,
   listExceptions,
@@ -1469,6 +1477,156 @@ describe('close calendar (§16.3)', () => {
       for (const t of cal.tasks) {
         for (const dep of t.dependsOn ?? []) expect(ids.has(dep), `${t.id} → ${dep}`).toBe(true)
       }
+    }
+  })
+})
+
+describe('balance sheet integrity (§16.4)', () => {
+  const PINNED: Record<string, number> = { JCP: 94, JHS: 91, JPS: 82, JGL: 72, JBL: 66, JRP: 58 }
+
+  it('computes the pinned index for every entity — derived at read time, never stored', () => {
+    for (const e of listEntities()) {
+      expect(getBalanceSheetIntegrity(e.code)!.index).toBe(PINNED[e.code])
+    }
+  })
+
+  it('orders with the risk dimension and joins provision adequacy from EntityMetrics', () => {
+    const byIndex = [...listEntities()].sort((a, b) => getBalanceSheetIntegrity(b.code)!.index - getBalanceSheetIntegrity(a.code)!.index).map((e) => e.code)
+    const byRisk = [...listEntities()].sort((a, b) => b.dimensions.risk - a.dimensions.risk).map((e) => e.code)
+    expect(byIndex).toEqual(byRisk)
+    for (const e of listEntities()) {
+      expect(getBalanceSheetIntegrity(e.code)!.components.provisionAdequacy).toBe(e.metrics.provisionAdequacyPct)
+    }
+  })
+
+  it('weights sum to one and the index is their weighted mean', () => {
+    const w = INTEGRITY_WEIGHTS
+    expect(Math.round((w.reconciliation + w.intercompany + w.grIrExposure + w.unappliedCash + w.provisionAdequacy + w.cutOffIntegrity) * 100)).toBe(100)
+    for (const e of listEntities()) {
+      const i = getBalanceSheetIntegrity(e.code)!
+      const c = i.components
+      const raw =
+        c.reconciliation * w.reconciliation +
+        c.intercompany * w.intercompany +
+        c.grIrExposure * w.grIrExposure +
+        c.unappliedCash * w.unappliedCash +
+        c.provisionAdequacy * w.provisionAdequacy +
+        c.cutOffIntegrity * w.cutOffIntegrity
+      expect(i.index).toBe(Math.round(raw))
+    }
+  })
+})
+
+describe('journal risk panel (§16.5)', () => {
+  const JOURNALS: Record<string, number> = { JGL: 847, JBL: 692, JPS: 418, JCP: 264, JHS: 391, JRP: 913 }
+
+  it('pins the period population and joins highRiskJEs from §7.2', () => {
+    for (const e of listEntities()) {
+      const j = getJournalRisk(e.code)!
+      expect(j.journals).toBe(JOURNALS[e.code])
+      expect(j.highRiskJEs).toBe(e.metrics.highRiskJEs)
+    }
+  })
+
+  it('scores all seven flags over the population: each flag within the high-risk set, their sum above it', () => {
+    expect(JOURNAL_RISK_FLAGS).toHaveLength(7)
+    for (const e of listEntities()) {
+      const j = getJournalRisk(e.code)!
+      let total = 0
+      for (const f of JOURNAL_RISK_FLAGS) {
+        const n = j.flagCounts[f.key] ?? 0
+        expect(n, `${e.code} ${f.key} ≤ highRiskJEs`).toBeLessThanOrEqual(j.highRiskJEs)
+        total += n
+      }
+      // overlap: one journal can trip several flags, so the sum exceeds the high-risk count
+      expect(total).toBeGreaterThan(j.highRiskJEs)
+    }
+  })
+
+  it('change-doc flags degrade to not-scored rather than being omitted', () => {
+    for (const e of listEntities()) {
+      const states = journalRiskFlagStates(e.code)
+      expect(states).toHaveLength(7) // the panel always shows all seven rows
+      for (const s of states) {
+        if (s.requiresChangeDocs) expect(s.available, `${e.code} ${s.key}`).toBe(getJournalRisk(e.code)!.changeDocsAvailable)
+        else expect(s.available, `${e.code} ${s.key}`).toBe(true)
+      }
+    }
+    // Without the CDHDR/CDPOS extract exactly the two change-doc flags drop out — the rest still score.
+    const none = journalRiskFlagStates('ZZZ')
+    expect(none.filter((s) => !s.available).map((s) => s.key)).toEqual(['preparer-approver', 'outside-hours'])
+  })
+})
+
+describe('intercompany panel (§16.5)', () => {
+  it('unmatched sums tie to fxIntercompanyExposure; JPS is highest at ₹5.8 cr', () => {
+    for (const e of listEntities()) {
+      const rows = getIntercompany(e.code)!
+      expect(rows.length, `${e.code} has counterparties`).toBeGreaterThan(0)
+      const sum = Math.round(rows.reduce((s, r) => s + r.unmatchedCr, 0) * 10) / 10
+      expect(sum).toBe(e.metrics.fxIntercompanyExposure)
+      for (const r of rows) {
+        expect(r.nettingCr, `${e.code} ${r.name}: netting ≤ unmatched`).toBeLessThanOrEqual(r.unmatchedCr)
+        expect(r.matchedCr, `${e.code} ${r.name}`).toBeGreaterThan(0)
+      }
+    }
+    for (const e of listEntities()) {
+      if (e.code === 'JPS') continue
+      const sum = Math.round(getIntercompany(e.code)!.reduce((s, r) => s + r.unmatchedCr, 0) * 10) / 10
+      expect(sum).toBeLessThan(5.8)
+    }
+  })
+
+  it('Ingrevia is a related party on JGL and its largest unmatched piece', () => {
+    const rows = getIntercompany('JGL')!
+    const ingrevia = rows.find((r) => r.name === 'Ingrevia')!
+    expect(ingrevia.relatedParty).toBe(true)
+    for (const r of rows) {
+      if (r === ingrevia) continue
+      expect(r.relatedParty, `${r.name} is a group entity`).toBeFalsy()
+      expect(r.unmatchedCr).toBeLessThan(ingrevia.unmatchedCr)
+    }
+  })
+
+  it('counterparties are the other entities by canonical name — no self-balances', () => {
+    const names = new Set(listEntities().map((e) => e.name))
+    for (const e of listEntities()) {
+      for (const r of getIntercompany(e.code)!) {
+        expect(r.name).not.toBe(e.name)
+        if (!r.relatedParty) expect(names.has(r.name), `${e.code} → ${r.name}`).toBe(true)
+      }
+    }
+  })
+})
+
+describe('accruals & provisions panel (§16.5)', () => {
+  it('joins exposure from §8.2 and derives the unreversed auto-reversal gap', () => {
+    for (const e of listEntities()) {
+      const a = getAccrualProvisions(e.code)!
+      expect(a.exposureCr).toBe(e.metrics.accrualExposure)
+      expect(a.provisionAdequacyPct).toBe(e.metrics.provisionAdequacyPct)
+      expect(a.unreversedCr).toBe(Math.round((a.priorPeriodCr - a.reversedCr) * 10) / 10)
+      expect(a.reversedCr, `${e.code}: something is still unreversed`).toBeLessThan(a.priorPeriodCr)
+    }
+  })
+})
+
+describe('reconciliation panel (§16.5)', () => {
+  it('joins overdue breaks, oldest days and value from §7.2; buckets sum to the value', () => {
+    const bands: [number, number][] = [[0, 15], [16, 30], [31, 60], [61, 90], [91, Infinity]]
+    for (const e of listEntities()) {
+      const p = getReconPanel(e.code)!
+      expect(p.overdueBreaks).toBe(e.metrics.reconAgedBreaks)
+      expect(p.oldestDays).toBe(e.metrics.reconOldestDays)
+      expect(p.valueCr).toBe(e.metrics.reconValue.current)
+      const sum = Math.round(p.buckets.reduce((s, b) => s + b.value, 0) * 10) / 10
+      expect(sum).toBe(p.valueCr)
+      // the last band reaches the entity's oldest break
+      const [lo, hi] = bands[p.buckets.length - 1]!
+      expect(p.oldestDays).toBeGreaterThanOrEqual(lo)
+      expect(p.oldestDays).toBeLessThanOrEqual(hi)
+      expect(p.breaksWithEvidence).toBeLessThanOrEqual(p.overdueBreaks)
+      expect(p.certified).toBeLessThanOrEqual(p.accountsReconciled)
     }
   })
 })

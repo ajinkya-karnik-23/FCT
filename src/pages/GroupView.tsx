@@ -106,8 +106,8 @@ export function GroupView() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Eyebrow>Level 0 — Group</Eyebrow>
           <h1 style={titleStyle}>{HEADINGS[grouping]}</h1>
-          {/* §8.7 — mixed sources: SAP ECC for the health figures, close tracker for the progress card */}
-          <FreshnessStamp sources={['SAP ECC', 'close tracker']} />
+          {/* §8.7/§16.8 — mixed sources: SAP ECC for the health figures; the close calendar is in-platform, not an external tool */}
+          <FreshnessStamp sources={['SAP ECC', 'close calendar']} />
         </div>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           {/* §7.15/§7.16 — score and exception counts now have pinned priors; two-point deltas, no series */}
@@ -325,8 +325,8 @@ export function GroupView() {
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16 }}>
               {/* §8.2 — the eyebrow is mode-aware; the countdown belongs only where it is true */}
               <Eyebrow style={typeScale.tableHeader}>{CLOSE_CARD_EYEBROW[mode]}</Eyebrow>
-              {/* §8.4 — a figure that cannot drill is tagged read-only rather than silently unclickable */}
-              <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textFaint }}>{'read-only · source: close tracker'}</span>
+              {/* §8.4/§16.8 — a figure that cannot drill is tagged read-only; the calendar is in-platform, not an external tracker */}
+              <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textFaint }}>{'read-only · source: close calendar'}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
               <span style={typeScale.kpiValue}>{`${close.pct}%`}</span>

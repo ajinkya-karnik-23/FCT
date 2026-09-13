@@ -1,7 +1,8 @@
-// §15 — the agent workforce: eighteen roles, nine live in this prototype, nine specified but not built. Every card
-// states which; the honesty is what makes the coverage credible (§15.2). The spec pins no per-agent figures, so value
-// caps, per-period volumes and action logs are seeded deterministically on stable keys (mulberry32(fnv1a(...)),
-// mirroring mock/requests.ts) — §0 sanctions adding numbers to the dataset module first. No Math.random().
+// §15 — the agent workforce: twenty-two roles, ten live in this prototype. Step 27 adds the four R2R agents of §16.6;
+// cut-off surveillance is live (the one to prioritise), the other three are specified but not built. Every card states
+// which; the honesty is what makes the coverage credible (§15.2). The spec pins no per-agent figures, so value caps,
+// per-period volumes and action logs are seeded deterministically on stable keys (mulberry32(fnv1a(...)), mirroring
+// mock/requests.ts) — §0 sanctions adding numbers to the dataset module first. No Math.random().
 
 import type { Agent, AgentAction, AgentCheck, AgentLane, AgentMetrics, CoverageStrip, Exception, WalkthroughStep, WorklistAgentCounts } from '../types';
 import { ANCHOR, addDays, escalationHours, exceptions, fmtDate, isoDate, seededTimeline } from './exceptions';
@@ -10,11 +11,12 @@ import { requestOwnerPool, requests } from './requests';
 import { counterparties } from './counterparties';
 
 // §7.17 supervisor pools are per-entity; an Agent carries no entityCode (§15.5's shape), so each roster number maps
-// to a pool by position: three agents per entity, cycling JGL → JBL → JPS → JCP → JHS → JRP.
+// to a pool by position: three agents per entity, cycling JGL → JBL → JPS → JCP → JHS → JRP and wrapping for the R2R
+// roles (Step 27) — the cycle is positional, not a claim about which entity an agent serves.
 const ENTITY_CYCLE = ['JGL', 'JBL', 'JPS', 'JCP', 'JHS', 'JRP'];
 
 function supervisorFor(number: number): string {
-  const pool = requestOwnerPool(ENTITY_CYCLE[Math.floor((number - 1) / 3)]);
+  const pool = requestOwnerPool(ENTITY_CYCLE[Math.floor((number - 1) / 3) % ENTITY_CYCLE.length]);
   return pool[((number - 1) % 3) % pool.length];
 }
 
@@ -27,9 +29,13 @@ function seededCap(id: string, min: number, max: number): number {
 const APPROVAL_CAP = seededCap('approval-routing', 2, 6);
 const PROVISIONING_CAP = seededCap('provisioning', 3, 8);
 const DEDUCTION_CAP = seededCap('deduction-triage', 0.5, 2.5);
+// §16.6 — reconciliation clearing clears matched breaks and proposes journals for the rest; the cap is where it stops
+// clearing and starts proposing (a designed agent — the value shows greyed on its card).
+const RECON_CAP = seededCap('reconciliation-clearing', 2, 8);
 
-// Per-agent action-volume ranges for the nine live roles — follow-up works the largest pool because GR and approval
-// are the most automatable causes (§15.4).
+// Per-agent action-volume ranges for the ten live roles — follow-up works the largest pool because GR and approval
+// are the most automatable causes (§15.4). Cut-off surveillance flags postings spanning period end across the group,
+// a smaller preventive volume; it is advisory so it carries no value-acted-on range (valueActedOnCr stays zero).
 const ACTION_RANGES: Record<string, [number, number]> = {
   'follow-up': [300, 420],
   'master-data': [20, 60],
@@ -40,6 +46,7 @@ const ACTION_RANGES: Record<string, [number, number]> = {
   provisioning: [60, 140],
   'credit-release': [20, 70],
   'cash-application': [120, 260],
+  'cut-off-surveillance': [60, 140],
 };
 
 // Value acted on (₹ cr) — zero where the agent has no financial effect (§15.2: follow-up "nothing", master data
@@ -89,8 +96,9 @@ function buildMetrics(id: string): AgentMetrics {
   return { actionsThisPeriod, resolvedWithoutHuman, escalated, overriddenByHuman, reversed, valueActedOnCr, valueActedOnWithoutReviewCr, delegationBreaches: 0, resolvedShareTrend, escalationRateTrend, overrideRateTrend, reversalRateTrend };
 }
 
-// §15.2 — the eighteen roles. scope is the table's "Acts on" / "What it does"; boundedBy is the "Bounded by" column;
-// both verbatim. Built ✓ in the spec = live here (1, 2, 3, 7, 8, 9, 11, 16, 17); the other nine are designed.
+// §15.2 / §16.6 — the twenty-two roles. scope is the table's "Acts on" / "What it does"; boundedBy is the "Bounded by"
+// column; both verbatim. Live here (1, 2, 3, 7, 8, 9, 11, 16, 17) plus cut-off surveillance (22 — Step 27, the one to
+// prioritise); the other twelve are designed. None of the four R2R agents posts a journal (§16.6).
 export const agents: Agent[] = [
   {
     number: 1, id: 'follow-up', name: 'Follow-up & escalation', process: 'shared', type: 'reactive',
@@ -217,6 +225,34 @@ export const agents: Agent[] = [
     boundedBy: 'Value threshold; disputes always to a human',
     delegation: { valueCapCr: DEDUCTION_CAP, requiresDualControl: false, neverActsOn: ['disputed deductions'], escalatesWhen: ['deduction is disputed'] },
     supervisor: supervisorFor(18), status: 'designed',
+  },
+  {
+    number: 19, id: 'reconciliation-clearing', name: 'Reconciliation clearing', process: 'r2r', type: 'reactive',
+    scope: 'Clears matched breaks, proposes journals for the rest',
+    boundedBy: 'Proposes only above a value cap',
+    delegation: { valueCapCr: RECON_CAP, requiresDualControl: false, neverActsOn: ['posting a journal'], escalatesWhen: ['break value above the cap'] },
+    supervisor: supervisorFor(19), status: 'designed',
+  },
+  {
+    number: 20, id: 'intercompany-matching', name: 'Intercompany matching', process: 'r2r', type: 'reactive',
+    scope: 'Matches balances, proposes netting',
+    boundedBy: 'Never posts the netting entry',
+    delegation: { requiresDualControl: false, neverActsOn: ['posting the netting entry'], escalatesWhen: [] },
+    supervisor: supervisorFor(20), status: 'designed',
+  },
+  {
+    number: 21, id: 'accrual-reversal', name: 'Accrual reversal', process: 'r2r', type: 'reactive',
+    scope: 'Ensures prior accruals reverse; flags those that did not',
+    boundedBy: 'Reversal only, never new accruals',
+    delegation: { requiresDualControl: false, neverActsOn: ['new accruals'], escalatesWhen: ['an accrual did not auto-reverse'] },
+    supervisor: supervisorFor(21), status: 'designed',
+  },
+  {
+    number: 22, id: 'cut-off-surveillance', name: 'Cut-off surveillance', process: 'r2r', type: 'preventive', advisoryOnly: true,
+    scope: 'Flags postings spanning period end, before close',
+    boundedBy: 'Advisory — flags, changes nothing',
+    delegation: { requiresDualControl: false, neverActsOn: ['postings', 'period-end adjustments'], escalatesWhen: [] },
+    supervisor: supervisorFor(22), status: 'live', metrics: buildMetrics('cut-off-surveillance'),
   },
 ];
 
@@ -432,6 +468,21 @@ function creditReleaseRecord(outcome: 'resolved' | 'escalated'): DecisionRecord 
   };
 }
 
+// §16.6 — cut-off surveillance is advisory: it flags postings that span the period boundary and stops; whether an entry
+// is a misstatement stays with a human. The failing check is what raises the flag (§15.1.2's record shows pass and fail).
+function cutOffRecord(flagged: string, account: string): DecisionRecord {
+  return {
+    trigger: `A posting dated in the prior period was posted after close — ${flagged}`,
+    checks: [
+      { test: 'Posting date vs posting timestamp', threshold: 'posted on or before period end', actual: 'dated in the prior period, posted after the cut-off', pass: false },
+      { test: 'Account sensitivity at close', threshold: 'sensitive accounts warrant review at period end', actual: account, pass: true },
+    ],
+    rationale: 'The posting spans the period boundary; a legitimate late entry and a misstatement look alike until a human reads it, so the agent flags and stops.',
+    declined: 'I did not re-date or reverse the posting — I flag it; the decision on the entry stays with a human.',
+    reversibility: 'A flag changes no record; if the read was wrong there is nothing posted to undo.',
+  };
+}
+
 const baseActionLog: AgentAction[] = [
   { id: 'follow-up-act1', agentId: 'follow-up', targetType: 'exception', targetId: missingGr[0].id, entityCode: missingGr[0].entityCode, takenAt: daysAgo(2), action: 'Chased plant stores, 2nd nudge', outcome: 'awaiting', precedents: causePrecedent(missingGr[0]), evidence: ['GR not posted against the PO line'], reversible: true, withinDelegation: true, ...followUpRecord(missingGr[0], 'awaiting') },
   { id: 'follow-up-act2', agentId: 'follow-up', targetType: 'exception', targetId: missingGr[1].id, entityCode: missingGr[1].entityCode, takenAt: daysAgo(4), action: 'Escalated to the plant controller after the chase timer expired', outcome: 'escalated', precedents: causePrecedent(missingGr[1]), evidence: ['chase log: 2 nudges, no reply'], reversible: true, withinDelegation: true, ...followUpRecord(missingGr[1], 'escalated') },
@@ -457,6 +508,13 @@ const baseActionLog: AgentAction[] = [
 
   { id: 'credit-release-act1', agentId: 'credit-release', targetType: 'creditBlock', targetId: blockedCustomers[0].id, entityCode: blockedCustomers[0].entityCode, takenAt: daysAgo(3), action: 'Release approved · not yet posted', outcome: 'resolved', precedents: [blockedCustomers[1].id], evidence: ['invoice due date after the block date'], reversible: true, withinDelegation: true, ...creditReleaseRecord('resolved') },
   { id: 'credit-release-act2', agentId: 'credit-release', targetType: 'creditBlock', targetId: blockedCustomers[1].id, entityCode: blockedCustomers[1].entityCode, takenAt: daysAgo(0), action: 'Escalated: block caused by exposure over limit', outcome: 'escalated', precedents: [blockedCustomers[0].id], evidence: ['exposure vs limit shown in the record'], reversible: true, withinDelegation: true, ...creditReleaseRecord('escalated') },
+
+  // §16.6 — cut-off surveillance flags live on the R2R cockpit (targetType 'r2r', targetId = entity code). It applies a
+  // deterministic date-vs-timestamp test rather than relying on a prior case, so its precedents are empty by design; each
+  // flag still opens the cockpit where the posting and its cut-off integrity sit.
+  { id: 'cut-off-surveillance-act1', agentId: 'cut-off-surveillance', targetType: 'r2r', targetId: 'JGL', entityCode: 'JGL', takenAt: daysAgo(1), action: 'Flagged revenue postings dated in the prior period but posted after close', outcome: 'escalated', precedents: [], evidence: ['posting date vs posting timestamp shown on the R2R cockpit'], reversible: true, withinDelegation: true, ...cutOffRecord('revenue recognised before dispatch', 'revenue account') },
+  { id: 'cut-off-surveillance-act2', agentId: 'cut-off-surveillance', targetType: 'r2r', targetId: 'JRP', entityCode: 'JRP', takenAt: daysAgo(2), action: 'Flagged accruals posted after the cut-off date', outcome: 'escalated', precedents: [], evidence: ['posting timestamp past period end shown on the R2R cockpit'], reversible: true, withinDelegation: true, ...cutOffRecord('accruals booked in the next period', 'provision account') },
+  { id: 'cut-off-surveillance-act3', agentId: 'cut-off-surveillance', targetType: 'r2r', targetId: 'JPS', entityCode: 'JPS', takenAt: daysAgo(0), action: 'Flagged a top-side entry dated in the prior period — reviewed, no misstatement', outcome: 'resolved', precedents: [], evidence: ['entry traced to a legitimate late booking'], reversible: true, withinDelegation: true, ...cutOffRecord('a top-side entry above the sub-ledger', 'suspense account') },
 ];
 
 // §15.7 — the seven P2P-domain live agents have already run on every entity's exceptions when the page opens (§15.1.1).
@@ -642,9 +700,11 @@ export function resetAgentLaneStore(): void {
   overriddenDecisions.clear();
 }
 
-// §15.2.0 — the lifecycle coverage strip, derived from §15.2's stage column (the spec's ASCII leaves the O2C
-// alignment ambiguous; the tables are authoritative). DLV and DSP carry no agent — visible gaps a client reads in
-// three seconds. "+ 1, 2 across all" is rendered as a legend by the screen, not stored per stage.
+// §15.2.0 / §16.2 — the lifecycle coverage strip, derived from §15.2's stage column (the spec's ASCII leaves the O2C
+// alignment ambiguous; the tables are authoritative). DLV and DSP carry no agent — visible gaps a client reads in three
+// seconds. Step 27 adds the eight R2R stages (§16.2) with the four R2R agents positioned where they act: accrual reversal
+// at ACC, reconciliation clearing at REC, intercompany matching at ICO, cut-off surveillance (preventive) at JRN; SUB, TB,
+// PCK and SGN are visible gaps. "+ 1, 2 across all" is rendered as a legend by the screen, not stored per stage.
 export const COVERAGE_STRIP: CoverageStrip = {
   p2p: [
     { code: 'PR', agents: ['buying-compliance'] },
@@ -663,5 +723,15 @@ export const COVERAGE_STRIP: CoverageStrip = {
     { code: 'DSP', agents: [] },
     { code: 'COL', agents: ['collections-outreach', 'deduction-triage'] },
     { code: 'CSH', agents: ['cash-application'] },
+  ],
+  r2r: [
+    { code: 'SUB', agents: [] },
+    { code: 'ACC', agents: ['accrual-reversal'] },
+    { code: 'REC', agents: ['reconciliation-clearing'] },
+    { code: 'ICO', agents: ['intercompany-matching'] },
+    { code: 'JRN', agents: ['cut-off-surveillance'] },
+    { code: 'TB', agents: [] },
+    { code: 'PCK', agents: [] },
+    { code: 'SGN', agents: [] },
   ],
 };

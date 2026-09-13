@@ -119,8 +119,8 @@ describe('Group view (spec/04)', () => {
     expect(m.getByText('19 overdue')).toBeTruthy()
     expect(m.getByText('6 blockers')).toBeTruthy()
     expect(m.getByText('3 entities at risk')).toBeTruthy()
-    // §8.4 — the close-tracker figures cannot drill; they are tagged read-only rather than silently unclickable.
-    expect(m.getByText('read-only · source: close tracker')).toBeTruthy()
+    // §8.4/§16.8 — the close-calendar figures cannot drill; they are tagged read-only rather than silently unclickable.
+    expect(m.getByText('read-only · source: close calendar')).toBeTruthy()
 
     // Transformation health.
     expect(m.getByText(/transformation health/i)).toBeTruthy()
@@ -320,7 +320,7 @@ describe('Entity health home (spec/04)', () => {
     expect(within(closePanel).getByText('+4 vs last period')).toBeTruthy()
     const blockers = within(closePanel).getByText('Blockers').parentElement!
     expect(within(blockers).getByText('7')).toBeTruthy()
-    expect(m.getAllByText('read-only · source: close tracker')).toHaveLength(2)
+    expect(m.getAllByText('read-only · source: close calendar')).toHaveLength(2)
     expect(within(closePanel).getByRole('link', { name: /Exposure at close/ }).getAttribute('href')).toBe('/entity/JGL/p2p/invoices?cause=missing-gr')
 
     fireEvent.click(within(banner).getByRole('button', { name: 'BAU' }))

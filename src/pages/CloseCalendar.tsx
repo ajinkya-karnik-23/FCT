@@ -106,8 +106,8 @@ export function CloseCalendar() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Eyebrow>Level 2 — Process · Record to Report</Eyebrow>
           <h1 style={titleStyle}>Close calendar</h1>
-          {/* §8.7 — the close tracker is the card's source on the group view; same source here */}
-          <FreshnessStamp sources={['Close tracker']} />
+          {/* §8.7/§16.8 — the calendar is in-platform: it is this screen's dataset, not an external tool's feed */}
+          <FreshnessStamp sources={['Close calendar']} />
         </div>
       </div>
 
