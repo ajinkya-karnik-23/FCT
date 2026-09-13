@@ -132,4 +132,45 @@ describe('Close calendar (§16.3)', () => {
     expect(window.location.pathname).toBe('/entity/JGL/close-calendar')
     expect(screen.queryByRole('dialog')).toBeNull()
   })
+
+  it('wires the task table drills and agent lane (B.a–B.d)', () => {
+    window.history.pushState(null, '', '/entity/JGL/close-calendar')
+    render(<App />)
+    const rowByName = (name: string) =>
+      Array.from(document.querySelectorAll('[data-fct-close-calendar] .fct-table-row')).find((r) => r.textContent?.includes(name)) as HTMLElement | undefined
+    const linksIn = (row: HTMLElement, text: string) => Array.from(row.querySelectorAll('a')).find((a) => a.textContent === text)
+
+    // B.b — the task name drills to the R2R panel holding the exceptions behind it; cut-off has no such panel.
+    const icRow = rowByName('Intercompany matching — JBL pair')!
+    expect(linksIn(icRow, 'Intercompany matching — JBL pair')?.getAttribute('href')).toBe('/entity/JGL/r2r#fct-panel-intercompany')
+    // B.a — a blocker owned by another entity's close team drills to that entity's calendar.
+    expect(linksIn(icRow, 'JBL sub-ledger close')?.getAttribute('href')).toBe('/entity/JBL/close-calendar')
+
+    // B.a — an intra-entity dependency anchors to the blocking row in this table (the dependency graph made navigable).
+    const tbRow = rowByName('Trial balance review — GL accounts')!
+    expect(linksIn(tbRow, 'Adjusting entries from accrual review')?.getAttribute('href')).toBe('/entity/JGL/close-calendar#fct-row-JGL-C05')
+    expect(document.getElementById('fct-row-JGL-C05')?.textContent).toContain('Accrual schedule — review & sign-off')
+
+    // A.c + B.b/B.a — the external blocker is plain text (no page), and a no-panel task name is not a link either.
+    const bankRow = rowByName('Bank reconciliations — current accounts')!
+    expect(linksIn(bankRow, 'Statement batch from bank portal')).toBeUndefined() // external dependency — honest dash
+    const cutOffRow = rowByName('Revenue cut-off review')!
+    expect(linksIn(cutOffRow, 'Revenue cut-off review')).toBeUndefined() // no §16.5 panel for cut-off
+
+    // B.d — the agent lane renders per state; trial balance and reporting pack carry none (no R2R agent covers them).
+    const resolvedRow = rowByName('Bank reconciliations — fixed deposits')!
+    expect(resolvedRow.textContent).toContain('agent resolved · cleared 2 breaks in the last cycle')
+    for (const noAgent of ['Trial balance review — GL accounts', 'Reporting pack — consolidation inputs']) {
+      const r = rowByName(noAgent)!
+      // The Agent cell is the only column that reads a bare "—" here; assert the lane text is absent.
+      expect(r.textContent).not.toContain('working ·')
+      expect(r.textContent).not.toContain('escalated —')
+    }
+
+    // B.c — expanding a sent-escalation row reveals its record: what was sent, to whom, answered or not.
+    const expander = bankRow.querySelector('.fct-expand') as HTMLElement
+    fireEvent.click(expander)
+    expect(bankRow.textContent).toContain('Chased the statement batch with group treasury')
+    expect(bankRow.textContent).toContain('to Entity controller, awaiting reply')
+  })
 })

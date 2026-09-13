@@ -688,6 +688,33 @@ export function plantRoute(entityCode: string, name: string): string | undefined
   return plants.some((p) => p.entityCode === entityCode && p.id === id) ? `/entity/${entityCode}/plant/${id}` : undefined;
 }
 
+// §16.3 — the blocked-by cell drills to the task doing the blocking, using the dependency graph that already drives
+// the prediction: an intra-entity dependsOn reference anchors to that row in this table (AppShell scrolls any hash),
+// a blocker owned by another entity's close team navigates to that entity's calendar. An external dependency (bank
+// portal, plant stores) has no page at all, so the cell stays plain text. The owning entity of a cross-entity blocker
+// is read from the blocker owner — the one place it is named — never stored per row.
+export function blockingTaskRoute(task: CloseTask): string | undefined {
+  if (!task.blocker) return undefined;
+  const dep = task.dependsOn?.[0]; // dependsOn is intra-entity only (§16.3); one predecessor per row in the pool
+  if (dep) return `#fct-row-${dep}`;
+  for (const e of listEntities()) {
+    if (e.code !== task.entityCode && new RegExp(`\\b${e.code}\\b`).test(task.blocker.owner)) return `/entity/${e.code}/close-calendar`;
+  }
+  return undefined;
+}
+
+// §16.3/§16.5 — a close task drills to the R2R cockpit panel that holds the exceptions behind it: intercompany matching
+// to Intercompany, reconciliations (bank / sub-ledger / fixed-asset) to Reconciliations, accruals to Accruals & provisions.
+// Cut-off review, trial balance and the reporting pack have no such panel in §16.5's four, so they stay plain text — an
+// honest dash, not an invented anchor.
+export function taskPanelRoute(entityCode: string, task: CloseTask): string | undefined {
+  const n = task.name;
+  if (n.startsWith('Intercompany matching')) return `/entity/${entityCode}/r2r#fct-panel-intercompany`;
+  if (n.includes('reconciliation')) return `/entity/${entityCode}/r2r#fct-panel-recon`;
+  if (n.startsWith('Accrual schedule')) return `/entity/${entityCode}/r2r#fct-panel-accruals`;
+  return undefined;
+}
+
 // §7.26 — statutory obligations per entity; jurisdiction-matched in the dataset, only JRP overdue.
 export function listCompliance(entityCode?: string): ComplianceItem[] {
   return complianceItems.filter((c) => !entityCode || c.entityCode === entityCode);

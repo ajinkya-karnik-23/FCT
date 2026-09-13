@@ -121,6 +121,8 @@ export interface CloseTaskEscalation {
   state: 'timer' | 'sent';
   to: string; // owner's escalation contact — role, not a second name universe
   when: string; // timer → 'in 3 h' · sent → '09:40'
+  message?: string; // sent only — what was actually sent (the record the cell drills to)
+  answered?: boolean; // sent only — whether the contact has acted on it yet
 }
 
 export interface CloseTask {
@@ -134,6 +136,9 @@ export interface CloseTask {
   blocker?: { name: string; owner: string }; // blocked rows only — what blocks it and who owns that (§16.3)
   onCriticalPath: boolean;
   escalation?: CloseTaskEscalation; // overdue/blocked rows only
+  // §16.6 — the R2R agent working this task, in one of the worklist's four states. Absent where no agent covers the
+  // task (trial balance, reporting pack) — an empty lane is honest, not invented coverage.
+  agentLane?: AgentLane;
 }
 
 export interface CloseCalendarSummary {

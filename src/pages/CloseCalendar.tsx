@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { closeCalendar, getEntity, listStages } from '../api'
+import { blockingTaskRoute, closeCalendar, getEntity, listStages, taskPanelRoute } from '../api'
 import type { CloseTask } from '../api'
 import { DataTable, Eyebrow, FreshnessStamp, StatusDot, type Column } from '../components'
 import { statusColor } from '../theme/derive'
@@ -65,34 +65,73 @@ export function CloseCalendar() {
 
   const columns: Array<Column<CloseTask>> = [
     {
+      // A.c — the blocker is a sentence, not a value, so it sits as a sub-line under the task name at full column width
+      // instead of its own clipped column. B.b — the name drills to the R2R panel holding the exceptions behind it;
+      // B.a — the blocker drills to the entity whose close is doing the blocking (plain text where there is no such page).
       header: 'Task',
-      render: (t) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {t.onCriticalPath && <StatusDot size={6} color={colors.accent} />}
-          <span>{t.name}</span>
-        </div>
-      ),
+      render: (t) => {
+        const panelTo = taskPanelRoute(entity.code, t)
+        const blockerTo = blockingTaskRoute(t)
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              {t.onCriticalPath && <StatusDot size={6} color={colors.accent} />}
+              {panelTo ? (
+                <Link to={panelTo} style={{ color: colors.accentText, textDecoration: 'none' }}>{t.name}</Link>
+              ) : (
+                <span>{t.name}</span>
+              )}
+            </span>
+            {t.blocker && (
+              <span style={{ fontSize: 12, color: colors.textSecondary, minWidth: 0 }}>
+                blocked by{' '}
+                {blockerTo ? (
+                  <Link to={blockerTo} style={{ color: colors.accentText, textDecoration: 'none' }}>{t.blocker.name}</Link>
+                ) : (
+                  t.blocker.name
+                )}{' '}· owned by {t.blocker.owner}
+              </span>
+            )}
+          </div>
+        )
+      },
     },
     { width: '130px', header: 'Owner', render: (t) => t.owner },
     { align: 'right', width: '90px', header: 'Due', render: (t) => <span style={{ fontFamily: fonts.mono }}>{`Day ${t.dueDay}`}</span> },
     { width: '120px', header: 'Status', render: (t) => <StatusBadge status={t.status} /> },
     {
-      width: '260px', header: 'Blocked by',
-      render: (t) => t.blocker ? (
-        <span style={{ fontSize: 12, color: colors.textSecondary }}>{`${t.blocker.name} · owned by ${t.blocker.owner}`}</span>
+      // Compact state only; the full record — what was sent, to whom, answered or not — is a detail column one click away.
+      width: '170px', header: 'Escalation',
+      render: (t) => t.escalation ? (
+        // §16.3 — one escalation model with the exception worklist: a pending timer, or sent and logged.
+        t.escalation.state === 'sent' ? (
+          <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.statusRed }}>{`sent ${t.escalation.when} · logged`}</span>
+        ) : (
+          <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.statusAmber }}>{`escalates ${t.escalation.when}`}</span>
+        )
       ) : (
         <span style={{ color: colors.textFaint }}>—</span>
       ),
     },
     {
-      width: '230px', header: 'Escalation',
-      render: (t) => t.escalation ? (
-        // §16.3 — one escalation model with the exception worklist: a pending timer, or sent and logged.
-        t.escalation.state === 'sent' ? (
-          <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.statusRed }}>{`sent ${t.escalation.when} to ${t.escalation.to} — logged`}</span>
-        ) : (
-          <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.statusAmber }}>{`escalates to ${t.escalation.to} ${t.escalation.when}`}</span>
-        )
+      // §16.6 — the R2R agent on this task in one of the worklist's four states; an empty lane where no agent covers it.
+      width: '230px', header: 'Agent',
+      render: (t) => {
+        const l = t.agentLane
+        if (!l) return <span style={{ color: colors.textFaint }}>—</span>
+        if (l.state === 'working') return <span style={{ fontSize: 12, color: colors.accentText }}>{`working · ${l.detail}`}</span>
+        if (l.state === 'escalated') return <span style={{ fontSize: 12, color: colors.statusRed }}>{`escalated — ${l.detail}`}</span>
+        if (l.state === 'resolved') return <span style={{ fontSize: 12, color: colors.statusGreen }}>{`agent resolved · ${l.detail}`}</span>
+        return <span style={{ fontSize: 12, color: colors.textMuted }}>{l.detail}</span> // never-automated
+      },
+    },
+    {
+      // §16.3 — the escalation record the cell drills to: what was sent, to whom, and whether the contact has acted.
+      detail: true, header: 'Escalation record',
+      render: (t) => t.escalation?.state === 'sent' ? (
+        <span style={{ fontSize: 12 }}>{`“${t.escalation.message}” — to ${t.escalation.to}, ${t.escalation.answered ? 'answered' : 'awaiting reply'}`}</span>
+      ) : t.escalation?.state === 'timer' ? (
+        <span style={{ fontSize: 12, color: colors.textSecondary }}>{`will escalate to ${t.escalation.to} ${t.escalation.when}`}</span>
       ) : (
         <span style={{ color: colors.textFaint }}>—</span>
       ),

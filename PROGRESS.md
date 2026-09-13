@@ -39,3 +39,4 @@
 - [x] Step 26 — R2R consequence layer
 - [x] Step 27 — R2R agents
 - [x] Step 28 — Close exposure on the R2R cockpit (boundary copy, three-mode render, demo beats, map refresh)
+- [x] Step 29 — Truncation, and connecting the close calendar
