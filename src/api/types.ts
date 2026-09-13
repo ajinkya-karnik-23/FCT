@@ -107,10 +107,43 @@ export interface ProcessStage {
   step: string; // 'INV'
   name: string; // 'Invoice'
   inFlight: number;
-  inFlightValue: number; // ₹ cr
+  inFlightValue?: number; // ₹ cr — absent where the stage carries no rupee figure (§16.2's R2R table is counts only)
   inException: number;
-  exceptionValue: number; // ₹ cr — exception % is derived (inException / inFlight), never stored
+  exceptionValue?: number; // ₹ cr — exception % is derived (inException / inFlight), never stored
   status: Status;
+}
+
+// §16.3 — the close calendar: per-entity task pool with owners, due days, dependencies and a critical path.
+// The named rows are each entity's blocked + critical-path slice of its pool; the pinned aggregates reconcile to
+// §7.2's close % (round(complete / total × 100)) — asserted in tests/api.test.ts.
+export interface CloseTaskEscalation {
+  // One escalation model with the exception worklist (§16.3): a pending timer, or sent and logged.
+  state: 'timer' | 'sent';
+  to: string; // owner's escalation contact — role, not a second name universe
+  when: string; // timer → 'in 3 h' · sent → '09:40'
+}
+
+export interface CloseTask {
+  id: string; // 'JGL-C03'
+  entityCode: string;
+  name: string; // 'Intercompany matching — JBL pair'
+  owner: string;
+  dueDay: number; // day of close (committed is Day 6 for every entity, §16.3)
+  status: 'open' | 'blocked'; // the named slice is open work only; completion lives in the aggregates
+  dependsOn?: string[]; // ids of tasks that must complete first — intra-entity references only
+  blocker?: { name: string; owner: string }; // blocked rows only — what blocks it and who owns that (§16.3)
+  onCriticalPath: boolean;
+  escalation?: CloseTaskEscalation; // overdue/blocked rows only
+}
+
+export interface CloseCalendarSummary {
+  entityCode: string;
+  totalTasks: number; // §16.3 pinned
+  completeCount: number; // §16.3 pinned — round(complete / total × 100) === the §7.2 close % (asserted)
+  openCount: number; // = total − complete (§16.3 table)
+  committedDay: number; // Day 6 for every entity (§16.3 table)
+  predictedDay: number; // critical path through open tasks — max due day of the open critical-path rows (asserted)
+  blockerCount: number; // §16.3 — equals the named blocked rows (asserted)
 }
 
 // §7.6/§8.9 — one row of the exception lifecycle timeline (detail screen).

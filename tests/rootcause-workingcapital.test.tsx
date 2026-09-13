@@ -161,6 +161,61 @@ describe('Root cause (spec/06)', () => {
     }
   })
 
+  it('renders the R2R analysis with its own copy and driver cards (§16.2, §6.1)', () => {
+    window.history.pushState(null, '', '/entity/JGL/root-cause/r2r/reconciliation')
+    render(<App />)
+    const m = main()
+
+    // The process-aware pieces of copy: title, eyebrow, the reconciliation-platform source and the R2R ask.
+    expect(m.getByRole('heading', { level: 1, name: 'Where close exposure comes from' })).toBeTruthy()
+    expect(m.getByText(/taxonomy — r2r/i)).toBeTruthy()
+    // The full stamp string is unique — an action below also mentions the reconciliation platform feed.
+    expect(m.getByText('SAP ECC · Reconciliation platform · as of 06:00 IST')).toBeTruthy()
+    expect(m.getByRole('button', { name: /ask about exposure at close/i })).toBeTruthy()
+
+    // Eight R2R taxonomy rows, each linking within the r2r process.
+    for (const [name, key] of [
+      ['Reconciliation breaks', 'reconciliation'],
+      ['Interface breaks', 'interface'],
+      ['Journal risk', 'journal'],
+      ['Close dependencies', 'close-dependency'],
+      ['Source data', 'source-data'],
+      ['Intercompany', 'intercompany'],
+      ['Judgement', 'judgement'],
+      ['Master data', 'master-data'],
+    ] as const) {
+      expect(m.getByRole('link', { name: new RegExp(name, 'i') }).getAttribute('href')).toBe(`/entity/JGL/root-cause/r2r/${key}`)
+    }
+    expect(m.getByRole('link', { name: /Reconciliation breaks/ }).className).toContain('fct-tax-row--selected')
+
+    // Primary root cause panel — the reconciliation CauseNode, read from its metric cells so the
+    // narrative (which repeats ₹14.3 cr) can't satisfy the match.
+    expect(m.getByText(/primary root cause — reconciliation breaks/i)).toBeTruthy()
+    for (const [label, value] of [
+      ['VALUE AT RISK', '₹14.3 cr'],
+      ['AVG DELAY', '28 days'],
+      ['RECURRENCE', '6th consecutive month'],
+      ['CONCENTRATION', '18 aged breaks'],
+    ] as const) {
+      expect(m.getByText(label).parentElement.textContent).toContain(value)
+    }
+
+    // Plant split and cause drivers (pcts chosen to avoid the taxonomy rows' shares on this page).
+    for (const label of ['Nanjangud', 'Roorkee', 'Noida', 'Ambernath']) expect(m.getByText(label)).toBeTruthy()
+    for (const pct of ['41%', '27%', '19%']) expect(m.getByText(pct)).toBeTruthy()
+    for (const label of ['Bank breaks', 'Suspense']) expect(m.getByText(label)).toBeTruthy()
+    for (const pct of ['46%', '28%']) expect(m.getByText(pct)).toBeTruthy()
+
+    // Recommended intervention — the cause's three actions.
+    for (const action of [
+      'Daily break review against the reconciliation platform feed',
+      'Auto-clear matched bank lines within tolerance',
+      'Escalate intercompany breaks to both entity controllers',
+    ]) {
+      expect(m.getByText(action)).toBeTruthy()
+    }
+  })
+
   it('rejects a P2P cause key paired with the O2C process (spec/08 Part D)', () => {
     window.history.pushState(null, '', '/entity/JGL/root-cause/o2c/missing-gr')
     render(<App />)

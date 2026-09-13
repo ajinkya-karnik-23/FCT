@@ -7,6 +7,7 @@ const crumbCases: [string, Crumb[]][] = [
   ['/entity/JGL', [{ label: 'Group', to: '/' }, { label: 'JGL' }]],
   ['/entity/JGL/p2p', [{ label: 'Group', to: '/' }, { label: 'JGL', to: '/entity/JGL' }, { label: 'P2P' }]],
   ['/entity/JGL/o2c', [{ label: 'Group', to: '/' }, { label: 'JGL', to: '/entity/JGL' }, { label: 'O2C' }]],
+  ['/entity/JGL/r2r', [{ label: 'Group', to: '/' }, { label: 'JGL', to: '/entity/JGL' }, { label: 'R2R' }]],
   [
     '/entity/JGL/p2p/invoices',
     [
@@ -47,6 +48,16 @@ const crumbCases: [string, Crumb[]][] = [
     ],
   ],
   [
+    // §16.2 — the R2R process segment picks its middle crumb, like O2C.
+    '/entity/JGL/root-cause/r2r/reconciliation',
+    [
+      { label: 'Group', to: '/' },
+      { label: 'JGL', to: '/entity/JGL' },
+      { label: 'R2R', to: '/entity/JGL/r2r' },
+      { label: 'Root cause' },
+    ],
+  ],
+  [
     '/entity/JIL/working-capital',
     [{ label: 'Group', to: '/' }, { label: 'JIL', to: '/entity/JIL' }, { label: 'Working capital' }],
   ],
@@ -82,11 +93,13 @@ const navCases: [string, NavKey][] = [
   ['/entity/JBS', 'entityHealth'],
   ['/entity/JGL/p2p', 'p2pCockpit'],
   ['/entity/JGL/o2c', 'o2cCockpit'],
+  ['/entity/JGL/r2r', 'r2rCockpit'],
   ['/entity/JGL/p2p/invoices', 'worklist'],
   // Worklist stays active while an exception detail page is open (spec/02).
   ['/entity/JGL/p2p/invoices/AP-104281', 'worklist'],
   ['/entity/JGL/root-cause/p2p/missing-gr', 'rootCause'],
   ['/entity/JGL/root-cause/o2c/pricing-disputes', 'rootCause'],
+  ['/entity/JGL/root-cause/r2r/reconciliation', 'rootCause'],
   ['/entity/JGL/working-capital', 'workingCapital'],
   ['/agents', 'agents'],
   // §15.7 — the record page keeps the Agents rail item active.

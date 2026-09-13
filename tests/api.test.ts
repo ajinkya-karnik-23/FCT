@@ -6,6 +6,7 @@ import {
   attributionReason,
   causeBacklog,
   causePool,
+  closeCalendar,
   computeScore,
   driverOpenAtMonthEnd,
   entityTileSubs,
@@ -369,7 +370,54 @@ describe('filters', () => {
   it('every entity carries its twelve seeded p2p exceptions (§7.17)', () => {
     for (const e of listEntities()) expect(listExceptions(e.code, 'p2p')).toHaveLength(12)
   })
-  it('no stages for r2r in the mock set', () => expect(listStages('r2r')).toHaveLength(0))
+})
+
+describe('R2R datasets (§16.2, §6.1, §16.5)', () => {
+  const ENTITIES = ['JGL', 'JBL', 'JPS', 'JCP', 'JHS', 'JRP'] as const
+  // §16.5 — the journal population per entity; high-risk counts tie to §7.2's highRiskJEs.
+  const R2R_JOURNAL_POP: Record<string, number> = { JGL: 847, JBL: 692, JPS: 418, JCP: 264, JHS: 391, JRP: 913 }
+
+  it('8 R2R stages in spec order and 8 R2R causes', () => {
+    expect(listStages('r2r').map((s) => s.step)).toEqual(['SUB', 'ACC', 'REC', 'ICO', 'JRN', 'TB', 'PCK', 'SGN'])
+    expect(listCauses('r2r')).toHaveLength(8)
+  })
+
+  it('every R2R cause has a non-empty narrative and exactly three actions', () => {
+    const r2r = listCauses('r2r')
+    expect(r2r).toHaveLength(8) // guard: the loop below would pass vacuously on an empty set
+    for (const c of r2r) {
+      expect(c.narrative.length).toBeGreaterThan(0)
+      expect(c.actions).toHaveLength(3)
+    }
+  })
+
+  it('R2R stages carry counts only — no in-flight rupee value anywhere', () => {
+    for (const s of listStages('r2r')) expect(s.inFlightValue).toBeUndefined()
+  })
+
+  it('R2R tie points hold for all six entities', () => {
+    for (const code of ENTITIES) {
+      const e = getEntity(code)!
+      const r2r = listStages('r2r', code)
+      // Reconciliations ties to the entity's recon metrics (§7.2).
+      expect(r2r.find((s) => s.step === 'REC')!.inException).toBe(e.metrics.reconAgedBreaks)
+      expect(r2r.find((s) => s.step === 'REC')!.exceptionValue).toBe(e.metrics.reconValue.current)
+      // Adjusting journals tie to the §16.5 population and §7.2's high-risk count — counts only, no rupee figure.
+      const jrn = r2r.find((s) => s.step === 'JRN')!
+      expect(jrn.inFlight).toBe(R2R_JOURNAL_POP[code])
+      expect(jrn.inException).toBe(e.metrics.highRiskJEs)
+      // Accruals and intercompany carry the §8.2 exposures (every entity has both).
+      expect(r2r.find((s) => s.step === 'ACC')!.exceptionValue).toBe(e.metrics.accrualExposure)
+      expect(r2r.find((s) => s.step === 'ICO')!.exceptionValue).toBe(e.metrics.fxIntercompanyExposure)
+    }
+  })
+
+  it('non-JGL R2R tables differ from the JGL default — one shared dataset is gone', () => {
+    for (const code of ENTITIES) {
+      if (code === 'JGL') continue
+      expect(listStages('r2r', code)).not.toEqual(listStages('r2r'))
+    }
+  })
 })
 
 describe('cause pools (§7.20)', () => {
@@ -823,7 +871,7 @@ describe('AP control effectiveness (§7.8.1)', () => {
 
 describe('narrative and display conventions (§7.12)', () => {
   it('recurrence is stored as an integer number of months', () => {
-    for (const c of [...listCauses('p2p'), ...listCauses('o2c')]) {
+    for (const c of [...listCauses('p2p'), ...listCauses('o2c'), ...listCauses('r2r')]) {
       expect(Number.isInteger(c.recurrence)).toBe(true)
     }
   })
@@ -1371,5 +1419,56 @@ describe('DSO forecast (§7.3/§7.23)', () => {
     expect(driverOpenAtMonthEnd(a, { resolved: true })).toBe(false)
     expect(driverOpenAtMonthEnd(a, { settleIso: monthEndIso() })).toBe(false) // on the boundary counts as settled
     expect(driverOpenAtMonthEnd(a, { settleIso: '' })).toBe(true) // cleared override falls back to base
+  })
+})
+
+describe('close calendar (§16.3)', () => {
+  it('reconciles with §7.2 and keeps its own arithmetic honest for every entity', () => {
+    for (const e of listEntities()) {
+      const cal = closeCalendar(e.code)
+      expect(cal, `${e.code} has a summary`).toBeTruthy()
+      // Pool arithmetic: complete + open = total; the close % is the same figure on every screen that shows it.
+      expect(cal!.completeCount + cal!.openCount).toBe(cal!.totalTasks)
+      expect(Math.round((cal!.completeCount / cal!.totalTasks) * 100)).toBe(getEntity(e.code)!.metrics.closePercent.current)
+      // The named slice's blocked rows are exactly the pinned blocker count — KPI and table footer must agree.
+      expect(cal!.tasks.filter((t) => t.status === 'blocked').length).toBe(cal!.blockerCount)
+      // Critical path: its furthest due day (blocked tasks included — they still gate close) is the prediction.
+      const cp = cal!.tasks.filter((t) => t.onCriticalPath)
+      expect(cp.length, `${e.code} names critical-path rows`).toBeGreaterThan(0)
+      expect(Math.max(...cp.map((t) => t.dueDay))).toBe(cal!.predictedDay)
+    }
+  })
+
+  it('orders predicted slippage with the close % — JRP worst, JCP best', () => {
+    const byCode = (c: string) => closeCalendar(c)!
+    expect(byCode('JRP').predictedDay).toBeGreaterThan(byCode('JBL').predictedDay) // 9 > 8
+    expect(byCode('JGL').predictedDay).toBe(byCode('JGL').committedDay) // on schedule
+    expect(byCode('JCP').predictedDay).toBeLessThan(byCode('JCP').committedDay) // a day ahead
+  })
+
+  it('every blocked row names what blocks it and who owns that; escalations are two-state', () => {
+    for (const e of listEntities()) {
+      for (const t of closeCalendar(e.code)!.tasks) {
+        if (t.status === 'blocked') {
+          expect(t.blocker, `${t.id} names its blocker`).toBeTruthy()
+          expect(t.blocker!.name).toBeTruthy()
+          expect(t.blocker!.owner).toBeTruthy()
+        }
+        if (t.escalation) {
+          expect(['timer', 'sent']).toContain(t.escalation.state)
+          expect(t.status).toBe('blocked') // only blocked rows escalate
+        }
+      }
+    }
+  })
+
+  it('dependency ids point at named tasks of the same entity', () => {
+    for (const e of listEntities()) {
+      const cal = closeCalendar(e.code)!
+      const ids = new Set(cal.tasks.map((t) => t.id))
+      for (const t of cal.tasks) {
+        for (const dep of t.dependsOn ?? []) expect(ids.has(dep), `${t.id} → ${dep}`).toBe(true)
+      }
+    }
   })
 })

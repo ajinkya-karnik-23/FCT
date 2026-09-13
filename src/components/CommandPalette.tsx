@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { agentWorkforceSummary, causeBacklogCounts, commitmentsWatch, computeScore, getControlSignals, getEntity, getForecast, listAgents, listCauses, listCompliance, listCostCentres, listCounterparties, listDataQuality, listEntities, listExceptions, listPlants, listRequests, listTouchFunnel, slaBreachSplit } from '../api'
+import { agentWorkforceSummary, causeBacklogCounts, closeCalendar, commitmentsWatch, computeScore, getControlSignals, getEntity, getForecast, listAgents, listCauses, listCompliance, listCostCentres, listCounterparties, listDataQuality, listEntities, listExceptions, listPlants, listRequests, listTouchFunnel, slaBreachSplit } from '../api'
 import { formatCr } from '../lib/format'
 import { colors, fonts, layout, paletteShadow, radius } from '../theme/tokens'
 import { DEFAULT_ENTITY, entityCodeFromPath } from '../app/routes'
@@ -13,7 +13,8 @@ interface PaletteItem {
 }
 
 // Result set in spec order — entities, exceptions, root causes, counterparties (scoped to the entity in context), screens.
-function buildItems(entityCode: string): PaletteItem[] {
+// Exported so tests can assert the indistinguishable-rows invariant across every entity context.
+export function buildItems(entityCode: string): PaletteItem[] {
   const items: PaletteItem[] = []
   for (const e of listEntities()) {
     items.push({ kind: 'ENTITY', label: e.name, meta: `health ${computeScore(e).displayed}`, to: `/entity/${e.code}` })
@@ -21,9 +22,12 @@ function buildItems(entityCode: string): PaletteItem[] {
   for (const x of listExceptions()) {
     items.push({ kind: 'EXCEPTION', label: `${x.id} · ${x.vendor}`, meta: `${formatCr(x.amount, 2)} · ${x.ageDays} d`, to: `/entity/${x.entityCode}/p2p/invoices/${x.id}` })
   }
-  for (const processKey of ['p2p', 'o2c'] as const) {
+  for (const processKey of ['p2p', 'o2c', 'r2r'] as const) {
     for (const c of listCauses(processKey)) {
-      items.push({ kind: 'ROOT CAUSE', label: `${c.name} · ${processKey.toUpperCase()}`, meta: formatCr(c.valueAtRisk), to: `/entity/${entityCode}/root-cause/${processKey}/${c.key}` })
+      // The meta states what the row is — cause rows read "cause · R2R", agent rows "agent · shared" — so a name that
+      // exists in both taxonomies (master data today; reconciliation and intercompany as agents land) never shows two
+      // indistinguishable rows. Same pattern as the screen rows' metas.
+      items.push({ kind: 'ROOT CAUSE', label: `${c.name} · ${processKey.toUpperCase()}`, meta: `cause · ${processKey.toUpperCase()}`, to: `/entity/${entityCode}/root-cause/${processKey}/${c.key}` })
     }
   }
   // §7.24 — counterparties are first-class objects; scoped to the entity in context so a drill target is always one row away.
@@ -43,6 +47,11 @@ function buildItems(entityCode: string): PaletteItem[] {
   items.push({ kind: 'SCREEN', label: 'Group view', meta: '6 entities', to: '/' })
   items.push({ kind: 'SCREEN', label: 'P2P cockpit', meta: 'process', to: `/entity/${entityCode}/p2p` })
   items.push({ kind: 'SCREEN', label: 'O2C cockpit', meta: 'process', to: `/entity/${entityCode}/o2c` })
+  // §16.2 — the third process; its row states open breaks, like the rail count.
+  items.push({ kind: 'SCREEN', label: 'R2R cockpit', meta: ctx ? `${ctx.metrics.reconAgedBreaks} open breaks` : '—', to: `/entity/${entityCode}/r2r` })
+  // §16.3 — the close calendar follows the entity in context; its row states the pool and what is blocked, like the rail count.
+  const cc = ctx ? closeCalendar(entityCode) : undefined
+  items.push({ kind: 'SCREEN', label: 'Close calendar', meta: cc ? `${cc.openCount} open · ${cc.blockerCount} blocked` : '—', to: `/entity/${entityCode}/close-calendar` })
   items.push({ kind: 'SCREEN', label: 'Blocked invoices worklist', meta: ctx ? `${ctx.metrics.apBlockedCount} items` : '—', to: `/entity/${entityCode}/p2p/invoices` })
   // §15.7 — the commitments watch follows the entity in context; its row states the pool and what is at risk of slipping past period-end.
   const cw = ctx ? commitmentsWatch(entityCode) : undefined
@@ -63,7 +72,7 @@ function buildItems(entityCode: string): PaletteItem[] {
   items.push({ kind: 'SCREEN', label: 'Agents', meta: `${wf.liveRoles} of ${wf.totalRoles} roles active`, to: '/agents' })
   // §15.7 — each agent's record is reachable from the palette, like counterparties (§9.1); query-filtered and capped as all rows are.
   for (const a of listAgents()) {
-    items.push({ kind: 'AGENT', label: a.name, meta: `#${a.number} · ${a.type}`, to: `/agents/${a.id}` })
+    items.push({ kind: 'AGENT', label: a.name, meta: `agent · ${a.process}`, to: `/agents/${a.id}` })
   }
   // §15.3/§15.4 — the commercial conversation is group-scoped; the row states JGL's touch rate, the screen's headline figure.
   const te = listTouchFunnel().find((r) => r.code === 'JGL')!

@@ -217,7 +217,7 @@ export function commitmentsWatch(entityCode: string) {
   const atRisk = pos.filter((po) => po.chaseState === 'chased' || po.chaseState === 'proposed');
   return {
     openPosCount: poStage.inFlight, // the full pool (§7.4) — the named rows are its sample
-    committedCr: poStage.inFlightValue, // ties to Σ cost-centre committed spend
+    committedCr: poStage.inFlightValue!, // ties to Σ cost-centre committed spend — the PO stage always carries a rupee figure
     pos,
     chasedCount: atRisk.filter((po) => po.chaseState === 'chased').length,
     proposedCount: atRisk.filter((po) => po.chaseState === 'proposed').length,

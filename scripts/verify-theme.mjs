@@ -295,10 +295,16 @@ const ROUTES = [
   ['/entity/JGL', 'entity-home'],
   ['/entity/JGL/p2p', 'p2p-cockpit'],
   ['/entity/JGL/o2c', 'o2c-cockpit'],
+  // §16.2 — the third process cockpit; its stage flow carries all three status colours (JRN/TB green, ACC/ICO red)
+  ['/entity/JGL/r2r', 'r2r-cockpit'],
+  // §16.3 — the close calendar: blocked badges + sent escalations + critical-path dots on JGL
+  ['/entity/JGL/close-calendar', 'close-calendar'],
   ['/entity/JGL/p2p/invoices', 'worklist'],
   ['/entity/JGL/p2p/invoices/AP-104281', 'exception-detail'],
   ['/entity/JGL/root-cause/p2p/missing-gr', 'root-cause-p2p'],
   ['/entity/JGL/root-cause/o2c/pricing-disputes', 'root-cause-o2c'],
+  // §6.1 — the R2R taxonomy's largest node; same page shape as its siblings, so the same tokens must resolve
+  ['/entity/JGL/root-cause/r2r/reconciliation', 'root-cause-r2r'],
   ['/entity/JGL/working-capital', 'working-capital'],
   ['/risk-control', 'risk-control'],
   ['/compliance', 'compliance'],
@@ -331,10 +337,13 @@ const EXPECTED_PRESENT = {
   'entity-home': ['statusAmber', 'statusRed', 'accentText'],
   'p2p-cockpit': ['statusAmber', 'statusRed', 'ageingBarAlt'], // no accent on the page itself — Bar defaults to ageingBarAlt and the mode pills live in the top bar (outside <main>)
   'o2c-cockpit': ['statusAmber', 'statusRed', 'ageingBarAlt'], // same as p2p: the only accent on these routes is the active mode pill in the top bar (outside <main>)
+  'r2r-cockpit': ['statusGreen', 'statusAmber', 'statusRed'], // §16.2 — all three status colours sit in the stage flow (JRN/TB green, SUB/REC/PCK/SGN amber, ACC/ICO red); no ageing bars on this shell yet
+  'close-calendar': ['statusAmber', 'statusRed', 'accent', 'textFaint'], // §16.3 — BLOCKED badges + SGN dot (amber), sent-escalation lines (red), critical-path dots (accent fill), mono metric labels (faint)
   worklist: ['accentText', 'textFaint'],
   'exception-detail': ['statusGreen', 'statusRed'],
   'root-cause-p2p': ['accentText', 'textFaint'],
   'root-cause-o2c': ['accentText', 'textFaint'],
+  'root-cause-r2r': ['accentText', 'textFaint'], // ask button + eyebrow/labels, like its siblings
   'working-capital': ['statusGreen', 'chartArOld', 'accent'], // no amber on the page itself — statusAmber was only ever in the top-bar score chip
   'risk-control': ['statusRed', 'bgRiskSoft', 'accentText'], // + agent governance rows drill into the record via accent links
   compliance: ['statusGreen', 'statusAmber', 'statusRed'], // filed / due / overdue tags

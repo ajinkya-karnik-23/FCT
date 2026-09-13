@@ -188,9 +188,16 @@ describe('Risk & control (spec §7.8, §8.8)', () => {
     const p = screen.getByRole('dialog', { name: 'Command palette' })
     const input = within(p).getByPlaceholderText('Jump to an entity, process, exception or vendor')
 
-    // "risk" matches only the screen item.
+    // "risk" matches the screen and, since §6.1 added the R2R taxonomy, the Journal risk cause too.
     fireEvent.change(input, { target: { value: 'risk' } })
-    const rows = within(p).getAllByRole('button')
+    let rows = within(p).getAllByRole('button')
+    expect(rows).toHaveLength(2)
+    expect(rows.some((r) => (r.textContent ?? '').includes('Journal risk · R2R'))).toBe(true)
+    expect(rows.some((r) => (r.textContent ?? '').includes('Risk & control'))).toBe(true)
+
+    // Narrow to the screen's full name so Enter lands on it.
+    fireEvent.change(input, { target: { value: 'risk & control' } })
+    rows = within(p).getAllByRole('button')
     expect(rows).toHaveLength(1)
     expect(rows[0].textContent).toContain('Risk & control')
 

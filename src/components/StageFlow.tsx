@@ -33,7 +33,10 @@ export function StageFlow({ stages, to, stageTo }: { stages: ProcessStage[]; to:
             </span>
             <span style={{ fontSize: 14, fontWeight: fontWeights.semibold }}>{s.name}</span>
             <span style={typeScale.stageVolume}>{s.inFlight.toLocaleString()}</span>
-            <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>{formatCr(s.inFlightValue)}</span>
+            {/* §16.2 — R2R stages carry counts only; the rupee line renders where a value exists */}
+            {s.inFlightValue != null && (
+              <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary }}>{formatCr(s.inFlightValue)}</span>
+            )}
             <Bar value={stageExceptionPct(s) * STAGE_FILL_SCALE} max={100} height={barHeights.stageRate + 2} color={statusColor(s.status)} />
             <span style={{ fontFamily: fonts.mono, fontSize: 11, color: s.status === 'GREEN' ? colors.textMuted : statusColor(s.status) }}>{`${stageExceptionPct(s)}% exception`}</span>
           </Link>

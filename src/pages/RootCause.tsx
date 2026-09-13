@@ -43,7 +43,7 @@ export function RootCause() {
 
   // The process and cause key travel as one pair; the cause is looked up inside this process's
   // taxonomy, so a cause from another taxonomy can't be paired with it.
-  const proc: ProcessKey = process === 'o2c' ? 'o2c' : 'p2p'
+  const proc: ProcessKey = process === 'o2c' ? 'o2c' : process === 'r2r' ? 'r2r' : 'p2p'
   const taxonomy = listCauses(proc)
   const cause = taxonomy.find((c) => c.key === causeKey)
   if (!cause) {
@@ -77,11 +77,11 @@ export function RootCause() {
       {/* Plain div, not <header> — a nested header would register as a second banner landmark */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <Eyebrow>Level 5 — Root cause</Eyebrow>
-        <h1 style={titleStyle}>{proc === 'o2c' ? 'Why receivables keep ageing' : 'Why blocked invoices keep recurring'}</h1>
-        {/* §8.7 — the cause register is read from SAP ECC */}
-        <FreshnessStamp sources={['SAP ECC']} />
-        {/* §11 — the root cause view poses its own question to the drawer */}
-        <button type="button" className="fct-ask-btn" onClick={() => assistant?.ask(proc === 'o2c' ? 'What will DSO be at month-end?' : 'Why do blocked invoices keep recurring?')} style={{ alignSelf: 'flex-start', padding: '9px 14px', fontSize: 13 }}>{proc === 'o2c' ? 'Ask what DSO will be at month-end' : 'Ask why these keep recurring'}</button>
+        <h1 style={titleStyle}>{proc === 'o2c' ? 'Why receivables keep ageing' : proc === 'r2r' ? 'Where close exposure comes from' : 'Why blocked invoices keep recurring'}</h1>
+        {/* §8.7 — the cause register is read from SAP ECC; R2R adds the reconciliation platform (§16.8) */}
+        <FreshnessStamp sources={proc === 'r2r' ? ['SAP ECC', 'Reconciliation platform'] : ['SAP ECC']} />
+        {/* §11 — the root cause view poses its own question to the drawer; R2R reuses the seeded exposure-at-close answer */}
+        <button type="button" className="fct-ask-btn" onClick={() => assistant?.ask(proc === 'o2c' ? 'What will DSO be at month-end?' : proc === 'r2r' ? 'What is our exposure at close?' : 'Why do blocked invoices keep recurring?')} style={{ alignSelf: 'flex-start', padding: '9px 14px', fontSize: 13 }}>{proc === 'o2c' ? 'Ask what DSO will be at month-end' : proc === 'r2r' ? 'Ask about exposure at close' : 'Ask why these keep recurring'}</button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: spacing.gapCards, alignItems: 'start' }}>
@@ -144,7 +144,7 @@ export function RootCause() {
             </section>
 
             <section style={cardStyle}>
-              <Eyebrow style={typeScale.tableHeader}>{proc === 'o2c' ? 'By driver' : 'By vendor group'}</Eyebrow>
+              <Eyebrow style={typeScale.tableHeader}>{proc === 'p2p' ? 'By vendor group' : 'By driver'}</Eyebrow>
               {cause.vendors.map((d) => (
                 <DriverRow key={d.name} name={d.name} pct={d.pct} />
               ))}

@@ -1,10 +1,11 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { defaultRootCauseTo } from './paths'
-import { getAgent, getCounterparty, getEntity, listAgents, listCostCentres, listEntities, listExceptions, listPlants } from '../api'
+import { closeCalendar, getAgent, getCounterparty, getEntity, listAgents, listCostCentres, listEntities, listExceptions, listPlants } from '../api'
 import { AgentDetail } from '../pages/AgentDetail'
 import { Agents } from '../pages/Agents'
 import { CashAttribution } from '../pages/CashAttribution'
 import { CauseBacklog } from '../pages/CauseBacklog'
+import { CloseCalendar } from '../pages/CloseCalendar'
 import { CommitmentsWatch } from '../pages/CommitmentsWatch'
 import { CompliancePage } from '../pages/CompliancePage'
 import { CostCentrePage } from '../pages/CostCentrePage'
@@ -18,6 +19,7 @@ import { P2PCockpit } from '../pages/P2PCockpit'
 import { PlantPage } from '../pages/PlantPage'
 import { PoDetail } from '../pages/PoDetail'
 import { Predictive } from '../pages/Predictive'
+import { R2RCockpit } from '../pages/R2RCockpit'
 import { RiskControl } from '../pages/RiskControl'
 import { RootCause } from '../pages/RootCause'
 import { ServiceAttribution } from '../pages/ServiceAttribution'
@@ -59,6 +61,9 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
   if (parts.length === 2) return [group, { label: code }]
   if (parts[2] === 'p2p' && parts.length === 3) return [group, entityLink, { label: 'P2P' }]
   if (parts[2] === 'o2c' && parts.length === 3) return [group, entityLink, { label: 'O2C' }]
+  if (parts[2] === 'r2r' && parts.length === 3) return [group, entityLink, { label: 'R2R' }]
+  // §16.3 — the close calendar sits beside its process cockpit; the crumb carries it back to the entity page.
+  if (parts[2] === 'close-calendar' && parts.length === 3) return [group, entityLink, { label: 'Close calendar' }]
   if (parts[2] === 'p2p' && parts[3] === 'invoices' && parts.length === 4) {
     return [group, entityLink, p2pLink, { label: 'Invoices' }]
   }
@@ -73,8 +78,8 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
     return [group, entityLink, p2pLink, { label: 'Commitments watch', to: `/entity/${code}/p2p/commitments` }, { label: parts[4] }]
   }
   if (parts[2] === 'root-cause') {
-    // The process segment picks the middle crumb: Group › JGL › P2P|O2C › Root cause
-    const processCrumb: Crumb = parts[3] === 'o2c' ? { label: 'O2C', to: `/entity/${code}/o2c` } : p2pLink
+    // The process segment picks the middle crumb: Group › JGL › P2P|O2C|R2R › Root cause
+    const processCrumb: Crumb = parts[3] === 'o2c' ? { label: 'O2C', to: `/entity/${code}/o2c` } : parts[3] === 'r2r' ? { label: 'R2R', to: `/entity/${code}/r2r` } : p2pLink
     return [group, entityLink, processCrumb, { label: 'Root cause' }]
   }
   if (parts[2] === 'working-capital') return [group, entityLink, { label: 'Working capital' }]
@@ -102,7 +107,7 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
   return [{ label: 'Group' }]
 }
 
-export type NavKey = 'group' | 'entityHealth' | 'p2pCockpit' | 'o2cCockpit' | 'worklist' | 'rootCause' | 'cashAttribution' | 'causeBacklog' | 'riskControl' | 'compliance' | 'dataQuality' | 'workingCapital' | 'predictive' | 'serviceAttribution' | 'serviceDesk' | 'agents' | 'touchEconomics'
+export type NavKey = 'group' | 'entityHealth' | 'p2pCockpit' | 'o2cCockpit' | 'r2rCockpit' | 'closeCalendar' | 'worklist' | 'rootCause' | 'cashAttribution' | 'causeBacklog' | 'riskControl' | 'compliance' | 'dataQuality' | 'workingCapital' | 'predictive' | 'serviceAttribution' | 'serviceDesk' | 'agents' | 'touchEconomics'
 
 // Worklist stays active while an exception detail page is open (spec/02).
 export function activeNavKey(pathname: string): NavKey {
@@ -127,6 +132,11 @@ export function activeNavKey(pathname: string): NavKey {
     }
     case 'o2c':
       return 'o2cCockpit'
+    case 'r2r':
+      return 'r2rCockpit'
+    // §16.3 — the close calendar keeps its own rail entry active, like its process siblings.
+    case 'close-calendar':
+      return 'closeCalendar'
     case 'root-cause':
       return 'rootCause'
     case 'working-capital':
@@ -168,6 +178,10 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'entityHealth', label: 'Entity health', group: 'OVERVIEW', to: (c) => `/entity/${c ?? DEFAULT_ENTITY}` },
   { key: 'p2pCockpit', label: 'P2P cockpit', group: 'PROCESS', count: DEFAULT_ENTITY_METRICS.apBlockedCount, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/p2p` },
   { key: 'o2cCockpit', label: 'O2C cockpit', group: 'PROCESS', count: DEFAULT_ENTITY_METRICS.o2cExceptionCount, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/o2c` },
+  // §16.2 — the third process; the rail count is open breaks (§7.2), like its siblings' exception counts.
+  { key: 'r2rCockpit', label: 'R2R cockpit', group: 'PROCESS', count: DEFAULT_ENTITY_METRICS.reconAgedBreaks, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/r2r` },
+  // §16.3 — the close calendar; the rail count is blocked tasks, the attention figure like its siblings' exception counts.
+  { key: 'closeCalendar', label: 'Close calendar', group: 'PROCESS', count: closeCalendar(DEFAULT_ENTITY)!.blockerCount, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/close-calendar` },
   { key: 'worklist', label: 'Worklist', group: 'EXPLAIN', count: listExceptions(DEFAULT_ENTITY, 'p2p').length, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/p2p/invoices` },
   { key: 'rootCause', label: 'Root cause', group: 'EXPLAIN', to: (c) => defaultRootCauseTo(c ?? DEFAULT_ENTITY) },
   // Where cash is stuck across both processes, grouped by the function that causes it rather than the one
@@ -205,6 +219,10 @@ export function AppRoutes() {
       <Route path="/entity/:code/p2p/commitments" element={<CommitmentsWatch />} />
       <Route path="/entity/:code/p2p/commitments/:poId" element={<PoDetail />} />
       <Route path="/entity/:code/o2c" element={<O2CCockpit />} />
+      {/* §16.2 — the third process cockpit; its stage cards drill to the R2R root-cause taxonomy */}
+      <Route path="/entity/:code/r2r" element={<R2RCockpit />} />
+      {/* §16.3 — the close calendar: per-entity task pool, critical path and sign-off status */}
+      <Route path="/entity/:code/close-calendar" element={<CloseCalendar />} />
       <Route path="/entity/:code/root-cause/:process/:causeKey" element={<RootCause />} />
       <Route path="/entity/:code/working-capital" element={<WorkingCapital />} />
       <Route path="/entity/:code/service" element={<ServiceAttribution />} />

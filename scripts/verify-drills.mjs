@@ -319,6 +319,17 @@ const O2C_CAUSES = [
   ['Cash application mismatch', 'cash-application'],
   ['Customer master', 'customer-master'],
 ]
+// §6.1 — the R2R taxonomy (8); names and keys must match causes.ts exactly, or item4's selected-row check fails.
+const R2R_CAUSES = [
+  ['Reconciliation breaks', 'reconciliation'],
+  ['Interface breaks', 'interface'],
+  ['Journal risk', 'journal'],
+  ['Close dependencies', 'close-dependency'],
+  ['Source data', 'source-data'],
+  ['Intercompany', 'intercompany'],
+  ['Judgement', 'judgement'],
+  ['Master data', 'master-data'],
+]
 const PALETTE_CASES = [
   ['missing gr', 'Missing GR · P2P', '/entity/JGL/root-cause/p2p/missing-gr'],
   ['po price mismatch', 'PO price mismatch · P2P', '/entity/JGL/root-cause/p2p/po-price-mismatch'],
@@ -332,10 +343,21 @@ const PALETTE_CASES = [
   ['credit block delays', 'Credit block delays · O2C', '/entity/JGL/root-cause/o2c/credit-block'],
   ['cash application mismatch', 'Cash application mismatch · O2C', '/entity/JGL/root-cause/o2c/cash-application'],
   ['customer master', 'Customer master · O2C', '/entity/JGL/root-cause/o2c/customer-master'],
+  // §6.1 — the R2R taxonomy; each query is unique across all twenty causes plus the screen rows, except
+  // 'master data', which also matches agent #2's record (§15) — root causes sort before agents, so it stays first.
+  ['reconciliation breaks', 'Reconciliation breaks · R2R', '/entity/JGL/root-cause/r2r/reconciliation'],
+  ['interface breaks', 'Interface breaks · R2R', '/entity/JGL/root-cause/r2r/interface'],
+  ['journal risk', 'Journal risk · R2R', '/entity/JGL/root-cause/r2r/journal'],
+  ['close dependencies', 'Close dependencies · R2R', '/entity/JGL/root-cause/r2r/close-dependency'],
+  ['source data', 'Source data · R2R', '/entity/JGL/root-cause/r2r/source-data'],
+  ['intercompany', 'Intercompany · R2R', '/entity/JGL/root-cause/r2r/intercompany'],
+  ['judgement', 'Judgement · R2R', '/entity/JGL/root-cause/r2r/judgement'],
+  ['master data', 'Master data · R2R', '/entity/JGL/root-cause/r2r/master-data'],
 ]
 
 const P2P_TITLE = 'Why blocked invoices keep recurring'
 const O2C_TITLE = 'Why receivables keep ageing'
+const R2R_TITLE = 'Where close exposure comes from'
 const DEFAULT_PATH = '/entity/JGL/root-cause/p2p/missing-gr'
 
 // ---------- helpers ----------
@@ -382,7 +404,7 @@ async function waitForInView(id, what, timeoutMs = 4000) {
 }
 
 function assertRootCause(state, proc, causeName, label) {
-  const wantTitle = proc === 'o2c' ? O2C_TITLE : P2P_TITLE
+  const wantTitle = proc === 'o2c' ? O2C_TITLE : proc === 'r2r' ? R2R_TITLE : P2P_TITLE
   check(`${label}: page title is the ${proc.toUpperCase()} one`, state.h1 === wantTitle, `h1=${JSON.stringify(state.h1)}`)
   check(`${label}: taxonomy eyebrow says ${proc.toUpperCase()}`, !!state.eyebrow && new RegExp(`taxonomy — ${proc}$`, 'i').test(state.eyebrow), JSON.stringify(state.eyebrow))
   check(`${label}: selected row is ${causeName}`, state.selected.length === 1 && state.selected[0].startsWith(causeName), JSON.stringify(state.selected))
@@ -480,9 +502,9 @@ async function drillPass(themeName, palette) {
   assertRootCause(state, 'p2p', 'Missing GR', `${themeName}/item3:analyse-post-o2c`)
 
   // ---- item 4: every route directly linkable (fresh page load per URL) ----
-  console.log('\n-- item 4: all twelve process-aware routes load from their URL')
-  for (const proc of ['p2p', 'o2c']) {
-    const causes = proc === 'p2p' ? P2P_CAUSES : O2C_CAUSES
+  console.log('\n-- item 4: all twenty process-aware routes load from their URL')
+  for (const proc of ['p2p', 'o2c', 'r2r']) {
+    const causes = proc === 'p2p' ? P2P_CAUSES : proc === 'o2c' ? O2C_CAUSES : R2R_CAUSES
     for (const [name, key] of causes) {
       await navigate(BASE + `/entity/JGL/root-cause/${proc}/${key}`)
       state = await evaluate(STATE_JS)
@@ -490,8 +512,8 @@ async function drillPass(themeName, palette) {
     }
   }
 
-  // ---- item 5: ⌘K lists all twelve root causes, each opening its pair ----
-  console.log('\n-- item 5: command palette — twelve ROOT CAUSE entries')
+  // ---- item 5: ⌘K lists all twenty root causes, each opening its pair ----
+  console.log('\n-- item 5: command palette — twenty ROOT CAUSE entries across three processes')
   await navigate(BASE + '/')
   // headless Chrome intermittently drops the first key event right after a fast (cached) navigation — settle before ⌘K
   await new Promise((r) => setTimeout(r, 400))
@@ -500,7 +522,8 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item5: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('ROOT CAUSE')`)) === true)
   await new Promise((r) => setTimeout(r, 200))
   let rows = await evaluate(PALETTE_ROWS_JS)
-  check(`${themeName}/item5: "ROOT CAUSE" matches all twelve (capped at nine rows)`, rows.length === 9, `rows=${rows.length}`)
+  // The cap shows the first nine — six P2P + three O2C; R2R reachability is proven by the per-query cases below.
+  check(`${themeName}/item5: "ROOT CAUSE" matches all twenty (capped at nine rows)`, rows.length === 9, `rows=${rows.length}`)
   check(`${themeName}/item5: both processes appear in the list`, rows.some((r) => r.includes('· P2P')) && rows.some((r) => r.includes('· O2C')), JSON.stringify(rows.slice(0, 3)))
   await pressKey(ESC)
   await new Promise((r) => setTimeout(r, 250))
@@ -512,9 +535,108 @@ async function drillPass(themeName, palette) {
     if (!typed) throw new Error('palette input not found while typing ' + query)
     await new Promise((r) => setTimeout(r, 150))
     rows = await evaluate(PALETTE_ROWS_JS)
-    check(`${themeName}/item5:"${query}" → exactly one row`, rows.length === 1 && rows[0].includes(label), JSON.stringify(rows))
+    // 'master data' also matches agent #2's record (§15); root causes sort before agents, so the cause is first.
+    const expectedRows = query === 'master data' ? 2 : 1
+    check(`${themeName}/item5:"${query}" → ${expectedRows} row(s), cause first`, rows.length === expectedRows && rows[0].includes(label), JSON.stringify(rows))
     await pressKey(ENTER)
     await waitForPath((p) => p === target, `the ${label} cause from the palette`)
+  }
+
+  // ---- item 5b: §16.2 — the third process cockpit: header, eight stage cards, drill to the R2R taxonomy ----
+  console.log('\n-- item 5b: R2R cockpit — header + eight stage cards drilling to the R2R taxonomy')
+  await navigate(BASE + '/entity/JGL/r2r')
+  {
+    const r2r = await evaluate(`(() => {
+      const h1 = document.querySelector('main h1')
+      const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
+      const stages = Array.from(document.querySelectorAll('main [id^="fct-stage-"]'))
+      const leaves = Array.from(document.querySelectorAll('main *')).filter((e) => e.children.length === 0)
+      return {
+        h1: h1 ? h1.textContent : null,
+        eyebrow: (leaves.find((e) => /level 2 — process/i.test(e.textContent)) || {}).textContent || null,
+        breadcrumb: bc ? bc.textContent.trim().replace(/\\s+/g, ' ') : null,
+        stageCount: stages.length,
+        steps: stages.map((s) => s.id.replace('fct-stage-', '')),
+        closePct: document.querySelector('main').textContent.includes('78%'),
+        // exact leaf match — no R2R stage card renders a bare 18 (counts are 96/48/176/…; percents carry %)
+        openBreaks: leaves.some((e) => e.textContent.trim() === '18'),
+      }
+    })()`)
+    check(`${themeName}/item5b: title is the R2R one`, r2r.h1 === 'Record to report, as one flow', `h1=${JSON.stringify(r2r.h1)}`)
+    check(`${themeName}/item5b: eyebrow names the process level`, !!r2r.eyebrow && /record to report/i.test(r2r.eyebrow), JSON.stringify(r2r.eyebrow))
+    check(`${themeName}/item5b: breadcrumb carries R2R`, !!r2r.breadcrumb && r2r.breadcrumb.includes('R2R'), JSON.stringify(r2r.breadcrumb))
+    check(`${themeName}/item5b: eight stage cards in spec order`, r2r.stageCount === 8 && r2r.steps.join(',') === 'SUB,ACC,REC,ICO,JRN,TB,PCK,SGN', `steps=${JSON.stringify(r2r.steps)}`)
+    check(`${themeName}/item5b: header shows JGL close % and open breaks`, r2r.closePct && r2r.openBreaks, '')
+  }
+  {
+    const nav = await evaluate(NAV_ACTIVE_JS)
+    check(`${themeName}/item5b: rail active item is the R2R cockpit`, !!nav && nav.label.startsWith('R2R cockpit'), JSON.stringify(nav))
+  }
+  // Until Step 26's panels land, every stage card drills to the taxonomy's largest node; one card proves the wiring.
+  await clickByText('Reconciliations')
+  await waitForPath((p) => p === '/entity/JGL/root-cause/r2r/reconciliation', 'the R2R reconciliation cause from a stage card')
+  {
+    const state = await evaluate(STATE_JS)
+    assertRootCause(state, 'r2r', 'Reconciliation breaks', `${themeName}/item5b:stage-drill`)
+    check(`${themeName}/item5b: breadcrumb shows the R2R process`, !!state.breadcrumb && state.breadcrumb.includes('R2R'), JSON.stringify(state.breadcrumb))
+  }
+  await clickCrumb('R2R') // back to the cockpit via the middle crumb
+  await waitForPath((p) => p === '/entity/JGL/r2r', 'the R2R cockpit (crumb walk-back)')
+
+  // ---- item 5c: §16.3 — the close calendar: KPIs, blocked/critical-path table, sign-off status, palette row ----
+  console.log('\n-- item 5c: close calendar — KPIs + task table + sign-off')
+  await navigate(BASE + '/entity/JGL/close-calendar')
+  {
+    const cc = await evaluate(`(() => {
+      const h1 = document.querySelector('main h1')
+      const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
+      // KPI figures are scoped to the KPI row — the table's Due column also renders 'Day 6' leaves.
+      const kpiLeaves = Array.from(document.querySelectorAll('[data-fct-close-kpis] *')).filter((e) => e.children.length === 0)
+      const table = document.querySelector('[data-fct-close-calendar]')
+      const rows = table ? Array.from(table.querySelectorAll('.fct-table-row')) : []
+      return {
+        h1: h1 ? h1.textContent : null,
+        eyebrow: (Array.from(document.querySelectorAll('main *')).filter((e) => e.children.length === 0).find((e) => /level 2 — process/i.test(e.textContent)) || {}).textContent || null,
+        breadcrumb: bc ? bc.textContent.trim().replace(/\\s+/g, ' ') : null,
+        closePct: kpiLeaves.some((e) => e.textContent.trim() === '78%'),
+        day6Count: kpiLeaves.filter((e) => e.textContent.trim() === 'Day 6').length,
+        openTasks: kpiLeaves.some((e) => e.textContent.trim() === '47'),
+        blockers: kpiLeaves.some((e) => e.textContent.trim() === '7'),
+        rowCount: rows.length,
+        firstRow: rows[0] ? rows[0].textContent.replace(/\\s+/g, ' ') : null,
+        signoff: (document.querySelector('[data-fct-close-signoff]') || {}).textContent || '',
+      }
+    })()`)
+    check(`${themeName}/item5c: title is the close calendar one`, cc.h1 === 'Close calendar', `h1=${JSON.stringify(cc.h1)}`)
+    check(`${themeName}/item5c: eyebrow names the process level`, !!cc.eyebrow && /record to report/i.test(cc.eyebrow), JSON.stringify(cc.eyebrow))
+    check(`${themeName}/item5c: breadcrumb carries Close calendar`, !!cc.breadcrumb && cc.breadcrumb.includes('Close calendar'), JSON.stringify(cc.breadcrumb))
+    // 78% is the same figure the R2R cockpit's header shows — one close %, two screens.
+    check(`${themeName}/item5c: JGL close % ties to the R2R cockpit figure`, cc.closePct, '')
+    // JGL is on schedule: COMMITTED and PREDICTED both read Day 6 — exactly two KPI leaves.
+    check(`${themeName}/item5c: committed and predicted both read Day 6`, cc.day6Count === 2, `day6=${cc.day6Count}`)
+    check(`${themeName}/item5c: open tasks and blockers are the pinned figures`, cc.openTasks && cc.blockers, '')
+    // Blocked rows sort first, earliest due day within the group — JGL-C04 (Day 4) leads.
+    check(`${themeName}/item5c: ten named rows, blocked first`, cc.rowCount === 10 && !!cc.firstRow && cc.firstRow.includes('Bank reconciliations — current accounts') && cc.firstRow.includes('BLOCKED'), `rows=${cc.rowCount} first=${JSON.stringify(cc.firstRow)}`)
+    check(`${themeName}/item5c: sign-off is status only, read from the reconciliation platform`, cc.signoff.includes('SGN sign-off · 64 in flight · 13 outstanding') && cc.signoff.includes('AMBER'), JSON.stringify(cc.signoff))
+  }
+  {
+    const nav = await evaluate(NAV_ACTIVE_JS)
+    check(`${themeName}/item5c: rail active item is the close calendar`, !!nav && nav.label.startsWith('Close calendar'), JSON.stringify(nav))
+  }
+  await clickCrumb('JGL') // back to the entity page via the middle crumb
+  await waitForPath((p) => p === '/entity/JGL', 'the entity home (crumb walk-back)')
+  {
+    // The palette row reaches the screen end-to-end, like its siblings.
+    await new Promise((r) => setTimeout(r, 400))
+    await ctrlK()
+    await new Promise((r) => setTimeout(r, 300))
+    const typed = await evaluate(`(${TYPE_JS})('close calendar')`)
+    if (!typed) throw new Error('palette input not found while typing close calendar')
+    await new Promise((r) => setTimeout(r, 150))
+    const rows = await evaluate(PALETTE_ROWS_JS)
+    check(`${themeName}/item5c: "close calendar" → one row`, rows.length === 1 && rows[0].includes('Close calendar'), JSON.stringify(rows))
+    await pressKey(ENTER)
+    await waitForPath((p) => p === '/entity/JGL/close-calendar', 'the close calendar from the palette')
   }
 
   // ---- item 6: §8.2 consequence strip drills out to its three targets ----
@@ -1554,13 +1676,16 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item18b: the action line says it proposed and escalated, not amended`, !!poP && poP.mainText.includes('Proposed a new delivery date and escalated'), '')
   await screenshot(`${themeName}-po-exchange-proposed.png`)
 
-  // ---- theme legibility: status colors + ageing-bar fills on the three views ----
-  console.log(`\n-- legibility (${themeName}): O2C cockpit + both root-cause variants`)
+  // ---- theme legibility: status colors + ageing-bar fills on the five views ----
+  console.log(`\n-- legibility (${themeName}): O2C + R2R cockpits, all three root-cause variants`)
   const fillTargets = [palette.accent, palette.ageingBarAlt, palette.statusGreen, palette.statusAmber, palette.statusRed].map(hexToRgb)
   for (const [route, name] of [
     ['/entity/JGL/o2c', 'o2c-cockpit'],
+    // §16.2 — same StageFlow component as O2C (which already carries green stages), so no new fill pairs are introduced
+    ['/entity/JGL/r2r', 'r2r-cockpit'],
     ['/entity/JGL/root-cause/p2p/missing-gr', 'rc-p2p-missing-gr'],
     ['/entity/JGL/root-cause/o2c/pricing-disputes', 'rc-o2c-pricing-disputes'],
+    ['/entity/JGL/root-cause/r2r/reconciliation', 'rc-r2r-reconciliation'],
   ]) {
     await navigate(BASE + route)
     reports.push({ theme: themeName, name, pairs: await evaluate(AUDIT_JS) })

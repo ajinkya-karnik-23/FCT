@@ -81,7 +81,8 @@ export function TopBar({ drawerOpen, onToggleDrawer }: { drawerOpen: boolean; on
           {theme === 'dark' ? 'DARK MODE' : 'LIGHT MODE'}
         </button>
         <button type="button" className="fct-press" onClick={onToggleDrawer} style={drawerOpen ? pillButtonAccent : pillButton}>
-          <span aria-hidden style={{ width: 6, height: 6, borderRadius: radius.dot, background: drawerOpen ? '#FFFFFF' : colors.accent }} />
+          {/* accentInk — the dot sits on the accent pill when open; a literal white would survive a recolour by luck only */}
+          <span aria-hidden style={{ width: 6, height: 6, borderRadius: radius.dot, background: drawerOpen ? colors.accentInk : colors.accent }} />
           Ask the cockpit
         </button>
       </div>

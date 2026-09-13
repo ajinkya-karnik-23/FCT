@@ -1,8 +1,9 @@
 import type { CauseNode } from '../types';
 
 // spec/03 — P2P root-cause taxonomy (6, fixed); spec/08 Part C — O2C taxonomy (6).
-// AI classifies within this set and never invents a cause. For O2C nodes the `plants`
-// field carries customer segments and `vendors` carries cause drivers (spec/08 Part C).
+// §6.1 — R2R taxonomy (8), wired in Step 24 with the third process cockpit. For O2C nodes `plants` carries
+// customer segments and `vendors` cause drivers; for R2R nodes `plants` carries the plant split and `vendors`
+// the close-process drivers. AI classifies within this set and never invents a cause.
 export const causes: CauseNode[] = [
   {
     processKey: 'p2p',
@@ -365,6 +366,239 @@ export const causes: CauseNode[] = [
       'Complete-record enforcement at customer creation',
       'Quarterly master data review with commercial',
       'Block billing on incomplete records',
+    ],
+  },
+  // §6.1 — R2R taxonomy (8). JGL-anchored like the other taxonomies; rupee figures tie to §7.2 / §8.2 where the
+  // spec pins them (recon exposure, intercompany exposure), the rest are dataset values for this prototype.
+  {
+    processKey: 'r2r',
+    key: 'reconciliation',
+    name: 'Reconciliation breaks',
+    sharePct: 24,
+    valueAtRisk: 14.3, // §7.2 — JGL recon exposure; the REC stage pins the same figure per entity
+    avgDelayDays: 28,
+    recurrence: 6,
+    concentration: '18 aged breaks',
+    concentrationCount: 18, // §7.2 — JGL reconAgedBreaks
+    narrative:
+      'Eighteen reconciliation breaks are aged at close, the oldest at 61 days; bank and intercompany lines hold most of the ₹14.3 cr, and the same accounts have broken in six consecutive closes.',
+    plants: [
+      { name: 'Nanjangud', pct: 41 },
+      { name: 'Roorkee', pct: 27 },
+      { name: 'Noida', pct: 19 },
+      { name: 'Ambernath', pct: 13 },
+    ],
+    vendors: [
+      { name: 'Bank breaks', pct: 46 },
+      { name: 'Intercompany', pct: 28 },
+      { name: 'Suspense', pct: 15 },
+      { name: 'Other', pct: 11 },
+    ],
+    actions: [
+      'Daily break review against the reconciliation platform feed',
+      'Auto-clear matched bank lines within tolerance',
+      'Escalate intercompany breaks to both entity controllers',
+    ],
+  },
+  {
+    processKey: 'r2r',
+    key: 'interface',
+    name: 'Interface breaks', // one cause, one name — matches the group view's recurring-cause row (§6.1)
+    sharePct: 18,
+    valueAtRisk: 4.4,
+    avgDelayDays: 5.5,
+    recurrence: 6,
+    concentration: '12 failed IDocs',
+    concentrationCount: 12, // §7.27 — JGL interface check, last 7 days
+    narrative:
+      'Twelve IDocs failed in the last seven days and the sub-ledger feed is running late (last success 31 Aug, 09:20); missing transactions surface as unexplained trial-balance movement at close.',
+    plants: [
+      { name: 'Nanjangud', pct: 37 },
+      { name: 'Roorkee', pct: 28 },
+      { name: 'Noida', pct: 20 },
+      { name: 'Ambernath', pct: 15 },
+    ],
+    vendors: [
+      { name: 'Failed IDocs', pct: 47 },
+      { name: 'Late file drops', pct: 31 },
+      { name: 'Stale runs', pct: 22 },
+    ],
+    actions: [
+      'Retry queue with a named owner for failed IDocs',
+      'Alert when a feed lands after the day-one cut-off',
+      'Reconcile interface counts to sub-ledger totals daily',
+    ],
+  },
+  {
+    processKey: 'r2r',
+    key: 'journal',
+    name: 'Journal risk',
+    sharePct: 14,
+    valueAtRisk: 4.8,
+    avgDelayDays: 6.5,
+    recurrence: 4,
+    concentration: '12 high-risk journals',
+    concentrationCount: 12, // §7.2 — JGL highRiskJEs; the population of 847 is pinned in stages.ts (§16.5)
+    narrative:
+      'Twelve of the 847 adjusting journals posted this period carry a risk flag — top-side entries and round numbers lead; each waits on manual review before close.',
+    plants: [
+      { name: 'Nanjangud', pct: 38 },
+      { name: 'Roorkee', pct: 29 },
+      { name: 'Noida', pct: 18 },
+      { name: 'Ambernath', pct: 15 },
+    ],
+    vendors: [
+      { name: 'Top-side entries', pct: 37 },
+      { name: 'Round numbers', pct: 26 },
+      { name: 'Backdated', pct: 21 },
+      { name: 'Other flags', pct: 16 },
+    ],
+    actions: [
+      'Score every journal against the seven risk flags at posting',
+      'Route top-side entries above materiality to same-day review',
+      'Block preparer-equals-approver journals in SAP',
+    ],
+  },
+  {
+    processKey: 'r2r',
+    key: 'close-dependency',
+    name: 'Close dependencies',
+    sharePct: 13,
+    valueAtRisk: 5.2,
+    avgDelayDays: 4.8,
+    recurrence: 5,
+    concentration: '7 open blockers',
+    concentrationCount: 7, // §7.2 — JGL closeBlockers
+    narrative:
+      'Seven tasks sit on the critical path waiting on upstream work — sub-ledger feeds and intercompany matching lead; each blocked task names what is blocking it and who owns that.',
+    plants: [
+      { name: 'Nanjangud', pct: 39 },
+      { name: 'Roorkee', pct: 26 },
+      { name: 'Noida', pct: 19 },
+      { name: 'Ambernath', pct: 16 },
+    ],
+    vendors: [
+      { name: 'Sub-ledger feeds', pct: 42 },
+      { name: 'Intercompany matching', pct: 27 },
+      { name: 'Client data', pct: 19 },
+      { name: 'Other', pct: 12 },
+    ],
+    actions: [
+      'Show the blocking task and its owner on every blocked item',
+      'Escalate critical-path tasks on a timer to the escalation contact',
+      'Freeze non-critical changes after day 3',
+    ],
+  },
+  {
+    processKey: 'r2r',
+    key: 'source-data',
+    name: 'Source data',
+    sharePct: 10,
+    valueAtRisk: 3.9,
+    avgDelayDays: 7.2,
+    recurrence: 5,
+    concentration: 'sub-ledger and manual feeds',
+    narrative:
+      'Sub-ledger figures reach the general ledger late or by manual entry; unmapped accounts force rework on day one and push close tasks past their due dates.',
+    plants: [
+      { name: 'Nanjangud', pct: 40 },
+      { name: 'Roorkee', pct: 27 },
+      { name: 'Noida', pct: 18 },
+      { name: 'Ambernath', pct: 15 },
+    ],
+    vendors: [
+      { name: 'Late sub-ledger feeds', pct: 46 },
+      { name: 'Manual journal entries', pct: 30 },
+      { name: 'Unmapped accounts', pct: 24 },
+    ],
+    actions: [
+      'Cut off sub-ledger feeds at a fixed time each day',
+      'Route manual entries through a single validated template',
+      'Map new cost centres before period end',
+    ],
+  },
+  {
+    processKey: 'r2r',
+    key: 'intercompany',
+    name: 'Intercompany',
+    sharePct: 9,
+    valueAtRisk: 3.6, // §8.2 — JGL unmatched intercompany with related parties; the ICO stage pins it per entity
+    avgDelayDays: 12,
+    recurrence: 6,
+    concentration: 'Ingrevia and two group entities',
+    narrative:
+      '₹3.6 cr of intercompany balances are unmatched at close; the Ingrevia netting — a related party, not a group entity — is the largest single piece, with group-entity timing differences behind it.',
+    plants: [
+      { name: 'Nanjangud', pct: 35 },
+      { name: 'Roorkee', pct: 26 },
+      { name: 'Noida', pct: 21 },
+      { name: 'Ambernath', pct: 18 },
+    ],
+    vendors: [
+      { name: 'Netting not posted', pct: 48 },
+      { name: 'Timing differences', pct: 30 },
+      { name: 'FX translation', pct: 22 },
+    ],
+    actions: [
+      'Post the agreed netting entry before sign-off',
+      'Match group-entity balances on a fixed day-3 cut-off',
+      'Age unmatched lines and report them by counterparty',
+    ],
+  },
+  {
+    processKey: 'r2r',
+    key: 'judgement',
+    name: 'Judgement',
+    sharePct: 7,
+    valueAtRisk: 3.8,
+    avgDelayDays: 8,
+    recurrence: 4,
+    concentration: 'provisions and cut-off entries',
+    narrative:
+      '₹3.8 cr of accruals and provisions at close lack supporting evidence or failed to reverse automatically; provision adequacy runs against actual utilisation, and cut-off entries span the period end.',
+    plants: [
+      { name: 'Nanjangud', pct: 42 },
+      { name: 'Roorkee', pct: 26 },
+      { name: 'Noida', pct: 18 },
+      { name: 'Ambernath', pct: 14 },
+    ],
+    vendors: [
+      { name: 'Provision adequacy', pct: 41 },
+      { name: 'Cut-off entries', pct: 33 },
+      { name: 'Unreversed accruals', pct: 26 },
+    ],
+    actions: [
+      'Tie every provision to utilisation evidence before sign-off',
+      'Run an auto-reversal check on prior-period accruals',
+      'Flag postings spanning period end for cut-off review',
+    ],
+  },
+  {
+    processKey: 'r2r',
+    key: 'master-data',
+    name: 'Master data',
+    sharePct: 5,
+    valueAtRisk: 1.7,
+    avgDelayDays: 9,
+    recurrence: 3,
+    concentration: 'GL and cost-centre records',
+    narrative:
+      'Missing cost-centre defaults and unmapped GL accounts force manual coding at close; misposted lines surface as unexplained trial-balance movement.',
+    plants: [
+      { name: 'Nanjangud', pct: 36 },
+      { name: 'Roorkee', pct: 27 },
+      { name: 'Noida', pct: 19 },
+      { name: 'Ambernath', pct: 18 },
+    ],
+    vendors: [
+      { name: 'Cost-centre defaults', pct: 45 },
+      { name: 'GL account mapping', pct: 31 },
+      { name: 'Plant hierarchy', pct: 24 },
+    ],
+    actions: [
+      'Enforce complete master data before period end',
+      'Validate cost-centre defaults on every new record',
+      'Review dormant GL accounts quarterly',
     ],
   },
 ];

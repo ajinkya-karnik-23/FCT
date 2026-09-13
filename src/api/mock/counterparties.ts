@@ -61,7 +61,7 @@ for (const e of entities) {
   const groups = vendorNames.map((name) => ({ name, items: rows.filter((x) => x.vendor === name) }));
 
   // §7.24 tie — open commitments across the entity's vendors sum to its PO stage in-flight value (§7.25 per-entity table).
-  const poInFlightPaise = paise(stagesFor(e.code).find((s) => s.processKey === 'p2p' && s.step === 'PO')!.inFlightValue);
+  const poInFlightPaise = paise(stagesFor(e.code).find((s) => s.processKey === 'p2p' && s.step === 'PO')!.inFlightValue!); // the PO stage always carries a rupee figure (§7.25)
   const commitmentPaise = allocate(
     poInFlightPaise,
     groups.map((g) => g.items.reduce((sum, x) => sum + paise(x.amount), 0) + 100) // weight: blocked value plus a base so small vendors still carry open POs

@@ -2,6 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import App from '../src/App'
+import { buildItems } from '../src/components/CommandPalette'
+import { listEntities } from '../src/api'
 
 // jsdom shares one window across tests in a file; BrowserRouter reads the live
 // pathname on mount, so reset before each render.
@@ -38,7 +40,7 @@ describe('Command palette (spec/07)', () => {
     expect(rows[1].textContent).toContain('₹2.8 cr')
 
     // The kind column is part of the match target; uppercase query still matches.
-    // Both taxonomies are covered — twelve entries, capped at nine (spec/08 Part D).
+    // All three taxonomies are covered — twenty entries, capped at nine (spec/08 Part D, §16.2).
     fireEvent.change(input, { target: { value: 'ROOT CAUSE' } })
     rows = within(p).getAllByRole('button')
     expect(rows).toHaveLength(9)
@@ -100,7 +102,7 @@ describe('Command palette (spec/07)', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('lists all twelve root causes, six per process, each opening its own pair (spec/08 Part D)', () => {
+  it('lists all twenty root causes across three processes, each opening its own pair (spec/08 Part D, §16.2)', () => {
     render(<App />)
 
     const cases: Array<[string, string, string]> = [
@@ -116,6 +118,15 @@ describe('Command palette (spec/07)', () => {
       ['credit block delays', 'Credit block delays · O2C', '/entity/JGL/root-cause/o2c/credit-block'],
       ['cash application mismatch', 'Cash application mismatch · O2C', '/entity/JGL/root-cause/o2c/cash-application'],
       ['customer master', 'Customer master · O2C', '/entity/JGL/root-cause/o2c/customer-master'],
+      // §6.1 — the R2R taxonomy; each query matches exactly one entry across all twenty causes.
+      ['reconciliation breaks', 'Reconciliation breaks · R2R', '/entity/JGL/root-cause/r2r/reconciliation'],
+      ['interface breaks', 'Interface breaks · R2R', '/entity/JGL/root-cause/r2r/interface'],
+      ['journal risk', 'Journal risk · R2R', '/entity/JGL/root-cause/r2r/journal'],
+      ['close dependencies', 'Close dependencies · R2R', '/entity/JGL/root-cause/r2r/close-dependency'],
+      ['source data', 'Source data · R2R', '/entity/JGL/root-cause/r2r/source-data'],
+      ['intercompany', 'Intercompany · R2R', '/entity/JGL/root-cause/r2r/intercompany'],
+      ['judgement', 'Judgement · R2R', '/entity/JGL/root-cause/r2r/judgement'],
+      ['master data', 'Master data · R2R', '/entity/JGL/root-cause/r2r/master-data'],
     ]
 
     for (const [query, label, path] of cases) {
@@ -123,14 +134,29 @@ describe('Command palette (spec/07)', () => {
       const input = within(palette()).getByPlaceholderText(PALETTE_INPUT)
       fireEvent.change(input, { target: { value: query } })
 
-      // Each cause name matches exactly one entry — its own process.
+      // Each cause name matches exactly one entry — its own process. Exception: 'master data' also
+      // matches agent #2's record (§15); root causes sort before agents, so the cause is still first.
       const rows = within(palette()).getAllByRole('button')
-      expect(rows).toHaveLength(1)
+      expect(rows).toHaveLength(query === 'master data' ? 2 : 1)
       expect(rows[0].textContent).toContain(label)
 
       fireEvent.keyDown(input, { key: 'Enter' })
       expect(window.location.pathname).toBe(path)
       expect(screen.queryByRole('dialog')).toBeNull()
+    }
+  })
+
+  it('never shows two indistinguishable rows — kind + label + meta is unique in every entity context', () => {
+    // The pattern behind the 'master data' fix above: a name that exists in more than one taxonomy (cause vs agent)
+    // must still read as two different rows, because each row's meta states what it is. Asserted over the full item
+    // set per entity context — the DOM cap of nine rows would hide collisions past the fold.
+    for (const e of listEntities()) {
+      const items = buildItems(e.code)
+      expect(items.length).toBeGreaterThan(0)
+      const counts = new Map<string, number>()
+      for (const i of items) counts.set(`${i.kind}|${i.label}|${i.meta}`, (counts.get(`${i.kind}|${i.label}|${i.meta}`) ?? 0) + 1)
+      const dupes = [...counts.entries()].filter(([, n]) => n > 1).map(([k]) => k)
+      expect(dupes, `indistinguishable rows in ${e.code} context`).toEqual([])
     }
   })
 })

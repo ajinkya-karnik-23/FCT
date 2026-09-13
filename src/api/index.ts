@@ -5,6 +5,7 @@
 import { entities } from './mock/entities';
 import { costCentres, counterparties, plants } from './mock/counterparties';
 import { stagesFor } from './mock/stages';
+import { CLOSE_CALENDAR_SUMMARIES, CLOSE_TASKS } from './mock/closeCalendar';
 import { ANCHOR, addDays, closingLine, endOfMonth, exceptions, fmtDate, isoDate, seededTimeline, SEEDED_EVIDENCE_LINES } from './mock/exceptions';
 import { causes } from './mock/causes';
 import { causeBacklogRows, earlyOpenExceptions } from './mock/causeBacklog';
@@ -44,6 +45,8 @@ import type {
   CauseBacklogRow,
   CauseElimination,
   CauseNode,
+  CloseCalendarSummary,
+  CloseTask,
   ComplianceItem,
   CostCentre,
   Counterparty,
@@ -93,7 +96,9 @@ export type {
   Attribution,
   CashOpportunity,
   CauseBacklogRow,
+  CloseCalendarSummary,
   CloseProgress,
+  CloseTask,
   CostCentre,
   Counterparty,
   ControlCategory,
@@ -234,6 +239,12 @@ export function groupRows(by: Grouping): GroupRow[] {
 // §7.25 — per-entity stage tables; defaults to JGL so existing callers keep their figures.
 export function listStages(processKey: ProcessKey = 'p2p', entityCode?: string): ProcessStage[] {
   return stagesFor(entityCode ?? 'JGL').filter((s) => s.processKey === processKey);
+}
+
+// §16.3 — the close calendar read model: pinned aggregates plus the named blocked + critical-path slice per entity.
+export function closeCalendar(entityCode: string): (CloseCalendarSummary & { tasks: CloseTask[] }) | undefined {
+  const summary = CLOSE_CALENDAR_SUMMARIES.find((s) => s.entityCode === entityCode);
+  return summary ? { ...summary, tasks: CLOSE_TASKS.filter((t) => t.entityCode === entityCode) } : undefined;
 }
 
 export function listExceptions(entityCode?: string, processKey?: Exception['processKey']): Exception[] {
