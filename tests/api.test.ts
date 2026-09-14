@@ -230,6 +230,17 @@ describe('spec values transcribed exactly', () => {
     expect(jgl[jgl.length - 1]).toEqual({ label: '> 180 d', value: 5 })
   })
 
+  it('overdue AR derives per entity from buckets 3+4+5 (§7.31)', () => {
+    for (const e of listEntities()) {
+      const b = getReceivablesAgeing(e.code)
+      const overdue = Math.round((b[2].value + b[3].value + b[4].value) * 10) / 10
+      expect(getO2cKpis(e.code).overdueArCr).toBe(overdue)
+    }
+    // JGL's pinned group figure falls out of its own buckets; the no-code fallback keeps it too.
+    expect(getO2cKpis('JGL').overdueArCr).toBe(20.6)
+    expect(getO2cKpis().overdueArCr).toBe(20.6)
+  })
+
   it('overdue service queries are pinned per entity (§7.31)', () => {
     const expected: Record<string, number> = { JGL: 27, JBL: 34, JPS: 11, JCP: 4, JHS: 8, JRP: 41 }
     for (const e of listEntities()) expect(e.metrics.queriesOverdue).toBe(expected[e.code])

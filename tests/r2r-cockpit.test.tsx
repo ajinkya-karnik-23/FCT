@@ -31,6 +31,9 @@ describe('R2R cockpit (§16.2)', () => {
     const kpis = within(document.getElementById('fct-r2r-header-kpis'))
     expect(kpis.getByText('78%')).toBeTruthy()
     expect(kpis.getByText('18')).toBeTruthy()
+    // §8.4 — the header's open breaks is the same figure as the panel's overdue breaks; both drill to the reconciliation root cause.
+    const openBreaks = kpis.getAllByRole('link').find((l) => (l.textContent ?? '').includes('Open breaks'))!
+    expect(openBreaks.getAttribute('href')).toBe('/entity/JGL/root-cause/r2r/reconciliation')
 
     // §8.1 — the stage cards are open work in progress, not period volumes.
     expect(m.getByText('In flight at each stage')).toBeTruthy()

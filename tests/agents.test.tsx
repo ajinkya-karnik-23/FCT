@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import App from '../src/App'
-import { agentActions, agentRates, agentReversibility, agentWorkforceSummary, creditBlockDecisionFor, coverageStrip, exceptionWalkthrough, getAgent, getCounterparty, getException, getPurchaseOrder, listAgents, listExceptions, listRequests, poActionLog, requestOwnerPool } from '../src/api'
+import { agentActions, agentRates, agentReversibility, agentWorkforceSummary, creditBlockDecisionFor, coverageStrip, exceptionWalkthrough, getAgent, getCounterparty, getException, getPurchaseOrder, listAgents, listExceptions, listRequests, listTouchFunnel, poActionLog, requestOwnerPool } from '../src/api'
 
 // jsdom shares one window across tests in a file; BrowserRouter reads the live
 // pathname on mount, so reset to "/" before each render.
@@ -219,6 +219,11 @@ describe('Agents screen (§15.5)', () => {
     for (const label of ['ACTIONS THIS PERIOD', 'RESOLVED WITHOUT HUMAN', 'ESCALATED', 'OVERRIDDEN', 'REVERSED']) {
       expect(/^\d+$/.test(statValue(label) ?? '')).toBe(true)
     }
+    // §15.4 — the commercial consequence links out from the summary; its figure is JGL's touch rate, as on the palette row.
+    const te = listTouchFunnel().find((r) => r.code === 'JGL')!
+    const touchLink = within(summary).getByRole('link', { name: /touch economics/i })
+    expect(touchLink.getAttribute('href')).toBe('/touch-economics')
+    expect(touchLink.textContent).toContain(`JGL ${te.touchesTodayPer1000} → ${te.touchesAfterPer1000}`)
     expect(breadcrumbText()).toContain('Agents')
     expect(activeNavLabel()).toContain('Agents')
   })

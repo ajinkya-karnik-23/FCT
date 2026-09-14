@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Fragment } from 'react'
+import { Link } from 'react-router-dom'
 import { getEntity, getTouchLeverStages, listCauses, listTouchFunnel } from '../api'
 import type { CauseNode, TouchFunnelRow } from '../api'
 import { DataTable, Eyebrow, type Column } from '../components'
@@ -39,7 +40,8 @@ export function TouchEconomics() {
   const causes: CauseNode[] = listCauses('p2p')
 
   const funnelColumns: Array<Column<TouchFunnelRow>> = [
-    { width: '200px', header: 'Entity', render: (r) => <span style={{ color: colors.textPrimary }}>{getEntity(r.code)?.name ?? r.code}</span> },
+    // §8.4 — the same names drill on every other screen: entity rows to their home, causes to their root-cause record.
+    { width: '200px', header: 'Entity', render: (r) => <Link to={`/entity/${r.code}`} style={{ color: colors.accentText, textDecoration: 'none' }}>{getEntity(r.code)?.name ?? r.code}</Link> },
     { width: '110px', align: 'right', header: 'Touchless %', render: (r) => <span style={{ fontFamily: fonts.mono }}>{`${r.touchlessPct}%`}</span> },
     { width: '110px', align: 'right', header: 'Manual %', render: (r) => <span style={{ fontFamily: fonts.mono }}>{`${r.manualPct}%`}</span> },
     { width: '130px', align: 'right', header: 'Agent-resolved %', render: (r) => <span style={{ fontFamily: fonts.mono }}>{`${r.agentResolvedPct}%`}</span> },
@@ -49,7 +51,8 @@ export function TouchEconomics() {
   ]
 
   const causeColumns: Array<Column<CauseNode>> = [
-    { width: '240px', header: 'Cause', render: (c) => <span style={{ color: colors.textPrimary }}>{c.name}</span> },
+    // §15.4 — the mix is JGL's, so each cause drills to its root-cause record on that entity.
+    { width: '240px', header: 'Cause', render: (c) => <Link to={`/entity/JGL/root-cause/p2p/${c.key}`} style={{ color: colors.accentText, textDecoration: 'none' }}>{c.name}</Link> },
     { width: '160px', align: 'right', header: 'Share of exceptions %', render: (c) => <span style={{ fontFamily: fonts.mono }}>{`${c.sharePct}%`}</span> },
     { width: '180px', align: 'right', header: 'Agents can resolve %', render: (c) => <span style={{ fontFamily: fonts.mono }}>{`${c.agentResolvablePct}%`}</span> },
   ]

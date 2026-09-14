@@ -28,7 +28,8 @@ const kpiValueStyle: CSSProperties = { fontFamily: fonts.mono, fontSize: 26 }
 export function O2CCockpit() {
   const { code } = useParams()
   const entity = getEntity(code ?? '')
-  const kpis = getO2cKpis()
+  // §7.31 — overdue AR follows the entity (buckets 3+4+5 of its receivables profile); DSO and unapplied already do via metrics.
+  const kpis = getO2cKpis(code)
   const stages = listStages('o2c', code)
   const causes = listCauses('o2c')
   const ageing = getReceivablesAgeing(code ?? '')

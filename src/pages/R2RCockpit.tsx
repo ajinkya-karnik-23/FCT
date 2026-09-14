@@ -111,8 +111,10 @@ export function R2RCockpit() {
             <Link to={`/entity/${code}/close-calendar`} className="fct-table-row" style={{ color: colors.textPrimary, textDecoration: 'none' }}>
               <Metric label="Close" value={`${entity.metrics.closePercent.current}%`} trend={entity.metrics.closePercent} inverse={false} valueStyle={kpiValueStyle} />
             </Link>
-            {/* §7.2 — open breaks tie to the rail count and the REC stage */}
-            <Kpi label="Open breaks" value={`${entity.metrics.reconAgedBreaks}`} />
+            {/* §7.2 — open breaks tie to the rail count and the REC stage; §8.4 — same figure as the panel below, so it drills there too */}
+            <Link to={`/entity/${code}/root-cause/r2r/reconciliation`} className="fct-table-row" style={{ color: colors.textPrimary, textDecoration: 'none' }}>
+              <Kpi label="Open breaks" value={`${entity.metrics.reconAgedBreaks}`} />
+            </Link>
           </div>
         )}
       </div>

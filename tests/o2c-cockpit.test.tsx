@@ -116,4 +116,12 @@ describe('O2C cockpit (spec/08 Part B)', () => {
     expect(window.location.pathname).toBe('/entity/JGL/o2c')
     expect(screen.queryByRole('dialog')).toBeNull()
   })
+
+  it('overdue AR follows the entity — JCP derives its own from buckets 3+4+5 (§7.31)', () => {
+    window.history.pushState(null, '', '/entity/JCP/o2c')
+    render(<App />)
+    const m = main()
+    // JCP: 1.1 + 1.1 + 0.8 — read under the label so a coincidental match elsewhere cannot pass this.
+    expect(m.getByText('OVERDUE AR').nextElementSibling?.textContent).toBe('₹3.0 cr')
+  })
 })

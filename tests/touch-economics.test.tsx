@@ -112,6 +112,8 @@ describe('Touch economics screen (§15.3/§15.4)', () => {
     for (const r of listTouchFunnel()) {
       const row = rows.find((el) => el.textContent?.includes(`${r.touchesTodayPer1000} → ${r.touchesAfterPer1000}`))!
       expect(row).toBeTruthy()
+      // §8.4 — the entity name drills to that entity's home (the only link in this table is the first cell).
+      expect(row.querySelector('a')?.getAttribute('href')).toBe(`/entity/${r.code}`)
       // Clay's DataTable wraps the cells in an inner grid, so the cells are one level down.
       expect(Array.from(row.firstElementChild!.children).map((c) => c.textContent?.trim()).slice(1)).toEqual([
         `${r.touchlessPct}%`,
@@ -166,6 +168,8 @@ describe('Touch economics screen (§15.3/§15.4)', () => {
       expect(row).toBeTruthy()
       expect(row!.textContent).toContain(`${c.sharePct}%`)
       expect(row!.textContent).toContain(`${c.agentResolvablePct}%`)
+      // §8.4 — the cause drills to its root-cause record on JGL, whose mix this is (§15.4).
+      expect(row!.querySelector('a')?.getAttribute('href')).toBe(`/entity/JGL/root-cause/p2p/${c.key}`)
     }
   })
 

@@ -18,6 +18,7 @@ import {
   forecasts,
   o2cKpis,
   o2cServiceControl,
+  overdueArByEntity,
   payablesByReason,
   receivablesAgeingByEntity,
   recurringCauses,
@@ -417,9 +418,11 @@ export function getServiceControl(): ServiceControl {
   return serviceControl;
 }
 
-// spec/08 — O2C cockpit datasets.
-export function getO2cKpis(): O2cKpis {
-  return o2cKpis;
+// spec/08 — O2C cockpit datasets. §7.31 — overdue AR is per entity (buckets 3+4+5 of its receivables profile); the
+// shared object keeps JGL's pinned figures for the no-entity fallback, as DSO and unapplied do on the page.
+export function getO2cKpis(entityCode?: string): O2cKpis {
+  const overdue = entityCode ? overdueArByEntity[entityCode] : undefined;
+  return overdue === undefined ? o2cKpis : { ...o2cKpis, overdueArCr: overdue };
 }
 
 export function getO2cServiceControl(): O2cServiceControl {

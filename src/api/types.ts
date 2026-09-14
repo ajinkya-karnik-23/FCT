@@ -333,10 +333,11 @@ export interface ServiceControl {
   manualPaymentRuns: number; // 4
 }
 
-// spec/08 — O2C cockpit header KPIs (labels and colors composed at render time).
+// spec/08 — O2C cockpit header KPIs (labels and colors composed at render time). The object holds JGL's pinned figures;
+// getO2cKpis(code) overrides overdueArCr per entity from its receivables buckets 3+4+5 (§7.31).
 export interface O2cKpis {
   dsoDays: number; // 62
-  overdueArCr: number; // 20.6
+  overdueArCr: number; // 20.6 (JGL)
   unappliedCr: number; // 3.1
 }
 

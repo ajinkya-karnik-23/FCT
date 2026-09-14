@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { agentActions, agentRates, agentReversibility, agentWorkforceSummary, coverageStrip, getCounterparty, getException, getPurchaseOrder, listAgents, listRequests } from '../api'
+import { agentActions, agentRates, agentReversibility, agentWorkforceSummary, coverageStrip, getCounterparty, getException, getPurchaseOrder, listAgents, listRequests, listTouchFunnel } from '../api'
 import type { Agent, AgentAction, AgentMetrics, AgentProcess, AgentStatus, AgentType, CoverageStage } from '../api'
 import { Eyebrow, Metric, StatusDot } from '../components'
 import { formatCr } from '../lib/format'
@@ -370,6 +370,8 @@ export function Agents() {
   const byId = new Map(agents.map((a) => [a.id, a]))
   const summary = agentWorkforceSummary()
   const strip = coverageStrip()
+  // §15.4 — the workforce's commercial consequence; JGL carries the illustrative touch rate, as on its own screen.
+  const te = listTouchFunnel().find((r) => r.code === 'JGL')!
   const [sort, setSort] = useState<SortKey>('default')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -421,6 +423,8 @@ export function Agents() {
           <Stat label="REVERSED" value={String(summary.reversed)} />
           <Stat label="PREVENTIVE" value={`${summary.preventive} of ${summary.totalRoles}`} />
         </div>
+        {/* §15.4 — the commercial conversation this workforce buys; same figure as the palette row, so the two never disagree */}
+        <Link to="/touch-economics" data-fct-touch-link style={{ fontFamily: fonts.mono, fontSize: 10, letterSpacing: '0.08em', color: colors.accentText, textDecoration: 'none' }}>{`Touch economics · JGL ${te.touchesTodayPer1000} → ${te.touchesAfterPer1000} / 1,000 touches`}</Link>
       </section>
 
       {/* §15.2.0 layer 2 — the lifecycle coverage strip: stages across, agents positioned where they act */}

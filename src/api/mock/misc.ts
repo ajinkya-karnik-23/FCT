@@ -67,6 +67,13 @@ export const receivablesAgeingByEntity: Record<string, AgeingBucket[]> = Object.
   entities.map((e) => [e.code, RECEIVABLES_AGEING_CR[e.code].map((value, i) => ({ label: RECEIVABLES_BUCKET_LABELS[i], value }))])
 );
 
+// §7.31 — overdue AR is everything past due: buckets 3+4+5 of the entity's receivables profile (the last two are the
+// >90-day tie). JGL's pinned group figure (20.6) falls out of its own buckets, so it never moves; every other entity
+// derives its own from its own profile rather than borrowing the group number.
+export const overdueArByEntity: Record<string, number> = Object.fromEntries(
+  entities.map((e) => [e.code, Math.round(receivablesAgeingByEntity[e.code].slice(2).reduce((s, b) => s + b.value, 0) * 10) / 10])
+);
+
 // Ties to §7.5 root-cause values (sum ₹18.6 cr = JGL blocked AP).
 export const payablesByReason: PayableReason[] = [
   { name: 'Missing GR', value: 6.4 },
