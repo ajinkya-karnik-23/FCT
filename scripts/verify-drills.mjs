@@ -9,9 +9,10 @@
 //   5. ⌘K lists all twelve ROOT CAUSE entries, six per process, each opening its pair.
 //   6. The §8.2 consequence strip drills out: accrual exposure to the blocked worklist
 //      filtered to missing GR (?cause=missing-gr), revenue at risk to the O2C Collection
-//      stage (#fct-stage-COL), FX/intercompany to the intercompany netting row
-//      (#fct-ic-netting) — cross-page hash anchors scroll into view. Provision adequacy
-//      is not a link (read-only per §8.4).
+//      stage (#fct-stage-COL), provision adequacy to the R2R accruals panel
+//      (#fct-panel-accruals), FX/intercompany to the intercompany netting row
+//      (#fct-ic-netting) — cross-page hash anchors scroll into view. All four figures are links,
+//      and the entity-home Close tile reaches the same close calendar as a second entry point.
 // Counterparty pages (spec/11): vendor / customer / cost-centre / plant load from their URLs, are
 // reached by drill from worklist, root-cause and P2P-cockpit rows, and are findable in ⌘K; §8.8
 // restricted content is absent from all four routes.
@@ -641,11 +642,14 @@ async function drillPass(themeName, palette) {
     await waitForPath((p) => p === '/entity/JGL/close-calendar', 'the close calendar from the palette')
   }
 
-  // ---- item 6: §8.2 consequence strip drills out to its three targets ----
-  console.log('\n-- item 6: consequence strip — accrual, revenue at risk, FX/intercompany')
+  // ---- item 6: §8.2 consequence strip drills out to its four targets ----
+  console.log('\n-- item 6: consequence strip — accrual, revenue at risk, provision adequacy, FX/intercompany')
   await navigate(BASE + '/entity/JGL')
   // a:not(.fct-trace-link) — the §8.10 trace strip inside this section adds three more links; the check is about the four consequence figures only
-  check(`${themeName}/item6: only three of the four figures are links (provision adequacy is read-only)`, (await evaluate(`document.getElementById('fct-consequence').querySelectorAll('a:not(.fct-trace-link)').length`)) === 3, `links=${await evaluate(`document.getElementById('fct-consequence').querySelectorAll('a:not(.fct-trace-link)').length`)}`)
+  check(`${themeName}/item6: all four figures are links`, (await evaluate(`document.getElementById('fct-consequence').querySelectorAll('a:not(.fct-trace-link)').length`)) === 4, `links=${await evaluate(`document.getElementById('fct-consequence').querySelectorAll('a:not(.fct-trace-link)').length`)}`)
+  // The Close tile on this same screen drills to the close calendar too — one figure, two entry points.
+  const closeTile = await evaluate(`(() => { const a = document.querySelector('main a[href="/entity/JGL/close-calendar"]'); return a && a.textContent.trim().startsWith('Close') ? 'tile' : null })()`)
+  check(`${themeName}/item6: the Close tile drills to the close calendar`, closeTile === 'tile', `got=${JSON.stringify(closeTile)}`)
 
   await clickStripFigure('₹6.4 cr') // accrual exposure → blocked worklist filtered to missing GR
   await waitForPath((p) => p === '/entity/JGL/p2p/invoices', 'the blocked invoice worklist from the strip')
@@ -666,6 +670,12 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item6: FX drill carries #fct-ic-netting`, (await evaluate('location.hash')) === '#fct-ic-netting', `hash=${await evaluate('location.hash')}`)
   await waitForInView('fct-ic-netting', 'the intercompany netting row after the hash scroll')
   await screenshot(`${themeName}-item6-ic-netting.png`)
+
+  await navigate(BASE + '/entity/JGL')
+  await clickStripFigure('Provision adequacy') // → R2R cockpit, accruals panel anchor — the figure's own home
+  await waitForPath((p) => p === '/entity/JGL/r2r', 'the R2R cockpit from the strip')
+  check(`${themeName}/item6: provision drill carries #fct-panel-accruals`, (await evaluate('location.hash')) === '#fct-panel-accruals', `hash=${await evaluate('location.hash')}`)
+  await waitForInView('fct-panel-accruals', 'the accruals panel after the hash scroll')
 
   // ---- item 7: service & attribution — per-entity bar + group comparison, gross/net scorecard, greyed unmeasurable SLAs, breadcrumb + active nav ----
   console.log('\n-- item 7: service & attribution screen')

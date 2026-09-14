@@ -143,7 +143,7 @@ describe('R2R cockpit (§16.2)', () => {
     render(<App />)
     const ic = within(document.getElementById('fct-panel-intercompany'))
 
-    expect(ic.getByText('read-only · source: trial balance extract')).toBeTruthy()
+    expect(ic.getByText('source: trial balance extract')).toBeTruthy()
     const total = ic.getByRole('link', { name: '₹3.6 cr' })
     expect(total.getAttribute('href')).toBe('/entity/JGL/working-capital#fct-ic-netting')
     // Ingrevia is a related party, not a group entity — tagged as such on its row.
@@ -160,7 +160,7 @@ describe('R2R cockpit (§16.2)', () => {
     render(<App />)
     const a = within(document.getElementById('fct-panel-accruals'))
 
-    expect(a.getByText('read-only · source: trial balance extract')).toBeTruthy()
+    expect(a.getByText('source: trial balance extract')).toBeTruthy()
     const exposure = a.getByRole('link', { name: '₹6.4 cr' })
     expect(exposure.getAttribute('href')).toBe('/entity/JGL/p2p/invoices?cause=missing-gr')
     expect(a.getByText('34% of blocked AP — no goods receipt means no accrual')).toBeTruthy()

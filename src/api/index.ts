@@ -15,7 +15,6 @@ import { apEffectiveness, controlSignals } from './mock/controls';
 import {
   blockedInvoiceAgeingByEntity,
   cashOpportunities,
-  closeProgress,
   forecasts,
   o2cKpis,
   o2cServiceControl,
@@ -103,7 +102,6 @@ export type {
   CashOpportunity,
   CauseBacklogRow,
   CloseCalendarSummary,
-  CloseProgress,
   CloseTask,
   CostCentre,
   Counterparty,
@@ -398,7 +396,6 @@ export function getGroupSummary(): GroupSummary {
     valueAtRiskTrend: sumTrends(entities.flatMap((e) => [e.metrics.apBlocked, e.metrics.arOver90])),
     openExceptions: openExceptions(),
     openExceptionsPrevious: openExceptionsPrevious(), // §7.16 — computed from prior-period counts
-    closeProgress,
     transformationHealth,
   };
 }

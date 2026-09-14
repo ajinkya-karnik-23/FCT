@@ -5,7 +5,6 @@ import type {
   AgeingBucket,
   Attribution,
   CashOpportunity,
-  CloseProgress,
   Forecast,
   O2cKpis,
   O2cServiceControl,
@@ -113,7 +112,6 @@ export const o2cServiceControl: O2cServiceControl = {
 
 // spec/03 — Group aggregates shown on the group view. Score / value at risk / open
 // exceptions are computed in src/api/score.ts, never stored here (§7.2).
-export const closeProgress: CloseProgress = { pct: 71, totalTasks: 214, overdue: 19, blockers: 6, entitiesAtRisk: 3 };
 
 // §7.5 — group cause-elimination backlog; per-entity rows in entities.ts must sum to these figures (§7.18).
 export const transformationHealth: TransformationHealth = { automationRatePct: 68, repeatExceptionsQoqPct: -14, causeElimination: { identified: 34, eliminated: 11, inProgress: 6 }, touchlessInvoicesPct: 54 };

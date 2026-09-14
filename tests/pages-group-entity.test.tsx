@@ -75,8 +75,8 @@ describe('Group view (spec/04)', () => {
     const m = main()
 
     // Default is Entity — one drill link per legal entity. Row links are scoped to the table so the
-    // cross-process trace links in the close card do not count toward the row total.
-    const rowLinks = () => m.queryAllByRole('link').filter((l) => l.className.includes('fct-table-row'))
+    // close card's own drill (and its cross-process trace) do not count toward the row total.
+    const rowLinks = () => m.queryAllByRole('link').filter((l) => l.className.includes('fct-table-row') && !document.getElementById('fct-close-card')!.contains(l))
     expect(m.getByRole('heading', { level: 1, name: 'Finance health across six legal entities' })).toBeTruthy()
     expect(rowLinks()).toHaveLength(6)
 
@@ -113,14 +113,16 @@ describe('Group view (spec/04)', () => {
     expect(m.getByText('26%')).toBeTruthy()
 
     // §8.2 — outside the close window the card reads as pre-close readiness (default mode).
-    expect(m.getByText('Pre-close readiness — 3 days to close')).toBeTruthy()
-    expect(m.getByText('71%')).toBeTruthy()
-    expect(m.getByText('of 214 tasks complete')).toBeTruthy()
-    expect(m.getByText('19 overdue')).toBeTruthy()
-    expect(m.getByText('6 blockers')).toBeTruthy()
-    expect(m.getByText('3 entities at risk')).toBeTruthy()
-    // §8.4/§16.8 — the close-calendar figures cannot drill; they are tagged read-only rather than silently unclickable.
-    expect(m.getByText('read-only · source: close calendar')).toBeTruthy()
+    const closeCard = within(document.getElementById('fct-close-card'))
+    expect(closeCard.getByText('Pre-close readiness — 3 days to close')).toBeTruthy()
+    expect(closeCard.getByText('78%')).toBeTruthy()
+    expect(closeCard.getByText('of 214 tasks complete')).toBeTruthy()
+    expect(closeCard.getByText('7 blockers')).toBeTruthy()
+    expect(closeCard.getByText('committed day 6')).toBeTruthy()
+    expect(closeCard.getByText('predicted day 6')).toBeTruthy()
+    // §8.4 — the card drills to the default entity's close calendar, where these figures are computed.
+    const cardLink = m.getAllByRole('link').find((l) => l.getAttribute('href') === '/entity/JGL/close-calendar' && (l.textContent ?? '').includes('of 214 tasks complete'))!
+    expect(cardLink).toBeTruthy()
 
     // Transformation health.
     expect(m.getByText(/transformation health/i)).toBeTruthy()
@@ -203,7 +205,7 @@ describe('Entity health home (spec/04)', () => {
     expect(m.getByRole('link', { name: /Cash unapplied/ }).getAttribute('href')).toBe('/entity/JGL/working-capital')
     expect(m.getByRole('link', { name: /327 invoices/ }).getAttribute('href')).toBe('/entity/JGL/p2p')
     expect(m.getByRole('link', { name: /41 customers/ }).getAttribute('href')).toBe('/entity/JGL/working-capital')
-    expect(m.getByRole('link', { name: /7 blockers/ }).getAttribute('href')).toBe('/entity/JGL')
+    expect(m.getByRole('link', { name: /7 blockers/ }).getAttribute('href')).toBe('/entity/JGL/close-calendar')
     // No-cause entry points resolve to the default pair — p2p plus its first cause (spec/08 Part D).
     expect(m.getByRole('link', { name: /18 aged breaks/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
     expect(m.getByRole('link', { name: /12 high-risk JEs/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
@@ -225,11 +227,11 @@ describe('Entity health home (spec/04)', () => {
       expect(within(strip).getByText(explanation)).toBeTruthy()
     }
 
-    // §8.2 — three figures drill to their targets; provision adequacy is tagged read-only (§8.4).
+    // §8.2 — all four figures drill to their targets; provision adequacy lands on the R2R accruals panel that carries it.
     expect(within(strip).getByRole('link', { name: /Accrual exposure/ }).getAttribute('href')).toBe('/entity/JGL/p2p/invoices?cause=missing-gr')
     expect(within(strip).getByRole('link', { name: /Revenue at risk/ }).getAttribute('href')).toBe('/entity/JGL/o2c#fct-stage-COL')
+    expect(within(strip).getByRole('link', { name: /Provision adequacy/ }).getAttribute('href')).toBe('/entity/JGL/r2r#fct-panel-accruals')
     expect(within(strip).getByRole('link', { name: /FX \/ intercompany/ }).getAttribute('href')).toBe('/entity/JGL/working-capital#fct-ic-netting')
-    expect(within(strip).getByText('read-only · source: trial balance extract')).toBeTruthy()
 
     // §8.2 — connecting callout above the strip: mode-aware sentence (default pre-close), first figure drills to the blocked invoice worklist, second anchors the strip.
     expect(m.getByText((_content, el) => el.textContent === '₹18.6 cr blocked → ₹6.4 cr will not accrue in 3 days unless goods receipts are posted → COGS understated')).toBeTruthy()
@@ -315,12 +317,13 @@ describe('Entity health home (spec/04)', () => {
 
     fireEvent.click(within(banner).getByRole('button', { name: 'CLOSE' }))
     const closePanel = m.getByText('At close').closest('section')!
-    // Close status and blockers cannot drill — tagged read-only per §8.4; exposure drills to the missing-GR worklist filter.
+    // Close status and blockers drill to the close calendar; exposure drills to the missing-GR worklist filter.
     expect(within(closePanel).getByText('78%')).toBeTruthy()
     expect(within(closePanel).getByText('+4 vs last period')).toBeTruthy()
     const blockers = within(closePanel).getByText('Blockers').parentElement!
     expect(within(blockers).getByText('7')).toBeTruthy()
-    expect(m.getAllByText('read-only · source: close calendar')).toHaveLength(2)
+    expect(within(closePanel).getByRole('link', { name: /Close status/ }).getAttribute('href')).toBe('/entity/JGL/close-calendar')
+    expect(within(closePanel).getByRole('link', { name: /Blockers/ }).getAttribute('href')).toBe('/entity/JGL/close-calendar')
     expect(within(closePanel).getByRole('link', { name: /Exposure at close/ }).getAttribute('href')).toBe('/entity/JGL/p2p/invoices?cause=missing-gr')
 
     fireEvent.click(within(banner).getByRole('button', { name: 'BAU' }))
@@ -386,7 +389,7 @@ describe('Entity health home (spec/04)', () => {
     for (const explanation of ['blocked payables not yet accrued', 'open disputes and credit blocks', 'provision vs actual utilisation', 'unmatched intercompany with related parties']) {
       expect(within(strip).getByText(explanation)).toBeTruthy()
     }
-    expect(within(strip).getByText('read-only · source: trial balance extract')).toBeTruthy()
+    expect(within(strip).getByRole('link', { name: /Provision adequacy/ }).getAttribute('href')).toBe('/entity/JBL/r2r#fct-panel-accruals')
     // Drill targets follow the entity code.
     expect(within(strip).getByRole('link', { name: /Accrual exposure/ }).getAttribute('href')).toBe('/entity/JBL/p2p/invoices?cause=missing-gr')
     expect(within(strip).getByRole('link', { name: /Revenue at risk/ }).getAttribute('href')).toBe('/entity/JBL/o2c#fct-stage-COL')

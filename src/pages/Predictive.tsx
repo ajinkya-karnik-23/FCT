@@ -125,14 +125,13 @@ export function Predictive() {
 
       {/* §8.6 — the DPO honesty flag: headline figure with the blocked-invoice adjustment beside it */}
       <section style={cardStyle}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16 }}>
-          <Eyebrow style={typeScale.tableHeader}>DPO today</Eyebrow>
-          {/* §8.4 — a figure that cannot drill is tagged read-only rather than silently unclickable */}
-          <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textFaint }}>read-only · source: entity metrics</span>
-        </div>
+        <Eyebrow style={typeScale.tableHeader}>DPO today</Eyebrow>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {/* §8.5.1 — DPO is direction-neutral: rising terms and unprocessable invoices both raise it */}
-          <Metric label="DPO" value={`${entity.metrics.dpo.current} days`} trend={entity.metrics.dpo} inverse={null} />
+          {/* §8.4 — the figure drills to the working-capital screen, which carries the same sentence */}
+          <Link to={`/entity/${entity.code}/working-capital`} className="fct-table-row" style={{ color: colors.textPrimary, textDecoration: 'none' }}>
+            <Metric label="DPO" value={`${entity.metrics.dpo.current} days`} trend={entity.metrics.dpo} inverse={null} />
+          </Link>
           {/* §8.6 — same sentence as Working capital, tied to the same entity metrics so the figures cannot drift */}
           <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textMuted }}>{`Includes ${formatCr(entity.metrics.apBlocked.current)} of blocked invoices; adjusted DPO ${entity.metrics.dpoAdjusted} days.`}</span>
         </div>

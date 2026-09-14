@@ -294,14 +294,6 @@ export interface RecurringCause {
   sharePct: number;
 }
 
-export interface CloseProgress {
-  pct: number; // 71
-  totalTasks: number; // 214
-  overdue: number; // 19
-  blockers: number; // 6
-  entitiesAtRisk: number; // 3
-}
-
 // §7.5/§7.18 — cause elimination backlog counts; notStarted is derived (identified − eliminated − inProgress), never stored.
 export interface CauseElimination {
   identified: number; // total causes in the elimination backlog
@@ -363,7 +355,6 @@ export interface GroupSummary {
   valueAtRiskTrend: Trend; // §7.14 — sum of entity apBlocked + arOver90 trends per period
   openExceptions: number; // computed — openExceptions()
   openExceptionsPrevious: number; // §7.16 — computed — openExceptionsPrevious()
-  closeProgress: CloseProgress;
   transformationHealth: TransformationHealth;
 }
 

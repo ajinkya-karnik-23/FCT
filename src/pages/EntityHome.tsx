@@ -22,8 +22,8 @@ type Tile = { label: string; value: string; sub: string; tone: string; to: strin
 // Prototype scaling: insight fill is sharePct * 2.6 % of the track width.
 const INSIGHT_FILL_SCALE = 2.6
 
-// §8.5 — mode-aware top panel cell; readOnlySource tags a figure that cannot drill (§8.4).
-type PanelCell = { label: string; value: string; sub?: string; subTone?: string; to?: string; readOnlySource?: string }
+// §8.5 — mode-aware top panel cell; every figure drills to its target (§8.4).
+type PanelCell = { label: string; value: string; sub?: string; subTone?: string; to: string }
 
 const MODE_PANEL_TITLE: Record<CockpitMode, string> = {
   close: 'At close',
@@ -93,8 +93,9 @@ export function EntityHome() {
   let panel: PanelCell[]
   if (mode === 'close') {
     panel = [
-      { label: 'Close status', value: `${m.closePercent.current}%`, sub: countDelta(m.closePercent.current, m.closePercent.previous), subTone: trendColor(pointDirection(m.closePercent.current, m.closePercent.previous, false)), readOnlySource: 'close calendar' },
-      { label: 'Blockers', value: `${m.closeBlockers}`, sub: 'blocking the close', readOnlySource: 'close calendar' },
+      // §8.4 — both figures drill to this entity's close calendar, where they are computed
+      { label: 'Close status', value: `${m.closePercent.current}%`, sub: countDelta(m.closePercent.current, m.closePercent.previous), subTone: trendColor(pointDirection(m.closePercent.current, m.closePercent.previous, false)), to: `/entity/${entity.code}/close-calendar` },
+      { label: 'Blockers', value: `${m.closeBlockers}`, sub: 'blocking the close', to: `/entity/${entity.code}/close-calendar` },
       { label: 'Exposure at close', value: formatCr(m.accrualExposure!), sub: m.accrualExposureNote ?? 'blocked payables not yet accrued', to: `/entity/${entity.code}/p2p/invoices?cause=missing-gr` },
     ]
   } else if (mode === 'bau') {
@@ -119,7 +120,7 @@ export function EntityHome() {
     { label: 'Cash unapplied', value: formatCr(entity.metrics.cashUnapplied.current), trend: entity.metrics.cashUnapplied, inverse: true, sub: subs.cashUnapplied, tone: colors.statusAmber, to: `/entity/${entity.code}/working-capital` },
     { label: 'AP blocked', value: formatCr(entity.metrics.apBlocked.current), trend: entity.metrics.apBlocked, inverse: true, sub: subs.apBlocked, tone: colors.statusRed, to: `/entity/${entity.code}/p2p` },
     { label: 'AR > 90 days', value: formatCr(entity.metrics.arOver90.current), trend: entity.metrics.arOver90, inverse: true, sub: subs.arOver90, tone: colors.statusRed, to: `/entity/${entity.code}/working-capital` },
-    { label: 'Close', value: `${entity.metrics.closePercent.current}%`, trend: entity.metrics.closePercent, inverse: false, sub: subs.close, tone: colors.statusAmber, to: `/entity/${entity.code}` },
+    { label: 'Close', value: `${entity.metrics.closePercent.current}%`, trend: entity.metrics.closePercent, inverse: false, sub: subs.close, tone: colors.statusAmber, to: `/entity/${entity.code}/close-calendar` },
     { label: 'Reconciliations', value: formatCr(entity.metrics.reconValue.current), trend: entity.metrics.reconValue, inverse: true, sub: subs.recon, tone: colors.statusRed, to: defaultRootCauseTo(entity.code) },
     { label: 'Controls', value: `${entity.metrics.controlBreaches} breaches`, sub: subs.controls, tone: colors.statusAmber, to: defaultRootCauseTo(entity.code) },
   ]
@@ -138,11 +139,11 @@ export function EntityHome() {
 
   // §8.2 — financial consequence strip; all six entities carry the four figures, so render where they exist.
   const consequenceReady = entity.metrics.accrualExposure !== undefined && entity.metrics.revenueAtRisk !== undefined && entity.metrics.provisionAdequacyPct !== undefined && entity.metrics.fxIntercompanyExposure !== undefined
-  // §8.2 drill targets: accrual → blocked worklist filtered to the goods-receipt cause; revenue at risk → O2C collection stage; FX/intercompany → working-capital netting row. Provision adequacy has no target — tagged read-only per §8.4.
-  const consequence: Array<{ label: string; value: string; explanation: string; to?: string; readOnly?: boolean }> = [
+  // §8.2 drill targets: accrual → blocked worklist filtered to the goods-receipt cause; revenue at risk → O2C collection stage; provision adequacy → R2R accruals panel that carries it; FX/intercompany → working-capital netting row.
+  const consequence: Array<{ label: string; value: string; explanation: string; to: string }> = [
     { label: 'Accrual exposure at close', value: formatCr(entity.metrics.accrualExposure!), explanation: entity.metrics.accrualExposureNote ?? 'blocked payables not yet accrued', to: `/entity/${entity.code}/p2p/invoices?cause=missing-gr` },
     { label: 'Revenue at risk', value: formatCr(entity.metrics.revenueAtRisk!), explanation: 'open disputes and credit blocks', to: `/entity/${entity.code}/o2c#fct-stage-COL` },
-    { label: 'Provision adequacy', value: `${entity.metrics.provisionAdequacyPct}%`, explanation: 'provision vs actual utilisation', readOnly: true },
+    { label: 'Provision adequacy', value: `${entity.metrics.provisionAdequacyPct}%`, explanation: 'provision vs actual utilisation', to: `/entity/${entity.code}/r2r#fct-panel-accruals` },
     { label: 'FX / intercompany exposure', value: formatCr(entity.metrics.fxIntercompanyExposure!), explanation: 'unmatched intercompany with related parties', to: `/entity/${entity.code}/working-capital#fct-ic-netting` },
   ]
 
@@ -210,23 +211,11 @@ export function EntityHome() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${panel.length}, 1fr)` }}>
           {panel.map((c, i) => (
-            c.to ? (
-              <Link key={c.label} to={c.to} className="fct-table-row" style={{ padding: '18px 20px', borderRight: i < panel.length - 1 ? `1px solid ${colors.borderSubtle}` : undefined, display: 'flex', flexDirection: 'column', gap: 8, color: colors.textPrimary, textDecoration: 'none' }}>
-                <span style={{ fontSize: 12, color: colors.textMuted }}>{c.label}</span>
-                <span style={typeScale.tileValue}>{c.value}</span>
-                {c.sub && <span style={{ fontSize: 12, color: c.subTone ?? colors.textSecondary }}>{c.sub}</span>}
-              </Link>
-            ) : (
-              <div key={c.label} style={{ padding: '18px 20px', borderRight: i < panel.length - 1 ? `1px solid ${colors.borderSubtle}` : undefined, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span style={{ fontSize: 12, color: colors.textMuted }}>{c.label}</span>
-                <span style={typeScale.tileValue}>{c.value}</span>
-                {c.sub && <span style={{ fontSize: 12, color: c.subTone ?? colors.textSecondary }}>{c.sub}</span>}
-                {c.readOnlySource && (
-                  // §8.4 — a figure that cannot drill is tagged read-only rather than silently unclickable
-                  <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textFaint }}>read-only · source: {c.readOnlySource}</span>
-                )}
-              </div>
-            )
+            <Link key={c.label} to={c.to} className="fct-table-row" style={{ padding: '18px 20px', borderRight: i < panel.length - 1 ? `1px solid ${colors.borderSubtle}` : undefined, display: 'flex', flexDirection: 'column', gap: 8, color: colors.textPrimary, textDecoration: 'none' }}>
+              <span style={{ fontSize: 12, color: colors.textMuted }}>{c.label}</span>
+              <span style={typeScale.tileValue}>{c.value}</span>
+              {c.sub && <span style={{ fontSize: 12, color: c.subTone ?? colors.textSecondary }}>{c.sub}</span>}
+            </Link>
           ))}
         </div>
       </section>
@@ -278,23 +267,11 @@ export function EntityHome() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
               {consequence.map((c, i) => (
-                c.to ? (
-                  <Link key={c.label} to={c.to} className="fct-table-row" style={{ padding: '18px 20px', borderRight: i < consequence.length - 1 ? `1px solid ${colors.borderSubtle}` : undefined, display: 'flex', flexDirection: 'column', gap: 8, color: colors.textPrimary, textDecoration: 'none' }}>
-                    <span style={{ fontSize: 12, color: colors.textMuted }}>{c.label}</span>
-                    <span style={typeScale.tileValue}>{c.value}</span>
-                    <span style={{ fontSize: 12, color: colors.textSecondary }}>{c.explanation}</span>
-                  </Link>
-                ) : (
-                  <div key={c.label} style={{ padding: '18px 20px', borderRight: i < consequence.length - 1 ? `1px solid ${colors.borderSubtle}` : undefined, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <span style={{ fontSize: 12, color: colors.textMuted }}>{c.label}</span>
-                    <span style={typeScale.tileValue}>{c.value}</span>
-                    <span style={{ fontSize: 12, color: colors.textSecondary }}>{c.explanation}</span>
-                    {c.readOnly && (
-                      // §8.4 — a figure that cannot drill is tagged read-only rather than silently unclickable
-                      <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textFaint }}>read-only · source: trial balance extract</span>
-                    )}
-                  </div>
-                )
+                <Link key={c.label} to={c.to} className="fct-table-row" style={{ padding: '18px 20px', borderRight: i < consequence.length - 1 ? `1px solid ${colors.borderSubtle}` : undefined, display: 'flex', flexDirection: 'column', gap: 8, color: colors.textPrimary, textDecoration: 'none' }}>
+                  <span style={{ fontSize: 12, color: colors.textMuted }}>{c.label}</span>
+                  <span style={typeScale.tileValue}>{c.value}</span>
+                  <span style={{ fontSize: 12, color: colors.textSecondary }}>{c.explanation}</span>
+                </Link>
               ))}
             </div>
 

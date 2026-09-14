@@ -1,7 +1,7 @@
 import { useContext, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { AGGREGATED_ROW_DEFINITION, computeScore, DIMENSION_DEFINITIONS, DIMENSION_KEYS, DIMENSION_LABELS, getEntity, getGroupSummary, getRecurringCauses, groupRows, GROUP_SCORE_DEFINITION, OPEN_EXCEPTIONS_DEFINITION, pointDirection, VALUE_AT_RISK_DEFINITION } from '../api'
+import { AGGREGATED_ROW_DEFINITION, closeCalendar, computeScore, DIMENSION_DEFINITIONS, DIMENSION_KEYS, DIMENSION_LABELS, getEntity, getGroupSummary, getRecurringCauses, groupRows, GROUP_SCORE_DEFINITION, OPEN_EXCEPTIONS_DEFINITION, pointDirection, VALUE_AT_RISK_DEFINITION } from '../api'
 import type { Grouping, Trend, TrendDelta } from '../api'
 import { useAppMode, type CockpitMode } from '../app/mode'
 import { DEFAULT_ENTITY } from '../app/routes'
@@ -80,7 +80,9 @@ export function GroupView() {
   const assistant = useContext(AssistantContext)
   const summary = getGroupSummary()
   const causes = getRecurringCauses()
-  const close = summary.closeProgress
+  // §8.4 — the card drills to the default entity's close calendar; its figures come from that same dataset, so they cannot drift apart
+  const cal = closeCalendar(DEFAULT_ENTITY)!
+  const closePct = getEntity(DEFAULT_ENTITY)!.metrics.closePercent.current
   const transform = summary.transformationHealth
 
   // Worst first, capped rows pinned — the controller scans for trouble, not for alphabet.
@@ -322,22 +324,21 @@ export function GroupView() {
 
         {mode !== 'bau' && (
           <section id="fct-close-card" style={{ ...card, gap: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16 }}>
+            {/* §8.4 — the card drills to the default entity's close calendar; the trace keeps its own links outside */}
+            <Link to={`/entity/${DEFAULT_ENTITY}/close-calendar`} className="fct-table-row" style={{ display: 'flex', flexDirection: 'column', gap: 14, color: colors.textPrimary, textDecoration: 'none' }}>
               {/* §8.2 — the eyebrow is mode-aware; the countdown belongs only where it is true */}
               <Eyebrow style={typeScale.tableHeader}>{CLOSE_CARD_EYEBROW[mode]}</Eyebrow>
-              {/* §8.4/§16.8 — a figure that cannot drill is tagged read-only; the calendar is in-platform, not an external tracker */}
-              <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textFaint }}>{'read-only · source: close calendar'}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <span style={typeScale.kpiValue}>{`${close.pct}%`}</span>
-              <span style={{ ...typeScale.body, color: colors.textMuted }}>{`of ${close.totalTasks} tasks complete`}</span>
-            </div>
-            <Bar value={close.pct} max={100} height={10} color={colors.statusGreen} />
-            <div style={{ display: 'flex', gap: 24, fontSize: 13, color: colors.textSecondary }}>
-              <span>{`${close.overdue} overdue`}</span>
-              <span style={{ color: colors.statusRed }}>{`${close.blockers} blockers`}</span>
-              <span>{`${close.entitiesAtRisk} entities at risk`}</span>
-            </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                <span style={typeScale.kpiValue}>{`${closePct}%`}</span>
+                <span style={{ ...typeScale.body, color: colors.textMuted }}>{`of ${cal.totalTasks} tasks complete`}</span>
+              </div>
+              <Bar value={closePct} max={100} height={10} color={colors.statusGreen} />
+              <div style={{ display: 'flex', gap: 24, fontSize: 13, color: colors.textSecondary }}>
+                <span style={{ color: colors.statusRed }}>{`${cal.blockerCount} blockers`}</span>
+                <span>{`committed day ${cal.committedDay}`}</span>
+                <span>{`predicted day ${cal.predictedDay}`}</span>
+              </div>
+            </Link>
 
             <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 12 }}>
               {/* §8.10 — the group-level end of the cross-tower chain; its links follow the default entity's path */}

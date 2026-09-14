@@ -159,7 +159,6 @@ describe('spec values transcribed exactly', () => {
     expect(g.valueAtRiskCr).toBe(100.4)
     expect(g.openExceptions).toBe(1980)
     expect(g.openExceptionsPrevious).toBe(2012) // §7.16 — sum of the prior-period counts
-    expect(g.closeProgress).toEqual({ pct: 71, totalTasks: 214, overdue: 19, blockers: 6, entitiesAtRisk: 3 })
     expect(g.transformationHealth).toEqual({
       automationRatePct: 68,
       repeatExceptionsQoqPct: -14,

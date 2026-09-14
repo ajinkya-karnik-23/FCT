@@ -107,7 +107,10 @@ export function R2RCockpit() {
         </div>
         {entity && (
           <div id="fct-r2r-header-kpis" style={{ display: 'flex', gap: 34 }}>
-            <Metric label="Close" value={`${entity.metrics.closePercent.current}%`} trend={entity.metrics.closePercent} inverse={false} valueStyle={kpiValueStyle} />
+            {/* §8.4 — the close % drills to this entity's close calendar, where it is computed */}
+            <Link to={`/entity/${code}/close-calendar`} className="fct-table-row" style={{ color: colors.textPrimary, textDecoration: 'none' }}>
+              <Metric label="Close" value={`${entity.metrics.closePercent.current}%`} trend={entity.metrics.closePercent} inverse={false} valueStyle={kpiValueStyle} />
+            </Link>
             {/* §7.2 — open breaks tie to the rail count and the REC stage */}
             <Kpi label="Open breaks" value={`${entity.metrics.reconAgedBreaks}`} />
           </div>
@@ -200,7 +203,7 @@ export function R2RCockpit() {
 
         {/* §16.5 — matched vs unmatched by counterparty with ageing and netting; Ingrevia is a related party, not a group entity */}
         <section id="fct-panel-intercompany" style={cardStyle}>
-          <PanelHead title="Intercompany" note="read-only · source: trial balance extract" />
+          <PanelHead title="Intercompany" note="source: trial balance extract" />
           {intercompany && fxExposure !== undefined && (
             <>
               <Stat
@@ -235,7 +238,7 @@ export function R2RCockpit() {
 
         {/* §16.5 — prior-period accruals and their auto-reversal; the unreversed gap is derived, never stored */}
         <section id="fct-panel-accruals" style={cardStyle}>
-          <PanelHead title="Accruals & provisions" note="read-only · source: trial balance extract" />
+          <PanelHead title="Accruals & provisions" note="source: trial balance extract" />
           {accruals && (
             <>
               <div style={{ display: 'flex', gap: 28 }}>
