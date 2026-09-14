@@ -4,6 +4,7 @@ import { closeCalendar, getAgent, getCounterparty, getEntity, listAgents, listCo
 import { AgentDetail } from '../pages/AgentDetail'
 import { Agents } from '../pages/Agents'
 import { CashAttribution } from '../pages/CashAttribution'
+import { CashAttributionV2 } from '../pages/CashAttributionV2'
 import { CauseBacklog } from '../pages/CauseBacklog'
 import { CloseCalendar } from '../pages/CloseCalendar'
 import { CommitmentsWatch } from '../pages/CommitmentsWatch'
@@ -47,6 +48,8 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
   if (parts.length === 1 && parts[0] === 'service-desk') return [{ label: 'Group', to: '/' }, { label: 'Finance Service Desk' }]
   if (parts.length === 1 && parts[0] === 'cause-backlog') return [{ label: 'Group', to: '/' }, { label: 'Cause elimination' }]
   if (parts.length === 1 && parts[0] === 'cash-attribution') return [{ label: 'Group', to: '/' }, { label: 'Cash attribution' }]
+  // The reference prototype kept as a side-by-side baseline for the rebuilt spine; routes and rail only.
+  if (parts.length === 1 && parts[0] === 'cash-attribution-original') return [{ label: 'Group', to: '/' }, { label: 'Cash attribution (original)' }]
   if (parts.length === 1 && parts[0] === 'agents') return [{ label: 'Group', to: '/' }, { label: 'Agents' }]
   if (parts.length === 1 && parts[0] === 'touch-economics') return [{ label: 'Group', to: '/' }, { label: 'Touch economics' }]
   // §9.1 — the agent record is reached by drill only; the breadcrumb carries it back to the roster.
@@ -107,7 +110,7 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
   return [{ label: 'Group' }]
 }
 
-export type NavKey = 'group' | 'entityHealth' | 'p2pCockpit' | 'o2cCockpit' | 'r2rCockpit' | 'closeCalendar' | 'worklist' | 'rootCause' | 'cashAttribution' | 'causeBacklog' | 'riskControl' | 'compliance' | 'dataQuality' | 'workingCapital' | 'predictive' | 'serviceAttribution' | 'serviceDesk' | 'agents' | 'touchEconomics'
+export type NavKey = 'group' | 'entityHealth' | 'p2pCockpit' | 'o2cCockpit' | 'r2rCockpit' | 'closeCalendar' | 'worklist' | 'rootCause' | 'cashAttribution' | 'cashAttributionOriginal' | 'causeBacklog' | 'riskControl' | 'compliance' | 'dataQuality' | 'workingCapital' | 'predictive' | 'serviceAttribution' | 'serviceDesk' | 'agents' | 'touchEconomics'
 
 // Worklist stays active while an exception detail page is open (spec/02).
 export function activeNavKey(pathname: string): NavKey {
@@ -118,6 +121,7 @@ export function activeNavKey(pathname: string): NavKey {
   if (parts.length === 1 && parts[0] === 'service-desk') return 'serviceDesk'
   if (parts.length === 1 && parts[0] === 'cause-backlog') return 'causeBacklog'
   if (parts.length === 1 && parts[0] === 'cash-attribution') return 'cashAttribution'
+  if (parts.length === 1 && parts[0] === 'cash-attribution-original') return 'cashAttributionOriginal'
   if (parts.length === 1 && parts[0] === 'agents') return 'agents'
   // §9.1 — the agent record keeps the Agents rail entry active, like exception detail keeps Worklist.
   if (parts.length === 2 && parts[0] === 'agents') return 'agents'
@@ -187,6 +191,8 @@ export const NAV_ITEMS: NavItem[] = [
   // Where cash is stuck across both processes, grouped by the function that causes it rather than the one
   // that holds it. Sits under PROCESS since it spans both P2P and O2C cockpits; group-scoped, no entity in `to`.
   { key: 'cashAttribution', label: 'Cash attribution', group: 'PROCESS', to: () => '/cash-attribution' },
+  // The reference prototype beside its rebuild — the labels say which is which; no count, like its sibling.
+  { key: 'cashAttributionOriginal', label: 'Cash attribution (original)', group: 'PROCESS', to: () => '/cash-attribution-original' },
   // §7.30 — the elimination backlog sits next to Root cause under EXPLAIN; group-scoped, so no entity in `to`.
   { key: 'causeBacklog', label: 'Cause elimination', group: 'EXPLAIN', to: () => '/cause-backlog' },
   { key: 'riskControl', label: 'Risk & control', group: 'ASSURE', to: () => '/risk-control' },
@@ -237,7 +243,9 @@ export function AppRoutes() {
       <Route path="/data-quality" element={<DataQualityPage />} />
       <Route path="/service-desk" element={<ServiceDesk />} />
       <Route path="/cause-backlog" element={<CauseBacklog />} />
-      <Route path="/cash-attribution" element={<CashAttribution />} />
+      <Route path="/cash-attribution" element={<CashAttributionV2 />} />
+      {/* The reference prototype, kept as a side-by-side baseline — routes and rail only (no palette, no verify entries) */}
+      <Route path="/cash-attribution-original" element={<CashAttribution />} />
       <Route path="/agents" element={<Agents />} />
       {/* §9.1 — the agent record: drill-only, no rail entry */}
       <Route path="/agents/:agentId" element={<AgentDetail />} />

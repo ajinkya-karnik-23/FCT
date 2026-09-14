@@ -61,6 +61,8 @@ const crumbCases: [string, Crumb[]][] = [
     '/entity/JIL/working-capital',
     [{ label: 'Group', to: '/' }, { label: 'JIL', to: '/entity/JIL' }, { label: 'Working capital' }],
   ],
+  // The reference prototype beside its rebuild — routes and rail only, like its successor.
+  ['/cash-attribution-original', [{ label: 'Group', to: '/' }, { label: 'Cash attribution (original)' }]],
   ['/agents', [{ label: 'Group', to: '/' }, { label: 'Agents' }]],
   // §15.7 — the per-agent record drills in under Agents; the last crumb is the agent's display name.
   [
@@ -100,6 +102,7 @@ const navCases: [string, NavKey][] = [
   ['/entity/JGL/root-cause/p2p/missing-gr', 'rootCause'],
   ['/entity/JGL/root-cause/o2c/pricing-disputes', 'rootCause'],
   ['/entity/JGL/root-cause/r2r/reconciliation', 'rootCause'],
+  ['/cash-attribution-original', 'cashAttributionOriginal'],
   ['/entity/JGL/working-capital', 'workingCapital'],
   ['/agents', 'agents'],
   // §15.7 — the record page keeps the Agents rail item active.

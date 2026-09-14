@@ -329,6 +329,8 @@ const ROUTES = [
   // §15.7 — the commitments watch (chase-state badges in all four colours on JGL) and its PO detail (the amended beat)
   ['/entity/JGL/p2p/commitments', 'commitments-watch'],
   ['/entity/JGL/p2p/commitments/PO-48115', 'po-detail'],
+  // §8.4 — the cash attribution spine; elimination-status swatches + pool colours are the audit targets
+  ['/cash-attribution', 'cash-attribution'],
 ]
 
 // colors each route must show somewhere (evidence from source grep) — resolved via palette
@@ -362,6 +364,7 @@ const EXPECTED_PRESENT = {
   'touch-economics': ['textFaint', 'textMuted', 'borderDefault', 'bgRaised'], // mono stat/section labels, sim tag + touches-per-thousand captions, card borders, raised lever-stage cards
   'commitments-watch': ['statusRed', 'statusAmber', 'statusGreen', 'textFaint'], // JGL carries all four chase states (at-risk tile red, chased amber, amended green) + mono metric labels
   'po-detail': ['statusGreen', 'accentText', 'textFaint', 'borderDefault'], // PO-48115 is the amended beat: green badge/dots, AGENT tags + cost-centre link, time sub-labels, card borders
+  'cash-attribution': ['statusGreen', 'statusAmber', 'statusRed', 'accentText', 'textFaint', 'borderDefault', 'bgRaised'], // §8.4 — fix-status legend swatches (green/amber/red), scope dot + human values amber, clock + inspector links accent, mono labels faint, pane borders + raised readout/chip surfaces
 }
 
 async function themePass(themeName, palette) {

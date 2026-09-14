@@ -83,10 +83,17 @@ export const payablesByReason: PayableReason[] = [
   { name: 'Duplicate / tax', value: 2.8 },
 ];
 
+// §8.4 — the close lens's cut-off risk threshold (days): a cause whose average resolution already runs past it no
+// longer fits before cut-off at day 4 of close. A business rule a controller could argue with, so it lives in the
+// dataset rather than as a layout constant in the component.
+export const CUTOFF_RISK_THRESHOLD_DAYS = 6;
+
+// causeKey ties each opportunity to the cause it works on (the cash-attribution spine's inspector shows it under that
+// cause). The intercompany row has no cause in the P2P/O2C taxonomy and is deliberately left unlinked.
 export const cashOpportunities: CashOpportunity[] = [
-  { name: 'Release invoices where GR posted this week', value: 4.2, items: 38, effort: 'Low', owner: 'P2P tower' },
-  { name: 'Apply matched receipts to open AR', value: 2.1, items: 19, effort: 'Low', owner: 'Cash application' },
-  { name: 'Settle pricing disputes under ₹10 lakh', value: 1.4, items: 27, effort: 'Medium', owner: 'Collections' },
+  { name: 'Release invoices where GR posted this week', value: 4.2, items: 38, effort: 'Low', owner: 'P2P tower', causeKey: 'missing-gr' },
+  { name: 'Apply matched receipts to open AR', value: 2.1, items: 19, effort: 'Low', owner: 'Cash application', causeKey: 'cash-application' },
+  { name: 'Settle pricing disputes under ₹10 lakh', value: 1.4, items: 27, effort: 'Medium', owner: 'Collections', causeKey: 'pricing-disputes' },
   { name: 'Clear intercompany netting with Ingrevia', value: 3.6, items: 4, effort: 'Medium', owner: 'R2R tower' },
 ];
 

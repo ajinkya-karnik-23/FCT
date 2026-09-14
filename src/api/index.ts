@@ -15,6 +15,7 @@ import { apEffectiveness, controlSignals } from './mock/controls';
 import {
   blockedInvoiceAgeingByEntity,
   cashOpportunities,
+  CUTOFF_RISK_THRESHOLD_DAYS,
   forecasts,
   o2cKpis,
   o2cServiceControl,
@@ -336,6 +337,11 @@ export function causePool(entityCode: string, causeKey: string): { count: number
 
 export function getCashOpportunities(): CashOpportunity[] {
   return cashOpportunities;
+}
+
+// §8.4 — the close lens's cut-off risk threshold (days); a business rule, not a layout constant.
+export function cutoffRiskThresholdDays(): number {
+  return CUTOFF_RISK_THRESHOLD_DAYS;
 }
 
 // §7.18 — cause elimination backlog; notStarted is derived, never stored (identified − eliminated − inProgress).

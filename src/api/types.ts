@@ -182,6 +182,7 @@ export interface CauseNode {
   processKey: ProcessKey;
   key: string; // 'missing-gr'
   name: string; // 'Missing GR'
+  originatingFunction?: string; // cash-attribution spine — the function where the failure happens (set on P2P/O2C nodes)
   sharePct: number;
   valueAtRisk: number; // ₹ cr
   avgDelayDays: number;
@@ -276,6 +277,7 @@ export interface CashOpportunity {
   items: number;
   effort: Effort;
   owner: string;
+  causeKey?: string; // the cause this opportunity works on; absent when it has no cause in the P2P/O2C taxonomy (e.g. R2R netting)
 }
 
 export interface AgeingBucket {

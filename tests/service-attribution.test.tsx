@@ -212,8 +212,8 @@ describe('Service & attribution (spec §4, §5, §7.7, §7.22)', () => {
     const p = screen.getByRole('dialog', { name: 'Command palette' })
     const input = within(p).getByPlaceholderText('Jump to an entity, process, exception or vendor')
 
-    // "attribution" matches only the screen item — vendor names contain "services".
-    fireEvent.change(input, { target: { value: 'attribution' } })
+    // The full label is unique — bare "attribution" also matches the Cash attribution screen.
+    fireEvent.change(input, { target: { value: 'service & attribution' } })
     const rows = within(p).getAllByRole('button')
     expect(rows).toHaveLength(1)
     expect(rows[0].textContent).toContain('Service & attribution')

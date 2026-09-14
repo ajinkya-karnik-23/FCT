@@ -328,7 +328,7 @@
 
   const POOLS = {
     ap:{n:'Blocked AP', sub:'liability that cannot clear', col:'#e8b34b', next:'Understated accrual · R2R'},
-    ar:{n:'Revenue at risk', sub:'six O2C causes',         col:'#8eafd1', next:'Working-capital drag'}
+    ar:{n:'Overdue AR', sub:'revenue not yet cash',        col:'#8eafd1', next:'Working-capital drag'}
   };
   const INSIDE = {ap:['AP & tax'], ar:['Treasury']};
 
@@ -450,7 +450,7 @@
   /* ---------------- lenses × process ----------------
      Process (P2P/O2C) and lens are independent axes, combined with AND.
      Because pool===process exactly here (6 P2P causes → Blocked AP, 6 O2C
-     causes → Revenue at risk — verified, no cause spans both), the process
+     causes → Overdue AR — verified, no cause spans both), the process
      filter is just "which pool(s)". The readout recomputes over whatever
      subset survives both filters, so the headline never lies about scope. */
   const PROC_LABEL={all:'both processes', ap:'P2P only', ar:'O2C only'};

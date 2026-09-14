@@ -346,3 +346,43 @@ button {
     animation: none !important;
   }
 }
+
+/* Cash attribution v2 — hover and focus states for the Sankey spine (state colours stay in tokens) */
+.fct-ca-band {
+  cursor: pointer;
+}
+.fct-ca-rowbg {
+  fill-opacity: 0;
+  transition: fill-opacity 0.16s ease;
+}
+.fct-ca-band:hover .fct-ca-rowbg,
+.fct-ca-band:focus-visible .fct-ca-rowbg {
+  fill-opacity: 0.045;
+}
+.fct-ca-band:focus-visible {
+  outline: none;
+}
+.fct-ca-band:focus-visible .fct-ca-node {
+  stroke: var(--text-primary);
+  stroke-width: 1.5;
+}
+.fct-ca-cname {
+  transition: fill 0.2s ease;
+}
+.fct-ca-band:hover .fct-ca-cname {
+  fill: var(--text-primary);
+}
+.fct-ca-srow {
+  transition: background 0.16s ease, opacity 0.3s ease;
+}
+.fct-ca-srow:hover {
+  background: color-mix(in srgb, var(--text-primary) 3%, transparent);
+}
+.fct-ca-opp b,
+.fct-ca-opp span {
+  transition: color 0.2s ease;
+}
+.fct-ca-opp:hover b,
+.fct-ca-opp:hover span {
+  color: var(--accent-text);
+}

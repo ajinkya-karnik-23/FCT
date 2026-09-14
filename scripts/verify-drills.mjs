@@ -29,6 +29,11 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { dark, light } from '../src/theme/tokens.ts'
+// The api barrel uses Vite-style extensionless imports that raw Node cannot resolve, so item 19 reads the cause
+// taxonomy straight from its mock module (type-only imports — runtime-clean) and pins register facts as literals.
+import { causes } from '../src/api/mock/causes.ts'
+import { entities } from '../src/api/mock/entities.ts'
+import { formatCr } from '../src/lib/format.ts'
 
 const CHROME = process.env.FCT_CHROME ?? 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
 const PORT = Number(process.env.FCT_DRILL_DEBUG_PORT ?? 9334) // separate from verify-theme.mjs so the two can run back to back
@@ -1688,6 +1693,124 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item18b: its record fails exactly the confidence check — two PASS, one FAIL`, !!poP && poP.decisionId === 'commitments-po-PO-48307' && poP.passSpans === 2 && poP.failSpans === 1, JSON.stringify({ id: poP ? poP.decisionId : null, pass: poP ? poP.passSpans : -1, fail: poP ? poP.failSpans : -1 }))
   check(`${themeName}/item18b: the action line says it proposed and escalated, not amended`, !!poP && poP.mainText.includes('Proposed a new delivery date and escalated'), '')
   await screenshot(`${themeName}-po-exchange-proposed.png`)
+
+  // ---- item 19: cash attribution v2 (§8.4) — spine, lens recomputation, inspector trace, drills out ----
+  console.log('\n-- item 19: cash attribution v2')
+  const caAll = causes.filter((c) => c.processKey === 'p2p' || c.processKey === 'o2c')
+  const sumV = (cs) => cs.reduce((t, c) => t + c.valueAtRisk, 0)
+  const caTotal = sumV(caAll)
+  const caApSum = sumV(caAll.filter((c) => c.processKey === 'p2p'))
+  const caArSum = sumV(caAll.filter((c) => c.processKey === 'o2c'))
+  // JGL's register rows (mock/causeBacklog.ts, §7.18): eight causes carry a row; these four do not — the no-fix set.
+  const NO_OWNER = ['billing-errors', 'credit-block', 'customer-master', 'duplicate-suspicion']
+  const noOwnerAll = caAll.filter((c) => NO_OWNER.includes(c.key))
+  const noOwnerP2p = noOwnerAll.filter((c) => c.processKey === 'p2p')
+  // The P2P pool must tie to the entity's AP-blocked metric — the same figure the rail and entity home show.
+  const jglApBlocked = entities.find((e) => e.code === 'JGL').metrics.apBlocked.current
+  check(`${themeName}/item19: dataset ties — P2P cause sum equals JGL apBlocked`, Math.abs(caApSum - jglApBlocked) < 0.05, `causes=${caApSum} metric=${jglApBlocked}`)
+  await navigate(BASE + '/cash-attribution')
+  const caProbe = `(() => {
+    const root = document.querySelector('#fct-ca')
+    if (!root) return null
+    const header = root.querySelector('header')
+    const scopeChip = header ? (header.firstElementChild || {}).textContent : null
+    const poolAp = document.querySelector('[data-fct-ca-pool="ap"]')
+    const poolAr = document.querySelector('[data-fct-ca-pool="ar"]')
+    const insp = document.querySelector('#fct-ca-inspector')
+    const nameLink = insp ? insp.querySelector('a[href^="/entity/JGL/root-cause/"]') : null
+    const regLink = document.querySelector('[data-fct-ca-register-link]')
+    const oppLink = document.querySelector('[data-fct-ca-opp-link]')
+    return {
+      scope: scopeChip ? scopeChip.trim() : null,
+      total: (document.querySelector('#fct-ca-total') || {}).textContent || null,
+      recon: ((document.querySelector('#fct-ca-recon') || {}).textContent || '').replace(/\\s+/g, ' '),
+      clock: ((document.querySelector('[data-fct-ca-clock] b') || {}).textContent) || null,
+      poolApHref: poolAp ? poolAp.getAttribute('href') : null,
+      poolApText: poolAp ? poolAp.textContent.replace(/\\s+/g, ' ') : '',
+      poolArHref: poolAr ? poolAr.getAttribute('href') : null,
+      poolArText: poolAr ? poolAr.textContent.replace(/\\s+/g, ' ') : '',
+      bandKeys: Array.from(root.querySelectorAll('[data-fct-ca-band]')).map((b) => b.getAttribute('data-fct-ca-band')).sort(),
+      caption: (document.querySelector('#fct-ca-caption') || {}).textContent || null,
+      nameLinkHref: nameLink ? nameLink.getAttribute('href') : null,
+      nameLinkText: nameLink ? nameLink.textContent.trim() : null,
+      regId: regLink ? regLink.textContent.trim() : null,
+      regHref: regLink ? regLink.getAttribute('href') : null,
+      oppValue: oppLink ? ((oppLink.querySelector('b') || {}).textContent) || null : null,
+      oppName: oppLink ? ((oppLink.querySelectorAll('span')[0] || {}).textContent) || null : null,
+      oppMeta: oppLink ? ((oppLink.querySelector('em') || {}).textContent) || null : null,
+      oppHref: oppLink ? oppLink.getAttribute('href') : null,
+      inspText: insp ? insp.textContent.replace(/\\s+/g, ' ') : '',
+      crumb: ((document.querySelector('nav[aria-label="Breadcrumb"]') || {}).textContent) || '',
+    }
+  })()`
+  const caA = await evaluate(caProbe)
+  check(`${themeName}/item19: screen loads with JGL scope and the reconciled total`, !!caA && caA.scope === 'JGL · ' + entities.find((e) => e.code === 'JGL').name && caA.total === formatCr(caTotal), JSON.stringify({ scope: caA ? caA.scope : null, total: caA ? caA.total : null }))
+  check(`${themeName}/item19: header counts every cause and ties the spine to AP blocked`, !!caA && caA.recon.includes(`${caAll.length} causes`) && caA.recon.includes(`ties to AP blocked ${formatCr(jglApBlocked)}`), JSON.stringify(caA ? caA.recon : null))
+  check(`${themeName}/item19: mode clock shows the default period`, !!caA && caA.clock === 'PRE-CLOSE READINESS · 3 DAYS TO CLOSE', JSON.stringify(caA ? caA.clock : null))
+  const noFixAp = sumV(caAll.filter((c) => c.processKey === 'p2p' && NO_OWNER.includes(c.key)))
+  const noFixAr = sumV(caAll.filter((c) => c.processKey === 'o2c' && NO_OWNER.includes(c.key)))
+  check(`${themeName}/item19: AP pool drills to the blocked worklist and carries its no-fix figure`, !!caA && caA.poolApHref === '/entity/JGL/p2p/invoices' && caA.poolApText.includes(formatCr(caApSum)) && caA.poolApText.includes('Blocked AP') && caA.poolApText.includes(`${formatCr(noFixAp)} has no fix in flight`), JSON.stringify({ href: caA ? caA.poolApHref : null, text: caA ? caA.poolApText : '' }))
+  check(`${themeName}/item19: AR pool drills to the O2C cockpit and carries its no-fix figure`, !!caA && caA.poolArHref === '/entity/JGL/o2c' && caA.poolArText.includes(formatCr(caArSum)) && caA.poolArText.includes('Revenue at risk') && caA.poolArText.includes(`${formatCr(noFixAr)} has no fix in flight`), JSON.stringify({ href: caA ? caA.poolArHref : null, text: caA ? caA.poolArText : '' }))
+  check(`${themeName}/item19: all twelve causes render as bands`, !!caA && caA.bandKeys.length === caAll.length && JSON.stringify(caA.bandKeys) === JSON.stringify(caAll.map((c) => c.key).sort()), JSON.stringify(caA ? caA.bandKeys : null))
+  const mg = caAll.find((c) => c.key === 'missing-gr')
+  check(`${themeName}/item19: default selection traces missing GR to its pool share`, !!caA && caA.caption === `${formatCr(mg.valueAtRisk)} · ${Math.round((mg.valueAtRisk / caApSum) * 100)}% of Blocked AP`, JSON.stringify(caA ? caA.caption : null))
+  check(`${themeName}/item19: inspector names the cause and links its root-cause screen`, !!caA && caA.nameLinkHref === `/entity/JGL/root-cause/p2p/${mg.key}` && caA.nameLinkText === mg.name, JSON.stringify({ href: caA ? caA.nameLinkHref : null, text: caA ? caA.nameLinkText : null }))
+  // mock/causeBacklog.ts — CB-JGL-06: missing GR, eliminated in period 1, owner P. Nair.
+  check(`${themeName}/item19: inspector shows the register row — id, owner, met target`, !!caA && caA.regId === 'CB-JGL-06' && caA.regHref === '/cause-backlog' && caA.inspText.includes('P. Nair') && caA.inspText.includes('met · period 1') && caA.inspText.includes('Eliminated'), JSON.stringify({ reg: caA ? caA.regId : null, insp: (caA ? caA.inspText : '').slice(0, 200) }))
+  // mock/misc.ts — the one opportunity pinned against missing GR.
+  const mgOpp = { name: 'Release invoices where GR posted this week', value: 4.2, items: 38, effort: 'Low', owner: 'P2P tower' }
+  check(`${themeName}/item19: inspector shows the cause's cash opportunity and drills to working capital`, !!caA && caA.oppValue === formatCr(mgOpp.value) && caA.oppName === mgOpp.name && caA.oppMeta === `${mgOpp.items} items · ${mgOpp.effort} effort · ${mgOpp.owner}` && caA.oppHref === '/entity/JGL/working-capital', JSON.stringify({ v: caA ? caA.oppValue : null, n: caA ? caA.oppName : null, m: caA ? caA.oppMeta : null }))
+  const nav19 = await evaluate(NAV_ACTIVE_JS)
+  check(`${themeName}/item19: breadcrumb and rail mark the screen`, !!caA && caA.crumb.includes('Cash attribution') && !!nav19 && nav19.label.startsWith('Cash attribution'), JSON.stringify({ crumb: caA ? caA.crumb : null, nav: nav19 }))
+  // Lens recomputation — the readout is derived from the surviving causes, never stored.
+  await evaluate(`document.querySelector('[data-fct-ca-lens="noowner"]').click()`)
+  await new Promise((r) => setTimeout(r, 200))
+  const roNoOwner = await evaluate(`(() => ({ big: (document.querySelector('#fct-ca-ro-big') || {}).textContent, note: ((document.querySelector('#fct-ca-ro-note') || {}).textContent) || '', dimSel: document.querySelector('[data-fct-ca-band="missing-gr"]').style.opacity, litUnreg: document.querySelector('[data-fct-ca-band="duplicate-suspicion"]').style.opacity }))()`)
+  check(`${themeName}/item19: no-fix lens recomputes over the surviving causes`, !!roNoOwner && roNoOwner.big === formatCr(sumV(noOwnerAll)) && (roNoOwner.note || '').startsWith(`${noOwnerAll.length} of ${caAll.length} causes have no row on the elimination register`), JSON.stringify(roNoOwner))
+  check(`${themeName}/item19: the lens dims registered bands and lights unregistered ones`, !!roNoOwner && roNoOwner.dimSel === '0.13' && roNoOwner.litUnreg === '1', JSON.stringify({ dim: roNoOwner ? roNoOwner.dimSel : null, lit: roNoOwner ? roNoOwner.litUnreg : null }))
+  await evaluate(`document.querySelector('[data-fct-ca-proc="ap"]').click()`)
+  await new Promise((r) => setTimeout(r, 200))
+  const roP2p = await evaluate(`(() => ({ big: (document.querySelector('#fct-ca-ro-big') || {}).textContent, note: ((document.querySelector('#fct-ca-ro-note') || {}).textContent) || '' }))()`)
+  check(`${themeName}/item19: process + lens combine — P2P no-fix is one cause`, !!roP2p && roP2p.big === formatCr(sumV(noOwnerP2p)) && (roP2p.note || '').startsWith(`${noOwnerP2p.length} of ${caAll.filter((c) => c.processKey === 'p2p').length} causes have no row`), JSON.stringify(roP2p))
+  await evaluate(`document.querySelector('[data-fct-ca-proc="all"]').click(); document.querySelector('[data-fct-ca-lens="all"]').click()`)
+  await new Promise((r) => setTimeout(r, 200))
+  const roReset = await evaluate(`(() => (document.querySelector('#fct-ca-ro-big') || {}).textContent)()`)
+  check(`${themeName}/item19: clearing both filters restores the full total`, roReset === formatCr(caTotal), JSON.stringify(roReset))
+  // Selection change — a different cause re-traces its own pool share and register row.
+  const ppm = caAll.find((c) => c.key === 'po-price-mismatch')
+  await evaluate(`document.querySelector('[data-fct-ca-band="po-price-mismatch"]').dispatchEvent(new MouseEvent('click', { bubbles: true }))`)
+  await new Promise((r) => setTimeout(r, 200))
+  const caB = await evaluate(caProbe)
+  check(`${themeName}/item19: selecting another cause re-traces its pool share`, !!caB && caB.caption === `${formatCr(ppm.valueAtRisk)} · ${Math.round((ppm.valueAtRisk / caApSum) * 100)}% of Blocked AP`, JSON.stringify(caB ? caB.caption : null))
+  // mock/causeBacklog.ts — CB-JGL-01: PO price mismatch, in progress, target +70 d from the start-of-day anchor.
+  check(`${themeName}/item19: the in-progress row shows its register id and target date`, !!caB && caB.regId === 'CB-JGL-01' && caB.inspText.includes('+70 d') && caB.inspText.includes('P. Nair'), JSON.stringify({ reg: caB ? caB.regId : null, insp: (caB ? caB.inspText : '').slice(0, 200) }))
+  check(`${themeName}/item19: a cause with no listed opportunity says so`, !!caB && caB.inspText.includes('No cash opportunity listed against this cause.'), '')
+  // Drills out — real clicks on the SVG anchors (script .click() does not navigate SVG <a>).
+  const poolRect = await evaluate(`(() => { const r = document.querySelector('[data-fct-ca-pool="ap"] rect').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })()`)
+  check(`${themeName}/item19: AP pool anchor is on screen`, !!poolRect && poolRect.x > 0 && poolRect.y > 0, JSON.stringify(poolRect))
+  await clickAt(poolRect.x, poolRect.y)
+  await waitForPath((p) => p === '/entity/JGL/p2p/invoices', 'AP pool drill')
+  await navigate(BASE + '/cash-attribution')
+  const caC = await evaluate(`(() => { const a = document.querySelector('[data-fct-ca-band="cash-application"] a'); return a ? a.getAttribute('href') : null })()`)
+  check(`${themeName}/item19: the band name links its root-cause screen`, caC === '/entity/JGL/root-cause/o2c/cash-application', JSON.stringify(caC))
+  const nameRect = await evaluate(`(() => { const a = document.querySelector('[data-fct-ca-band="cash-application"] a'); if (!a) return null; const r = a.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })()`)
+  await clickAt(nameRect.x, nameRect.y)
+  await waitForPath((p) => p === '/entity/JGL/root-cause/o2c/cash-application', 'band-name drill')
+  // The band name is a native anchor — a full reload. The URL lands before React remounts, so wait for the shell
+  // (rail or breadcrumb) before driving the palette; its window keydown listener does not exist until then.
+  await waitForApp()
+  // ⌘K — the screen is findable with its cause count and stuck value.
+  await ctrlK()
+  await new Promise((r) => setTimeout(r, 400))
+  check(`${themeName}/item19: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('cash attribution')`)) === true)
+  await new Promise((r) => setTimeout(r, 250))
+  const caPalette = await evaluate(PALETTE_ROWS_JS)
+  const caRows = caPalette.filter((t) => t.includes('Cash attribution'))
+  check(`${themeName}/item19: "cash attribution" lists exactly one screen with the cause count and stuck value`, caRows.length === 1 && caRows[0].includes(`${caAll.length} causes · ${formatCr(caTotal)} stuck`), JSON.stringify(caPalette))
+  const caPick = await evaluate(`(() => { const r = Array.from(document.querySelectorAll('.fct-palette-row')).find((x) => x.textContent.includes('Cash attribution')); if (!r) return false; r.click(); return true })()`)
+  check(`${themeName}/item19: picking the row opens the screen`, caPick === true, '')
+  await waitForPath((p) => p === '/cash-attribution', 'cash attribution from the palette')
+  await screenshot(`${themeName}-cash-attribution.png`)
 
   // ---- theme legibility: status colors + ageing-bar fills on the five views ----
   console.log(`\n-- legibility (${themeName}): O2C + R2R cockpits, all three root-cause variants`)

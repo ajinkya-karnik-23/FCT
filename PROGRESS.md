@@ -42,3 +42,5 @@
 - [x] Step 29 — Truncation, and connecting the close calendar
 - [x] Step 30 — False read-only figures become drills (close %, provision adequacy, DPO, R2R panels)
 - [x] Step 31 — Reconcile the O2C label, and the small drills
+- [x] Step 32 — Cash attribution v2
+- [x] Step 32b — Cash attribution: original restored as second screen, lens drives the highlight

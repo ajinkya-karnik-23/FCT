@@ -67,6 +67,9 @@ export function buildItems(entityCode: string): PaletteItem[] {
   // §7.30 — the elimination backlog is group-scoped like the desk; counts derive from the register, never literals.
   const cb = causeBacklogCounts()
   items.push({ kind: 'SCREEN', label: 'Cause elimination', meta: `${cb.eliminated} of ${cb.identified} causes eliminated`, to: '/cause-backlog' })
+  // §8.4 — the attribution spine is group-scoped; its row states the pool and cause count, derived from the taxonomy, never literals.
+  const caCauses = [...listCauses('p2p'), ...listCauses('o2c')]
+  items.push({ kind: 'SCREEN', label: 'Cash attribution', meta: `${caCauses.length} causes · ${formatCr(caCauses.reduce((s, c) => s + c.valueAtRisk, 0))} stuck`, to: '/cash-attribution' })
   // §15 — the agent workforce is group-scoped; the row states live vs total so the palette never claims what isn't built.
   const wf = agentWorkforceSummary()
   items.push({ kind: 'SCREEN', label: 'Agents', meta: `${wf.liveRoles} of ${wf.totalRoles} roles active`, to: '/agents' })
