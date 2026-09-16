@@ -3,6 +3,7 @@ import { Fragment } from 'react'
 import type { CSSProperties } from 'react'
 import { getCause, getInterfaceHealth, listDataQuality, listEntities } from '../api'
 import type { DataQualityItem } from '../api'
+import { rootCauseTo } from '../app/paths'
 import { Eyebrow, FreshnessStamp } from '../components'
 import { formatCr } from '../lib/format'
 import { interfaceColor, scoreColor } from '../theme/derive'
@@ -30,7 +31,7 @@ const DOMAINS: Array<{ key: DataQualityItem['domain']; label: string }> = [
 export function DataQualityPage() {
   const entities = listEntities()
   const jglPan = listDataQuality('JGL', 'vendor').find((d) => d.check === 'Missing tax registration')!
-  const cause = getCause('vendor-master')!
+  const cause = getCause('vendor-master', 'p2p')!
 
   return (
     <div style={pageStyle}>
@@ -96,7 +97,7 @@ export function DataQualityPage() {
         <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0, lineHeight: 1.5 }}>
           {`Missing tax registration on ${jglPan.failCount} of ${jglPan.totalCount} vendor records at JGL (${jglPan.impact.toLowerCase()}). The same master-data gap is the vendor-master cause: ${cause.sharePct}% of JGL's blocked AP, ${formatCr(cause.valueAtRisk)}.`}
         </p>
-        <Link to="/entity/JGL/root-cause/p2p/vendor-master" style={{ ...typeScale.body, color: colors.accentText, textDecoration: 'none' }}>{'See the root-cause view →'}</Link>
+        <Link to={rootCauseTo('vendor-master')} style={{ ...typeScale.body, color: colors.accentText, textDecoration: 'none' }}>{'See the root-cause view →'}</Link>
       </section>
     </div>
   )

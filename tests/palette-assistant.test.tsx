@@ -102,34 +102,34 @@ describe('Command palette (spec/07)', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('lists all twenty root causes across three processes, each opening its own pair (spec/08 Part D, §16.2)', () => {
+  it('lists all twenty root causes across three processes, each opening its register section (§17)', () => {
     render(<App />)
 
     const cases: Array<[string, string, string]> = [
-      ['missing gr', 'Missing GR · P2P', '/entity/JGL/root-cause/p2p/missing-gr'],
-      ['po price mismatch', 'PO price mismatch · P2P', '/entity/JGL/root-cause/p2p/po-price-mismatch'],
-      ['approval pending', 'Approval pending · P2P', '/entity/JGL/root-cause/p2p/approval-pending'],
-      ['vendor master', 'Vendor master · P2P', '/entity/JGL/root-cause/p2p/vendor-master'],
-      ['duplicate suspicion', 'Duplicate suspicion · P2P', '/entity/JGL/root-cause/p2p/duplicate-suspicion'],
-      ['tax mismatch', 'Tax mismatch · P2P', '/entity/JGL/root-cause/p2p/tax-mismatch'],
-      ['pricing disputes', 'Pricing disputes · O2C', '/entity/JGL/root-cause/o2c/pricing-disputes'],
-      ['short-pay', 'Deductions & short-pay · O2C', '/entity/JGL/root-cause/o2c/deductions'],
-      ['billing errors', 'Billing errors · O2C', '/entity/JGL/root-cause/o2c/billing-errors'],
-      ['credit block delays', 'Credit block delays · O2C', '/entity/JGL/root-cause/o2c/credit-block'],
-      ['cash application mismatch', 'Cash application mismatch · O2C', '/entity/JGL/root-cause/o2c/cash-application'],
-      ['customer master', 'Customer master · O2C', '/entity/JGL/root-cause/o2c/customer-master'],
+      ['missing gr', 'Missing GR · P2P', 'missing-gr'],
+      ['po price mismatch', 'PO price mismatch · P2P', 'po-price-mismatch'],
+      ['approval pending', 'Approval pending · P2P', 'approval-pending'],
+      ['vendor master', 'Vendor master · P2P', 'vendor-master'],
+      ['duplicate suspicion', 'Duplicate suspicion · P2P', 'duplicate-suspicion'],
+      ['tax mismatch', 'Tax mismatch · P2P', 'tax-mismatch'],
+      ['pricing disputes', 'Pricing disputes · O2C', 'pricing-disputes'],
+      ['short-pay', 'Deductions & short-pay · O2C', 'deductions'],
+      ['billing errors', 'Billing errors · O2C', 'billing-errors'],
+      ['credit block delays', 'Credit block delays · O2C', 'credit-block'],
+      ['cash application mismatch', 'Cash application mismatch · O2C', 'cash-application'],
+      ['customer master', 'Customer master · O2C', 'customer-master'],
       // §6.1 — the R2R taxonomy; each query matches exactly one entry across all twenty causes.
-      ['reconciliation breaks', 'Reconciliation breaks · R2R', '/entity/JGL/root-cause/r2r/reconciliation'],
-      ['interface breaks', 'Interface breaks · R2R', '/entity/JGL/root-cause/r2r/interface'],
-      ['journal risk', 'Journal risk · R2R', '/entity/JGL/root-cause/r2r/journal'],
-      ['close dependencies', 'Close dependencies · R2R', '/entity/JGL/root-cause/r2r/close-dependency'],
-      ['source data', 'Source data · R2R', '/entity/JGL/root-cause/r2r/source-data'],
-      ['intercompany', 'Intercompany · R2R', '/entity/JGL/root-cause/r2r/intercompany'],
-      ['judgement', 'Judgement · R2R', '/entity/JGL/root-cause/r2r/judgement'],
-      ['master data', 'Master data · R2R', '/entity/JGL/root-cause/r2r/master-data'],
+      ['reconciliation breaks', 'Reconciliation breaks · R2R', 'reconciliation'],
+      ['interface breaks', 'Interface breaks · R2R', 'interface'],
+      ['journal risk', 'Journal risk · R2R', 'journal'],
+      ['close dependencies', 'Close dependencies · R2R', 'close-dependency'],
+      ['source data', 'Source data · R2R', 'source-data'],
+      ['intercompany', 'Intercompany · R2R', 'intercompany'],
+      ['judgement', 'Judgement · R2R', 'judgement'],
+      ['master data', 'Master data · R2R', 'master-data'],
     ]
 
-    for (const [query, label, path] of cases) {
+    for (const [query, label, key] of cases) {
       fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
       const input = within(palette()).getByPlaceholderText(PALETTE_INPUT)
       fireEvent.change(input, { target: { value: query } })
@@ -142,7 +142,8 @@ describe('Command palette (spec/07)', () => {
       expect(rows[0].textContent).toContain(label)
 
       fireEvent.keyDown(input, { key: 'Enter' })
-      expect(window.location.pathname).toBe(path)
+      expect(window.location.pathname).toBe('/root-causes')
+      expect(window.location.search).toBe(`?cause=${key}`)
       expect(screen.queryByRole('dialog')).toBeNull()
     }
   })
@@ -185,9 +186,9 @@ describe('AI drawer (spec/07)', () => {
     fireEvent.click(worklistChips[0])
     expect(window.location.pathname).toBe('/entity/JGL/p2p/invoices')
 
-    // The follow-up chip resolves to the default pair — p2p plus its first cause (spec/08 Part D).
+    // The follow-up chip resolves to the full register — the per-entity pair no longer exists (§17.1).
     fireEvent.click(screen.getByRole('button', { name: 'Show root cause' }))
-    expect(window.location.pathname).toBe('/entity/JGL/root-cause/p2p/missing-gr')
+    expect(window.location.pathname).toBe('/root-causes')
   }, 15000)
 
   it('asks why a capped entity is capped and cites the score history (spec/11)', async () => {

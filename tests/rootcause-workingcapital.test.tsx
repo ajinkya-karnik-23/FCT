@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import App from '../src/App'
+import { causeEliminationTrend, currentPeriodEliminations, listCauses, listRootCauses, openExceptions, rootCauseCounts } from '../src/api'
 
 // jsdom shares one window across tests in a file; BrowserRouter reads the live
 // pathname on mount, so reset before each render.
@@ -15,218 +16,104 @@ function main() {
   return within(screen.getByRole('main'))
 }
 
-describe('Root cause (spec/06)', () => {
-  it('renders the taxonomy with the selected row and the missing-GR analysis', () => {
-    window.history.pushState(null, '', '/entity/JGL/root-cause/p2p/missing-gr')
+describe('Root cause register (§17)', () => {
+  it('renders the headline counts, every register row and the mechanism section', () => {
+    window.history.pushState(null, '', '/root-causes')
     render(<App />)
     const m = main()
 
-    expect(m.getByRole('heading', { level: 1, name: 'Why blocked invoices keep recurring' })).toBeTruthy()
-    expect(m.getByText(/level 5 — root cause/i)).toBeTruthy()
-    expect(m.getByText(/taxonomy — p2p/i)).toBeTruthy()
+    expect(m.getByRole('heading', { level: 1, name: 'Root causes' })).toBeTruthy()
 
-    // Six taxonomy rows, each linking to its own cause key; the by-plant card also drills to plant pages (spec/11).
-    const links = m.getAllByRole('link').filter((l) => (l.getAttribute('href') ?? '').startsWith('/entity/JGL/root-cause/p2p/'))
-    expect(links).toHaveLength(6)
-    for (const [name, key] of [
-      ['Missing GR', 'missing-gr'],
-      ['PO price mismatch', 'po-price-mismatch'],
-      ['Approval pending', 'approval-pending'],
-      ['Vendor master', 'vendor-master'],
-      ['Duplicate suspicion', 'duplicate-suspicion'],
-      ['Tax mismatch', 'tax-mismatch'],
-    ] as const) {
-      expect(m.getByRole('link', { name: new RegExp(name) }).getAttribute('href')).toBe(`/entity/JGL/root-cause/p2p/${key}`)
-    }
-
-    // The selected row is the one in the URL; the others are not.
-    expect(m.getByRole('link', { name: /Missing GR/ }).className).toContain('fct-tax-row--selected')
-    expect(m.getByRole('link', { name: /PO price mismatch/ }).className).not.toContain('--selected')
-
-    // §7.24 — by-plant rows drill sideways to the plant counterparty page (spec/11).
-    expect(m.getByRole('link', { name: 'Nanjangud' }).getAttribute('href')).toBe('/entity/JGL/plant/jgl-nanjangud')
-
-    // Primary root cause panel — narrative and the four metrics from the CauseNode.
-    expect(m.getByText(/primary root cause — missing gr/i)).toBeTruthy()
-    expect(m.getByText(/goods receipts are posted after invoice receipt/)).toBeTruthy()
+    // §17 — the headline counts derive from the register; read each value inside its own stat. State words also
+    // appear in the table's state column, so resolve label → value by finding the tile that carries both.
+    const c = rootCauseCounts()
     for (const [label, value] of [
-      ['VALUE AT RISK', '₹6.4 cr'],
-      ['AVG DELAY', '8.4 days'],
-      ['RECURRENCE', '5th consecutive month'],
-      ['CONCENTRATION', '11 vendors'],
+      ['IDENTIFIED', String(c.identified)],
+      ['ELIMINATED', String(c.eliminated)],
+      ['FIXED AT SOURCE', String(c['fixed-at-source'])],
+      ['IN PROGRESS', String(c['in-progress'])],
     ] as const) {
-      expect(m.getByText(label)).toBeTruthy()
-      expect(m.getByText(value)).toBeTruthy()
+      const tiles = m.getAllByText(label).map((el) => el.parentElement!)
+      const stat = tiles.find((d) => within(d).queryAllByText(value).length > 0)
+      expect(stat, `stat tile for ${label}`).toBeTruthy()
     }
 
-    // By plant and by vendor group driver rows.
-    for (const label of ['Nanjangud', 'Roorkee', 'Ambernath', 'Noida']) expect(m.getByText(label)).toBeTruthy()
-    for (const pct of ['43%', '29%', '10%']) expect(m.getByText(pct)).toBeTruthy()
-    for (const label of ['Consignment chemicals', 'Packaging', 'Logistics', 'Other']) expect(m.getByText(label)).toBeTruthy()
-    for (const pct of ['38%', '27%', '21%', '14%']) expect(m.getByText(pct)).toBeTruthy()
-
-    // Recommended intervention — the cause's three actions.
-    expect(m.getByText(/recommended intervention/i)).toBeTruthy()
-    for (const action of [
-      'GR compliance alert for the top 11 vendor/plant pairs',
-      'Auto-escalate to plant controller after 48 hours',
-      'Move consignment vendors to GR-based invoicing',
-    ]) {
-      expect(m.getByText(action)).toBeTruthy()
+    // The register lists every entry — one row per root cause, so each cause name appears exactly three times.
+    // (The cause filter dropdown carries the same names as options; those are excluded.)
+    expect(m.getByText(`${listRootCauses().length} root causes`)).toBeTruthy()
+    for (const proc of ['p2p', 'o2c'] as const) {
+      for (const cause of listCauses(proc)) {
+        const rows = m.getAllByText(cause.name).filter((el) => el.tagName !== 'OPTION')
+        expect(rows, cause.key).toHaveLength(3)
+      }
     }
+
+    // §7.30 — the mechanism section reads the same six points as the data layer, and its open-exception figure is the group's.
+    const mech = m.getByText('The mechanism').closest('section')!
+    const t = causeEliminationTrend()
+    for (const v of t.closedSeries) {
+      expect(within(mech).getAllByText(String(v)).length, String(v)).toBeGreaterThan(0)
+    }
+    expect(within(mech).getAllByText(openExceptions().toLocaleString('en-IN')).length).toBeGreaterThan(0)
+
+    // The overclaim guard says which of the two lines it is showing.
+    const p6 = currentPeriodEliminations()
+    expect(
+      within(mech).getByText(new RegExp(`The ${p6.count} root causes closed this period generated ${p6.generatedLastPeriod} exceptions`)),
+    ).toBeTruthy()
   })
 
-  it('switches the analysis when a taxonomy row is clicked', () => {
-    window.history.pushState(null, '', '/entity/JGL/root-cause/p2p/missing-gr')
+  it('an unknown ?cause= key falls back to the full register', () => {
+    window.history.pushState(null, '', '/root-causes?cause=bogus')
+    render(<App />)
+    const m = main()
+    expect(m.getByRole('heading', { level: 1, name: 'Root causes' })).toBeTruthy()
+    expect(m.getByText(`${listRootCauses().length} root causes`)).toBeTruthy()
+  })
+
+  it('drills from a row — Items to the traced worklist items, the agent cell to its record (§17.4)', () => {
+    window.history.pushState(null, '', '/root-causes')
     render(<App />)
     const m = main()
 
-    fireEvent.click(m.getByRole('link', { name: /PO price mismatch/ }))
-    expect(window.location.pathname).toBe('/entity/JGL/root-cause/p2p/po-price-mismatch')
-
-    // The right-hand side now reads from the po-price-mismatch CauseNode.
-    expect(m.getByText(/primary root cause — po price mismatch/i)).toBeTruthy()
-    expect(m.getByText(/contract escalations were signed but not loaded into the purchasing info record/)).toBeTruthy()
-    for (const value of ['₹4.1 cr', '6.1 days', '3rd consecutive month', '4 vendors']) {
-      expect(m.getByText(value)).toBeTruthy()
+    // §17.4 — the figure is what is open behind the entry now: eliminated entries read 0 with no drill; fixed-at-source
+    // reads its residue endpoint; identified/in-progress carry their count. Every non-eliminated row drills to the worklist
+    // filtered to that root cause, P2P and O2C alike.
+    for (const entry of listRootCauses()) {
+      const row = m.getByText(entry.why).closest('.fct-table-row')!
+      if (entry.state === 'eliminated') {
+        expect(within(row).getByText('0'), entry.id).toBeTruthy()
+        expect(within(row).queryByRole('link', { name: '0' }), entry.id).toBeNull()
+      } else {
+        const figure = entry.state === 'fixed-at-source' && entry.residueTrend ? entry.residueTrend[entry.residueTrend.length - 1] : entry.affectedItems
+        const itemsLink = within(row).getByRole('link', { name: String(figure) })
+        expect(itemsLink.getAttribute('href'), entry.id).toMatch(new RegExp(`^/entity/[A-Z]{3}/(p2p|o2c)/invoices\\?rc=${entry.id}$`))
+      }
     }
 
-    // Driver rows follow the new cause; the selection marker moves with it.
-    expect(m.getByText('Solvents')).toBeTruthy()
-    for (const pct of ['41%', '20%', '28%', '16%']) expect(m.getByText(pct)).toBeTruthy()
-    expect(m.getByRole('link', { name: /PO price mismatch/ }).className).toContain('fct-tax-row--selected')
-    expect(m.getByRole('link', { name: /Missing GR/ }).className).not.toContain('--selected')
-  })
-
-  it('falls back for a cause key outside the fixed taxonomy', () => {
-    window.history.pushState(null, '', '/entity/JGL/root-cause/p2p/not-a-cause')
-    render(<App />)
-    const m = main()
-
-    expect(m.getByRole('heading', { level: 1, name: 'Unknown cause not-a-cause' })).toBeTruthy()
-    // The fallback lists the six taxonomy causes as links.
-    expect(m.getAllByRole('link')).toHaveLength(6)
-  })
-
-  it('renders the O2C analysis with its own copy and driver cards (spec/08 Part D)', () => {
-    window.history.pushState(null, '', '/entity/JGL/root-cause/o2c/pricing-disputes')
-    render(<App />)
-    const m = main()
-
-    // The five process-aware pieces of copy.
-    expect(m.getByRole('heading', { level: 1, name: 'Why receivables keep ageing' })).toBeTruthy()
-    expect(m.getByText(/taxonomy — o2c/i)).toBeTruthy()
-    expect(m.getByText(/by customer segment/i)).toBeTruthy()
-    expect(m.getByText(/by driver/i)).toBeTruthy()
-
-    // Six O2C taxonomy rows, each linking within the o2c process.
-    for (const [name, key] of [
-      ['Pricing disputes', 'pricing-disputes'],
-      ['Deductions & short-pay', 'deductions'],
-      ['Billing errors', 'billing-errors'],
-      ['Credit block delays', 'credit-block'],
-      ['Cash application mismatch', 'cash-application'],
-      ['Customer master', 'customer-master'],
-    ] as const) {
-      expect(m.getByRole('link', { name: new RegExp(name, 'i') }).getAttribute('href')).toBe(`/entity/JGL/root-cause/o2c/${key}`)
+    // The agent cell is a drill to the agent's record; §17.8 — structural changes carry no agent and say so.
+    // Owner & agent is a detail column, so each row must be expanded first (one open at a time).
+    const withAgent = listRootCauses().filter((e) => e.agentId)
+    expect(withAgent.length).toBeGreaterThan(0)
+    for (const entry of withAgent) {
+      const row = m.getByText(entry.why).closest('.fct-table-row')!
+      fireEvent.click(within(row).getByRole('button', { name: 'Show details' }))
+      expect(within(row).getByRole('link', { name: /^agent · / }).getAttribute('href'), entry.id).toBe(`/agents/${entry.agentId}`)
     }
-    expect(m.getByRole('link', { name: /Pricing disputes/ }).className).toContain('fct-tax-row--selected')
-
-    // Primary root cause panel — the pricing-disputes CauseNode.
-    expect(m.getByText(/primary root cause — pricing disputes/i)).toBeTruthy()
-    for (const [label, value] of [
-      ['VALUE AT RISK', '₹5.4 cr'],
-      ['AVG DELAY', '11.2 days'],
-      ['RECURRENCE', '6th consecutive month'],
-      ['CONCENTRATION', '9 customers'],
-    ] as const) {
-      expect(m.getByText(label)).toBeTruthy()
-      expect(m.getByText(value)).toBeTruthy()
+    const noAgent = listRootCauses().filter((e) => !e.agentId)
+    expect(noAgent.length).toBeGreaterThan(0)
+    for (const entry of noAgent) {
+      const row = m.getByText(entry.why).closest('.fct-table-row')!
+      fireEvent.click(within(row).getByRole('button', { name: 'Show details' }))
+      expect(within(row).getByText('no agent can act'), entry.id).toBeTruthy()
+      expect(within(row).queryByRole('link', { name: /^agent · / }), entry.id).toBeNull()
     }
 
-    // Customer segments and cause drivers.
-    for (const label of ['Distribution', 'Institutional', 'Export', 'Retail']) expect(m.getByText(label)).toBeTruthy()
-    for (const pct of ['41%', '28%', '19%']) expect(m.getByText(pct)).toBeTruthy()
-    // 12% appears three times: the credit-block taxonomy row, the Retail segment and the Other driver.
-    expect(m.getAllByText('12%')).toHaveLength(3)
-    for (const label of ['Rate revision lag', 'Contract not loaded', 'Scheme mismatch']) expect(m.getByText(label)).toBeTruthy()
-
-    // Recommended intervention — the cause's three actions.
-    for (const action of [
-      'Load contract revisions to billing before the effective date',
-      'Attach pricing evidence to the invoice at issue',
-      'Escalate disputes above ₹10 lakh to the commercial owner in 48 hours',
-    ]) {
-      expect(m.getByText(action)).toBeTruthy()
-    }
-  })
-
-  it('renders the R2R analysis with its own copy and driver cards (§16.2, §6.1)', () => {
-    window.history.pushState(null, '', '/entity/JGL/root-cause/r2r/reconciliation')
-    render(<App />)
-    const m = main()
-
-    // The process-aware pieces of copy: title, eyebrow, the reconciliation-platform source and the R2R ask.
-    expect(m.getByRole('heading', { level: 1, name: 'Where close exposure comes from' })).toBeTruthy()
-    expect(m.getByText(/taxonomy — r2r/i)).toBeTruthy()
-    // The full stamp string is unique — an action below also mentions the reconciliation platform feed.
-    expect(m.getByText('SAP ECC · Reconciliation platform · as of 06:00 IST')).toBeTruthy()
-    expect(m.getByRole('button', { name: /ask about exposure at close/i })).toBeTruthy()
-
-    // Eight R2R taxonomy rows, each linking within the r2r process.
-    for (const [name, key] of [
-      ['Reconciliation breaks', 'reconciliation'],
-      ['Interface breaks', 'interface'],
-      ['Journal risk', 'journal'],
-      ['Close dependencies', 'close-dependency'],
-      ['Source data', 'source-data'],
-      ['Intercompany', 'intercompany'],
-      ['Judgement', 'judgement'],
-      ['Master data', 'master-data'],
-    ] as const) {
-      expect(m.getByRole('link', { name: new RegExp(name, 'i') }).getAttribute('href')).toBe(`/entity/JGL/root-cause/r2r/${key}`)
-    }
-    expect(m.getByRole('link', { name: /Reconciliation breaks/ }).className).toContain('fct-tax-row--selected')
-
-    // Primary root cause panel — the reconciliation CauseNode, read from its metric cells so the
-    // narrative (which repeats ₹14.3 cr) can't satisfy the match.
-    expect(m.getByText(/primary root cause — reconciliation breaks/i)).toBeTruthy()
-    for (const [label, value] of [
-      ['VALUE AT RISK', '₹14.3 cr'],
-      ['AVG DELAY', '28 days'],
-      ['RECURRENCE', '6th consecutive month'],
-      ['CONCENTRATION', '18 aged breaks'],
-    ] as const) {
-      expect(m.getByText(label).parentElement.textContent).toContain(value)
-    }
-
-    // Plant split and cause drivers (pcts chosen to avoid the taxonomy rows' shares on this page).
-    for (const label of ['Nanjangud', 'Roorkee', 'Noida', 'Ambernath']) expect(m.getByText(label)).toBeTruthy()
-    for (const pct of ['41%', '27%', '19%']) expect(m.getByText(pct)).toBeTruthy()
-    for (const label of ['Bank breaks', 'Suspense']) expect(m.getByText(label)).toBeTruthy()
-    for (const pct of ['46%', '28%']) expect(m.getByText(pct)).toBeTruthy()
-
-    // Recommended intervention — the cause's three actions.
-    for (const action of [
-      'Daily break review against the reconciliation platform feed',
-      'Auto-clear matched bank lines within tolerance',
-      'Escalate intercompany breaks to both entity controllers',
-    ]) {
-      expect(m.getByText(action)).toBeTruthy()
-    }
-  })
-
-  it('rejects a P2P cause key paired with the O2C process (spec/08 Part D)', () => {
-    window.history.pushState(null, '', '/entity/JGL/root-cause/o2c/missing-gr')
-    render(<App />)
-    const m = main()
-
-    expect(m.getByRole('heading', { level: 1, name: 'Unknown cause missing-gr' })).toBeTruthy()
-    // The fallback offers the O2C taxonomy — six links, all within o2c.
-    const links = m.getAllByRole('link')
-    expect(links).toHaveLength(6)
-    for (const l of links) {
-      expect(l.getAttribute('href')).toContain('/root-cause/o2c/')
+    // §17.4 — the third leg of the triangulation is on the row itself: arrivals stop when the inflow stops. (Fix & timeline is a detail column.)
+    for (const entry of listRootCauses().filter((e) => e.state === 'eliminated')) {
+      const row = m.getByText(entry.why).closest('.fct-table-row')!
+      fireEvent.click(within(row).getByRole('button', { name: 'Show details' }))
+      expect(within(row).getByText(`${entry.newArrivals} new this period`), entry.id).toBeTruthy()
     }
   })
 })

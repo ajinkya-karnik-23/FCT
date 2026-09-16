@@ -130,7 +130,8 @@ describe('Group view (spec/04)', () => {
     expect(m.getByText('68% ↑')).toBeTruthy()
     expect(m.getByText('-14% QoQ')).toBeTruthy()
     expect(m.getByText('Causes eliminated')).toBeTruthy()
-    expect(m.getByText('11 of 34')).toBeTruthy()
+    // §17.1 — the register is now the source: closed = eliminated + fixed at source, of all 36 entries.
+    expect(m.getByText('11 of 36')).toBeTruthy()
     expect(m.getByText('Touchless invoices')).toBeTruthy()
     expect(m.getByText('54%')).toBeTruthy()
   })
@@ -206,9 +207,9 @@ describe('Entity health home (spec/04)', () => {
     expect(m.getByRole('link', { name: /327 invoices/ }).getAttribute('href')).toBe('/entity/JGL/p2p')
     expect(m.getByRole('link', { name: /41 customers/ }).getAttribute('href')).toBe('/entity/JGL/working-capital')
     expect(m.getByRole('link', { name: /7 blockers/ }).getAttribute('href')).toBe('/entity/JGL/close-calendar')
-    // No-cause entry points resolve to the default pair — p2p plus its first cause (spec/08 Part D).
-    expect(m.getByRole('link', { name: /18 aged breaks/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
-    expect(m.getByRole('link', { name: /12 high-risk JEs/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
+    // No-cause entry points land on the unfiltered register (§17).
+    expect(m.getByRole('link', { name: /18 aged breaks/ }).getAttribute('href')).toBe('/root-causes')
+    expect(m.getByRole('link', { name: /12 high-risk JEs/ }).getAttribute('href')).toBe('/root-causes')
 
     // §8.2 — financial consequence strip directly below the tiles; all six entities carry the four pinned figures.
     const strip = m.getByText('Financial consequence').closest('section')!
@@ -227,9 +228,9 @@ describe('Entity health home (spec/04)', () => {
       expect(within(strip).getByText(explanation)).toBeTruthy()
     }
 
-    // §8.2 — all four figures drill to their targets; provision adequacy lands on the R2R accruals panel that carries it.
+    // §8.2 — all four figures drill to their targets; revenue at risk lands on the O2C worklist filtered to its two causes (§18.3); provision adequacy lands on the R2R accruals panel that carries it.
     expect(within(strip).getByRole('link', { name: /Accrual exposure/ }).getAttribute('href')).toBe('/entity/JGL/p2p/invoices?cause=missing-gr')
-    expect(within(strip).getByRole('link', { name: /Revenue at risk/ }).getAttribute('href')).toBe('/entity/JGL/o2c#fct-stage-COL')
+    expect(within(strip).getByRole('link', { name: /Revenue at risk/ }).getAttribute('href')).toBe('/entity/JGL/o2c/invoices?cause=credit-block,pricing-disputes')
     expect(within(strip).getByRole('link', { name: /Provision adequacy/ }).getAttribute('href')).toBe('/entity/JGL/r2r#fct-panel-accruals')
     expect(within(strip).getByRole('link', { name: /FX \/ intercompany/ }).getAttribute('href')).toBe('/entity/JGL/working-capital#fct-ic-netting')
 
@@ -250,10 +251,11 @@ describe('Entity health home (spec/04)', () => {
       expect(within(cell).getByText(value)).toBeTruthy()
     }
     expect(within(panel).getByText('11 vendors · 5th consecutive month')).toBeTruthy()
-    expect(within(panel).getByRole('link', { name: /Unposted goods receipts/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
+    expect(within(panel).getByRole('link', { name: /Unposted goods receipts/ }).getAttribute('href')).toBe('/root-causes?cause=missing-gr')
     expect(within(panel).getByRole('link', { name: /Unapplied cash/ }).getAttribute('href')).toBe('/entity/JGL/working-capital')
-    expect(within(panel).getByRole('link', { name: /Aged reconciliation breaks/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
-    expect(within(panel).getByRole('link', { name: /Open disputes/ }).getAttribute('href')).toBe('/entity/JGL/o2c#fct-stage-COL')
+    expect(within(panel).getByRole('link', { name: /Aged reconciliation breaks/ }).getAttribute('href')).toBe('/root-causes')
+    // §18.3 — disputes and credit blocks are worklist items now; the drill lands on them, filtered to those two causes.
+    expect(within(panel).getByRole('link', { name: /Open disputes/ }).getAttribute('href')).toBe('/entity/JGL/o2c/invoices?cause=credit-block,pricing-disputes')
   })
 
   it('lists the six top issues and three root-cause insights with their drill targets', () => {
@@ -280,16 +282,16 @@ describe('Entity health home (spec/04)', () => {
     expect(m.getByRole('link', { name: /Overdue AR > 90 days/ }).getAttribute('href')).toBe('/entity/JGL/working-capital')
     // §8.5 — the preclose panel adds a second 'Unapplied cash' link; both drill to working capital.
     for (const l of m.getAllByRole('link', { name: /Unapplied cash/ })) expect(l.getAttribute('href')).toBe('/entity/JGL/working-capital')
-    expect(m.getByRole('link', { name: /Reconciliation breaks/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
-    expect(m.getByRole('link', { name: /High-risk manual journals/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
+    expect(m.getByRole('link', { name: /Reconciliation breaks/ }).getAttribute('href')).toBe('/root-causes')
+    expect(m.getByRole('link', { name: /High-risk manual journals/ }).getAttribute('href')).toBe('/root-causes')
     expect(m.getByRole('link', { name: /Overdue queries/ }).getAttribute('href')).toBe('/entity/JGL/p2p/invoices')
 
-    // Root cause insights — first three of the fixed P2P taxonomy.
+    // Root cause insights — first three of the fixed P2P taxonomy, each to its register section (§17).
     expect(m.getByText(/root cause insights/i)).toBeTruthy()
-    expect(m.getByRole('link', { name: 'Analyse →' }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
-    expect(m.getByRole('link', { name: /Missing GR/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
-    expect(m.getByRole('link', { name: /PO price mismatch/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/po-price-mismatch')
-    expect(m.getByRole('link', { name: /Approval pending/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/approval-pending')
+    expect(m.getByRole('link', { name: 'Analyse →' }).getAttribute('href')).toBe('/root-causes')
+    expect(m.getByRole('link', { name: /Missing GR/ }).getAttribute('href')).toBe('/root-causes?cause=missing-gr')
+    expect(m.getByRole('link', { name: /PO price mismatch/ }).getAttribute('href')).toBe('/root-causes?cause=po-price-mismatch')
+    expect(m.getByRole('link', { name: /Approval pending/ }).getAttribute('href')).toBe('/root-causes?cause=approval-pending')
     expect(m.getByText('34%')).toBeTruthy()
     expect(m.getByText('22%')).toBeTruthy()
     expect(m.getByText('18%')).toBeTruthy()
@@ -342,7 +344,8 @@ describe('Entity health home (spec/04)', () => {
     expect(within(bauPanel).getByText('88 items')).toBeTruthy()
     expect(within(bauPanel).getByText('2 in progress · 3 not started')).toBeTruthy() // §7.18 — JGL backlog split; notStarted derived
     expect(within(bauPanel).getByRole('link', { name: /AP blocked invoices/ }).getAttribute('href')).toBe('/entity/JGL/p2p/invoices')
-    expect(within(bauPanel).getByRole('link', { name: /O2C exceptions/ }).getAttribute('href')).toBe('/entity/JGL/o2c')
+    // §18.3 — the count drills the O2C worklist that holds those items, like its P2P pair drills the blocked worklist.
+    expect(within(bauPanel).getByRole('link', { name: /O2C exceptions/ }).getAttribute('href')).toBe('/entity/JGL/o2c/invoices')
     expect(within(bauPanel).getByRole('link', { name: /Cash opportunity/ }).getAttribute('href')).toBe('/entity/JGL/working-capital')
     expect(within(bauPanel).getByRole('link', { name: /Cause elimination/ }).getAttribute('href')).toBe('/')
 
@@ -392,7 +395,8 @@ describe('Entity health home (spec/04)', () => {
     expect(within(strip).getByRole('link', { name: /Provision adequacy/ }).getAttribute('href')).toBe('/entity/JBL/r2r#fct-panel-accruals')
     // Drill targets follow the entity code.
     expect(within(strip).getByRole('link', { name: /Accrual exposure/ }).getAttribute('href')).toBe('/entity/JBL/p2p/invoices?cause=missing-gr')
-    expect(within(strip).getByRole('link', { name: /Revenue at risk/ }).getAttribute('href')).toBe('/entity/JBL/o2c#fct-stage-COL')
+    // §18.3 — revenue at risk drills the O2C worklist filtered to disputes and credit blocks, like JGL's strip above.
+    expect(within(strip).getByRole('link', { name: /Revenue at risk/ }).getAttribute('href')).toBe('/entity/JBL/o2c/invoices?cause=credit-block,pricing-disputes')
     expect(within(strip).getByRole('link', { name: /FX \/ intercompany/ }).getAttribute('href')).toBe('/entity/JBL/working-capital#fct-ic-netting')
 
     // §8.5 — preclose panel (default mode) foregrounds readiness figures with entity data; values repeat, so scope per cell.

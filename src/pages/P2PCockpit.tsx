@@ -42,8 +42,21 @@ export function P2PCockpit() {
         )}
       </div>
 
-      {/* §15.7 — the PO stage drills to the commitments watch (open POs by delivery date); every other stage keeps the worklist */}
-      <StageFlow stages={stages} to={`/entity/${code}/p2p/invoices`} stageTo={{ PO: `/entity/${code}/p2p/commitments` }} />
+      {/* §15.7 — the PO stage drills to the commitments watch (open POs by delivery date). §18 — the PR stage drills to
+      the requisition pipeline (what is not converting, and why). §17.4 — a stage's in-flight figure drills the worklist
+      to the causes that block at that stage; PAY carries no blocking cause, so it keeps the full list. */}
+      <StageFlow
+        stages={stages}
+        to={`/entity/${code}/p2p/invoices`}
+        stageTo={{
+          PR: `/entity/${code}/requisitions`,
+          PO: `/entity/${code}/p2p/commitments`,
+          GR: `/entity/${code}/p2p/invoices?cause=missing-gr`,
+          INV: `/entity/${code}/p2p/invoices?cause=vendor-master,duplicate-suspicion,tax-mismatch`,
+          MTC: `/entity/${code}/p2p/invoices?cause=po-price-mismatch`,
+          APR: `/entity/${code}/p2p/invoices?cause=approval-pending`,
+        }}
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: spacing.gapCards }}>
         <AgeingChart title="Blocked invoices by ageing" buckets={ageing} />
@@ -53,7 +66,7 @@ export function P2PCockpit() {
           {causes.map((c) => (
             <Link
               key={c.key}
-              to={`/entity/${code}/root-cause/p2p/${c.key}`}
+              to={`/entity/${code}/p2p/invoices?cause=${c.key}`}
               className="fct-cause-row"
               style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: colors.textPrimary, textDecoration: 'none' }}
             >

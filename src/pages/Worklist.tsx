@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { agentCycleRan, applyWorklistAction, causePool, getEntity, laneForException, listCauses, listExceptions, plantRoute, runNextAgentCycle, vendorRoute, worklistAgentCounts } from '../api'
+import { agentCycleRan, applyWorklistAction, causePool, causesPool, getEntity, getRootCause, laneForException, listCauses, listExceptions, plantRoute, runNextAgentCycle, vendorRoute, worklistAgentCounts } from '../api'
 import type { AgentLane, Exception, WorklistAction } from '../api'
 import { CrossProcessTrace, DataTable, Eyebrow, FreshnessStamp, type Column } from '../components'
 import { formatCr } from '../lib/format'
@@ -47,7 +47,11 @@ export function Worklist() {
   const { code } = useParams()
   // Filter and sort live in the URL query string, not component state (spec/05).
   const [searchParams, setSearchParams] = useSearchParams()
-  const causeKey = searchParams.get('cause') // absent ⇒ All
+  // §17.4 — the cause filter is multi-select (comma-joined in the URL); a stage drill can carry several causes at once.
+  const selectedCauses: string[] = searchParams.get('cause')?.split(',').filter(Boolean) ?? []
+  // §17.4 — ?rc=<register id> drills to the items traced to one root cause (from the register's Items figure).
+  const rcParam = searchParams.get('rc')
+  const rcEntry = rcParam ? getRootCause(rcParam) : undefined
   const sortParam = searchParams.get('sort')
   const sort: SortKey = sortParam === 'age' || sortParam === 'vendor' ? sortParam : 'value' // §8.9 — value desc is the default, never count
   const resolvableActive = searchParams.get('resolvable') === '1'
@@ -55,7 +59,7 @@ export function Worklist() {
   // A drill from a financial figure (cause filter) shows everything behind that figure, resolved included — the needs-you
   // default applies to navigation, not to figure drills. An explicit lane param always wins over both defaults.
   const laneParam = searchParams.get('lane')
-  const defaultLane: LaneKey = causeKey ? 'all' : 'needs-you'
+  const defaultLane: LaneKey = selectedCauses.length > 0 || rcEntry ? 'all' : 'needs-you'
   const lane: LaneKey = laneParam === 'working' || laneParam === 'escalated' || laneParam === 'never-automated' || laneParam === 'all' || laneParam === 'needs-you' ? laneParam : defaultLane
 
   const [selected, setSelected] = useState<string[]>([])
@@ -67,12 +71,26 @@ export function Worklist() {
   const causes = listCauses('p2p')
   const causeName = (key: string) => causes.find((c) => c.key === key)?.name ?? key
 
-  function setParam(key: 'cause' | 'sort' | 'resolvable' | 'lane', value: string | null) {
+  function setParam(key: 'sort' | 'resolvable' | 'lane', value: string | null) {
     const next = new URLSearchParams(searchParams)
     if (value === null) next.delete(key)
     else next.set(key, value)
     setSearchParams(next)
     setSelected([]) // a filtered-out selection would miscount the bulk bar
+  }
+
+  // §17.4 — cause chips are multi-select; entering a register drill clears them (two different scopes, one wins).
+  function setCause(keys: string[]) {
+    const next = new URLSearchParams(searchParams)
+    if (keys.length === 0) next.delete('cause')
+    else next.set('cause', keys.join(','))
+    next.delete('rc')
+    setSearchParams(next)
+    setSelected([])
+  }
+
+  function toggleCause(key: string) {
+    setCause(selectedCauses.includes(key) ? selectedCauses.filter((k) => k !== key) : [...selectedCauses, key])
   }
 
   function act(x: Exception, action: WorklistAction) {
@@ -94,13 +112,13 @@ export function Worklist() {
 
   // §15.1.1 — the one permitted trigger, explicitly a demo control; one-shot per session in the store.
   function runCycle() {
-    runNextAgentCycle(code ?? '')
+    runNextAgentCycle(code ?? '', 'p2p')
     setVersion((v) => v + 1)
   }
 
   // The header aggregates recompute over the currently filtered rows.
   const rows = listExceptions(code ?? '', 'p2p')
-    .filter((x) => !causeKey || x.reasonKey === causeKey)
+    .filter((x) => (rcEntry ? x.rootCauseId === rcEntry.id : selectedCauses.length === 0 || selectedCauses.includes(x.reasonKey)))
     .filter((x) => !resolvableActive || x.resolvableToday) // §7.19 — "resolvable today": the clearing action is available and quick
     .filter((x) => laneMatches(lane, laneForException(x).state)) // §15.7 — agents have already run; default view is what they could not close
     .sort((a, b) => {
@@ -110,8 +128,14 @@ export function Worklist() {
     })
   const totalValue = rows.reduce((sum, x) => sum + x.amount, 0)
 
-  // §7.20 — denominators follow the filter: filtered to a cause, the pool is that cause's own pool; unfiltered it is entity-wide.
-  const pool = causeKey ? causePool(code ?? '', causeKey) : undefined
+  // §7.20 — denominators follow the filter: a cause selection pools those causes' own pools; a register drill pools that entry's items and value at risk (§17.4); unfiltered it is entity-wide.
+  const pool = rcEntry
+    ? { count: rcEntry.affectedItems, valueCr: rcEntry.valueCr }
+    : selectedCauses.length > 1
+      ? causesPool(code ?? '', selectedCauses)
+      : selectedCauses.length === 1
+        ? causePool(code ?? '', selectedCauses[0])
+        : undefined
   // §7.20 — the sample explains itself against the pool; a figure that cannot explain itself gets discounted.
   const resolvableVisible = rows.filter((x) => x.resolvableToday).length
   // §7.20 — value alone does not tell a controller whether the pool is stale: the >30-day share of what is shown.
@@ -167,7 +191,20 @@ export function Worklist() {
     },
     { width: '130px', align: 'right', header: 'Amount', render: (x) => <span style={{ fontFamily: fonts.mono }}>{formatCr(x.amount, 2)}</span> },
     { width: '90px', align: 'right', header: 'Age', render: (x) => <span style={{ fontFamily: fonts.mono, color: ageColor(x.ageDays) }}>{`${x.ageDays} d`}</span> },
-    { width: '180px', header: 'Blocking reason', render: (x) => <span style={{ color: colors.textSecondary }}>{causeName(x.reasonKey)}</span> },
+    // §17.9 — one line on the item row where a root cause has been traced; the path itself lives in the expansion.
+    {
+      width: '180px',
+      header: 'Blocking reason',
+      render: (x) => {
+        const rc = x.rootCauseId ? getRootCause(x.rootCauseId) : undefined
+        return (
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style={{ color: colors.textSecondary }}>{causeName(x.reasonKey)}</span>
+            {rc && <span style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.textFaint }}>{`root cause · ${rc.why}`}</span>}
+          </span>
+        )
+      },
+    },
     {
       detail: true,
       header: 'Plant',
@@ -178,6 +215,23 @@ export function Worklist() {
     },
     { detail: true, header: 'Owner', render: (x) => <span style={{ color: colors.textSecondary }}>{x.owner}</span> },
     { detail: true, header: 'Control', render: (x) => <span style={{ fontFamily: fonts.mono, fontSize: 12, color: controlColor(x.controlSignificance) }}>{x.controlSignificance}</span> },
+    // §17.9 — the path walked to reach the root cause; expandable on the few traced examples only, not seeded everywhere.
+    {
+      detail: true,
+      header: 'Root cause',
+      render: (x) => {
+        if (!x.rootCauseId || !x.traversal) return <span style={{ color: colors.textFaint }}>not yet traced</span>
+        const rc = getRootCause(x.rootCauseId)
+        return (
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {rc && <span>{rc.why}</span>}
+            {x.traversal.map((step, i) => (
+              <span key={i} style={{ fontFamily: fonts.mono, fontSize: 11, color: colors.textSecondary }}>{`${i + 1}. ${step}`}</span>
+            ))}
+          </span>
+        )
+      },
+    },
     // §15.1.1 — the per-row agent lane: what an agent is doing or did, why it escalated, or why it never ran. No run button on a row.
     {
       width: '200px',
@@ -229,7 +283,7 @@ export function Worklist() {
         {/* §7.20 — one line: sample against pool, and why the visible resolvable count is what it is */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
           {/* §15.1.1 — the screen-level demo control; one-shot per session, disabled once run */}
-          <button type="button" className="fct-action-chip" onClick={runCycle} disabled={agentCycleRan(code ?? '')} style={{ ...actionChip, opacity: agentCycleRan(code ?? '') ? 0.5 : 1 }}>
+          <button type="button" className="fct-action-chip" onClick={runCycle} disabled={agentCycleRan(code ?? '', 'p2p')} style={{ ...actionChip, opacity: agentCycleRan(code ?? '', 'p2p') ? 0.5 : 1 }}>
             Run the next cycle (demo)
           </button>
           <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textMuted }}>{headerSegments.join(' · ')}</span>
@@ -237,15 +291,19 @@ export function Worklist() {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={filterLabel}>Cause</span>
-        <button type="button" className={`fct-chip${causeKey === null ? ' fct-chip--active' : ''}`} onClick={() => setParam('cause', null)}>
-          All
-        </button>
-        {causes.map((c) => (
-          <button key={c.key} type="button" className={`fct-chip${causeKey === c.key ? ' fct-chip--active' : ''}`} onClick={() => setParam('cause', c.key)}>
-            {c.name}
-          </button>
-        ))}
+        {!rcEntry && (
+          <>
+            <span style={filterLabel}>Cause</span>
+            <button type="button" className={`fct-chip${selectedCauses.length === 0 ? ' fct-chip--active' : ''}`} onClick={() => setCause([])}>
+              All
+            </button>
+            {causes.map((c) => (
+              <button key={c.key} type="button" className={`fct-chip${selectedCauses.includes(c.key) ? ' fct-chip--active' : ''}`} onClick={() => toggleCause(c.key)}>
+                {c.name}
+              </button>
+            ))}
+          </>
+        )}
         {/* §7.19 — the resolvable-today set; every entity carries its anchored pool count (§7.19 table) */}
         <button type="button" className={`fct-chip${resolvableActive ? ' fct-chip--active' : ''}`} onClick={() => setParam('resolvable', resolvableActive ? null : '1')}>
           {resolvableCount !== undefined ? `${resolvableCount} resolvable today` : 'Resolvable today'}
@@ -265,7 +323,7 @@ export function Worklist() {
         ))}
       </div>
 
-      {causeKey === 'missing-gr' && entity && (
+      {!rcEntry && selectedCauses.includes('missing-gr') && entity && (
         // §8.10 — filtered to the goods-receipt cause: this is the chain's second point
         <CrossProcessTrace code={entity.code} current="invoice" />
       )}
@@ -295,7 +353,7 @@ export function Worklist() {
         {rows.length === 0 && (
           // Empty state keeps the table shell in place — do not collapse it.
           <div style={{ padding: '13px 20px' }}>
-            <span style={{ fontSize: 13, color: colors.textMuted }}>No exceptions match this cause</span>
+            <span style={{ fontSize: 13, color: colors.textMuted }}>{rcEntry ? "No items in this entity's sample trace to that root cause" : selectedCauses.length > 1 ? 'No exceptions match these causes' : selectedCauses.length === 1 ? 'No exceptions match this cause' : 'Nothing needs you right now'}</span>
           </div>
         )}
       </section>

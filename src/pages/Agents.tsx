@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { agentActions, agentRates, agentReversibility, agentWorkforceSummary, coverageStrip, getCounterparty, getException, getPurchaseOrder, listAgents, listRequests, listTouchFunnel } from '../api'
+import { agentActions, agentPreventsLine, agentRates, agentReversibility, agentWorkforceSummary, coverageStrip, getCounterparty, getException, getPurchaseOrder, listAgents, listRequests, listTouchFunnel } from '../api'
 import type { Agent, AgentAction, AgentMetrics, AgentProcess, AgentStatus, AgentType, CoverageStage } from '../api'
 import { Eyebrow, Metric, StatusDot } from '../components'
 import { formatCr } from '../lib/format'
@@ -342,6 +342,8 @@ export function AgentRecord({ a }: { a: Agent }) {
 
 function AgentCard({ a, expanded, onToggle }: { a: Agent; expanded: boolean; onToggle: () => void }) {
   const live = a.status === 'live'
+  // §18.2 — the downstream cause this preventive agent removes (joined from the taxonomy at read time).
+  const prevents = agentPreventsLine(a)
   return (
     <div data-fct-agent={a.id} style={{ border: `1px solid ${colors.borderDefault}`, background: colors.bgPanel, display: 'flex', flexDirection: 'column' }}>
       <div onClick={onToggle} role="button" tabIndex={0} data-fct-agent-toggle={a.id} style={{ padding: 16, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -354,6 +356,7 @@ function AgentCard({ a, expanded, onToggle }: { a: Agent; expanded: boolean; onT
         <p style={{ ...typeScale.body, color: colors.textSecondary, margin: 0 }}>{a.scope}</p>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <Meta label="BOUNDED BY" value={a.boundedBy} />
+          {prevents && <Meta label="PREVENTS" value={prevents} />}
           <Meta label="SUPERVISED BY" value={`${a.supervisor} · ${agentReversibility(a)}`} />
           {/* §15.7 — the per-agent drill into that agent's own record */}
           <Link to={`/agents/${a.id}`} data-fct-agent-link={a.id} onClick={(e) => e.stopPropagation()} style={{ fontFamily: fonts.mono, fontSize: 10, color: colors.accentText, textDecoration: 'none' }}>{'record →'}</Link>

@@ -31,19 +31,19 @@ describe('R2R cockpit (§16.2)', () => {
     const kpis = within(document.getElementById('fct-r2r-header-kpis'))
     expect(kpis.getByText('78%')).toBeTruthy()
     expect(kpis.getByText('18')).toBeTruthy()
-    // §8.4 — the header's open breaks is the same figure as the panel's overdue breaks; both drill to the reconciliation root cause.
+    // §8.4 — the header's open breaks is the same figure as the panel's overdue breaks; both drill to the register (§17).
     const openBreaks = kpis.getAllByRole('link').find((l) => (l.textContent ?? '').includes('Open breaks'))!
-    expect(openBreaks.getAttribute('href')).toBe('/entity/JGL/root-cause/r2r/reconciliation')
+    expect(openBreaks.getAttribute('href')).toBe('/root-causes')
 
     // §8.1 — the stage cards are open work in progress, not period volumes.
     expect(m.getByText('In flight at each stage')).toBeTruthy()
     expect(m.getByText('Open work in progress, not period volumes')).toBeTruthy()
 
-    // The eight stage cards drill to the taxonomy's largest node (the recon panel adds its own overdue-breaks link below).
-    const toReconciliation = m.getAllByRole('link').filter((l) => l.classList.contains('fct-stage-card') && l.getAttribute('href') === '/entity/JGL/root-cause/r2r/reconciliation')
-    expect(toReconciliation).toHaveLength(8)
+    // The eight stage cards drill to the register (R2R issues sit outside its p2p/o2c cause taxonomy, so unfiltered).
+    const toRegister = m.getAllByRole('link').filter((l) => l.classList.contains('fct-stage-card') && l.getAttribute('href') === '/root-causes')
+    expect(toRegister).toHaveLength(8)
     for (const name of ['Sub-ledger close', 'Accruals & provisions', 'Reconciliations', 'Intercompany', 'Adjusting journals', 'Trial balance', 'Reporting pack', 'Sign-off']) {
-      expect(toReconciliation.some((l) => (l.textContent ?? '').includes(name))).toBe(true)
+      expect(toRegister.some((l) => (l.textContent ?? '').includes(name))).toBe(true)
     }
 
     // Stage card contents, read from the Sub-ledger close card — Reporting pack rounds to the same 15%,
@@ -118,7 +118,7 @@ describe('R2R cockpit (§16.2)', () => {
     expect(p.getByText('Certified')).toBeTruthy()
     expect(p.getByText('186')).toBeTruthy()
     const overdue = p.getByRole('link', { name: '18' })
-    expect(overdue.getAttribute('href')).toBe('/entity/JGL/root-cause/r2r/reconciliation')
+    expect(overdue.getAttribute('href')).toBe('/root-causes')
     expect(p.getByText('oldest 61 d · ₹14.3 cr')).toBeTruthy()
     expect(p.getByText('11 of 18 with evidence attached')).toBeTruthy()
   })
@@ -132,7 +132,7 @@ describe('R2R cockpit (§16.2)', () => {
     expect(j.getByText('Journals')).toBeTruthy()
     expect(j.getByText('847')).toBeTruthy()
     const highRisk = j.getByRole('link', { name: '12' })
-    expect(highRisk.getAttribute('href')).toBe('/entity/JGL/root-cause/r2r/journal')
+    expect(highRisk.getAttribute('href')).toBe('/root-causes')
     for (const flag of ['Top-side entry', 'Round number', 'Backdated', 'Above materiality', 'Preparer equals approver', 'Outside business hours', 'Sensitive account']) {
       expect(j.getByText(flag)).toBeTruthy()
     }

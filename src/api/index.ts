@@ -8,7 +8,7 @@ import { stagesFor } from './mock/stages';
 import { CLOSE_CALENDAR_SUMMARIES, CLOSE_TASKS } from './mock/closeCalendar';
 import { ANCHOR, addDays, closingLine, endOfMonth, exceptions, fmtDate, isoDate, seededTimeline, SEEDED_EVIDENCE_LINES } from './mock/exceptions';
 import { causes } from './mock/causes';
-import { causeBacklogRows, earlyOpenExceptions } from './mock/causeBacklog';
+import { closedByPeriod, closedThisPeriodGeneratedLastPeriod, earlyOpenExceptions, rootCauses } from './mock/rootCauses';
 import { complianceItems } from './mock/compliance';
 import { dataQualityItems, interfaceHealth } from './mock/dataQuality';
 import { apEffectiveness, controlSignals } from './mock/controls';
@@ -30,6 +30,7 @@ import {
 import { deflectedSelfServed, requests } from './mock/requests';
 import { agents, agentActionLog, COVERAGE_STRIP, sessionOverrideCount } from './mock/agents';
 import { poActionLog } from './mock/commitments';
+import { PR_CAUSES, rawRequisitionRows } from './mock/requisitions';
 import { jglLeverStages, touchFunnel } from './mock/touchEconomics';
 import { JOURNAL_RISK_FLAGS, accrualReversalByEntity, flagAvailable, integrityComponentsByEntity, integrityIndex, intercompanyByEntity, journalRiskByEntity, reconBreaksAgeingByEntity, reconSummaryByEntity } from './mock/balanceSheet';
 
@@ -44,7 +45,6 @@ import type {
   AgentWorkforceSummary,
   Attribution,
   CashOpportunity,
-  CauseBacklogRow,
   CauseElimination,
   CauseNode,
   CloseCalendarSummary,
@@ -76,8 +76,13 @@ import type {
   PlantCounterparty,
   ProcessKey,
   ProcessStage,
+  PrCause,
   RecurringCause,
   Request,
+  RequisitionPipeline,
+  RequisitionRow,
+  RootCauseEntry,
+  RootCauseState,
   ServiceControl,
   ServiceMetric,
   TimelineEvent,
@@ -102,7 +107,6 @@ export type {
   ApControlEffectiveness,
   Attribution,
   CashOpportunity,
-  CauseBacklogRow,
   CloseCalendarSummary,
   CloseTask,
   CostCentre,
@@ -141,10 +145,16 @@ export type {
   PurchaseOrder,
   ProcessKey,
   ProcessStage,
+  PrCause,
+  PrChaseState,
   RankedAction,
   ReconSummary,
   RecurringCause,
   Request,
+  RequisitionPipeline,
+  RequisitionRow,
+  RootCauseEntry,
+  RootCauseState,
   SensitivityItem,
   ServiceControl,
   ServiceMetric,
@@ -275,19 +285,23 @@ export type { WorklistAction } from './actions';
 // §7.6 — attribution reason per cause (single source: mock/exceptions.ts).
 export { attributionReason } from './mock/exceptions';
 
+// The open line with its escalation timer — the detail screen's next-action text for rows that clear through a
+// conversation, not a same-day release (§18.3 O2C worklist).
+export { closingLine } from './mock/exceptions';
+
 // §7.19 — effort is a property of the item, not the cause: same cause, different resolvable state.
 // The spec's eight-situation table pins these values; vendor master / duplicate / tax share one row each.
 const ITEM_EFFORT: Record<string, { open: Effort; resolvable: Effort }> = {
-  'missing-gr': { open: 'High', resolvable: 'Low' }, // receipt not yet available → chase the plant; awaiting posting → one action, no chasing
-  'po-price-mismatch': { open: 'High', resolvable: 'Low' }, // outside tolerance → renegotiate or raise a debit note; inside → approve the variance
-  'approval-pending': { open: 'Medium', resolvable: 'Low' }, // approver absent → reroute the delegation; active → one nudge
-  'vendor-master': { open: 'Medium', resolvable: 'Low' }, // not resolvable today → correction plus re-validation; prepared → one validation
-  'duplicate-suspicion': { open: 'Medium', resolvable: 'Low' },
-  'tax-mismatch': { open: 'Medium', resolvable: 'Low' },
+  'p2p:missing-gr': { open: 'High', resolvable: 'Low' }, // receipt not yet available → chase the plant; awaiting posting → one action, no chasing
+  'p2p:po-price-mismatch': { open: 'High', resolvable: 'Low' }, // outside tolerance → renegotiate or raise a debit note; inside → approve the variance
+  'p2p:approval-pending': { open: 'Medium', resolvable: 'Low' }, // approver absent → reroute the delegation; active → one nudge
+  'p2p:vendor-master': { open: 'Medium', resolvable: 'Low' }, // not resolvable today → correction plus re-validation; prepared → one validation
+  'p2p:duplicate-suspicion': { open: 'Medium', resolvable: 'Low' },
+  'p2p:tax-mismatch': { open: 'Medium', resolvable: 'Low' },
 };
 
-export function itemEffort(x: Pick<Exception, 'reasonKey' | 'resolvableToday'>): Effort {
-  const row = ITEM_EFFORT[x.reasonKey] ?? { open: 'Medium', resolvable: 'Low' };
+export function itemEffort(x: Pick<Exception, 'processKey' | 'reasonKey' | 'resolvableToday'>): Effort {
+  const row = ITEM_EFFORT[`${x.processKey}:${x.reasonKey}`] ?? { open: 'Medium', resolvable: 'Low' };
   return x.resolvableToday ? row.resolvable : row.open;
 }
 
@@ -301,7 +315,7 @@ export function exceptionTimeline(x: Exception): TimelineEvent[] {
   if ((x.status ?? 'open') !== 'released') {
     // §7.19 — a resolvable-today item reads as one action away (green), not as still waiting.
     // The open line carries the item's own escalation timer — the same figure the worklist lane shows.
-    events.push({ dateLabel: 'Today', text: closingLine(x.reasonKey, x.resolvableToday, x.ageDays), tone: x.resolvableToday ? 'ok' : 'now' });
+    events.push({ dateLabel: 'Today', text: closingLine(x.processKey, x.reasonKey, x.resolvableToday, x.ageDays), tone: x.resolvableToday ? 'ok' : 'now' });
   }
   return events;
 }
@@ -310,19 +324,21 @@ export function listCauses(processKey: ProcessKey = 'p2p'): CauseNode[] {
   return causes.filter((c) => c.processKey === processKey);
 }
 
-export function getCause(key: string): CauseNode | undefined {
-  return causes.find((c) => c.key === key);
+// Process-aware on purpose: a key shared across taxonomies must not resolve to whichever node comes first in causes[].
+export function getCause(key: string, processKey: ProcessKey): CauseNode | undefined {
+  return causes.find((c) => c.key === key && c.processKey === processKey);
 }
 
 // §7.20 — denominators follow the filter: filtered to a cause, the pool is that cause's own pool, not the entity-wide one.
-// Counts are largest-remainder over (sharePct × apBlockedCount), so they sum exactly to the entity's blocked count; value is
-// the taxonomy node's value at risk — the same figure the root-cause page shows for every entity.
-export function causePool(entityCode: string, causeKey: string): { count: number; valueCr: number } | undefined {
+// Counts are largest-remainder over (sharePct × pool count), so they sum exactly to the entity's pool; value is the taxonomy
+// node's value at risk — the same figure the root-cause page shows for every entity. P2P pools apBlockedCount, O2C pools
+// o2cExceptionCount (§18.3).
+export function causePool(entityCode: string, causeKey: string, processKey: 'p2p' | 'o2c' = 'p2p'): { count: number; valueCr: number } | undefined {
   const entity = getEntity(entityCode);
-  const node = getCause(causeKey);
-  if (!entity || !node || node.processKey !== 'p2p') return undefined;
-  const causes = listCauses('p2p');
-  const total = entity.metrics.apBlockedCount;
+  const node = getCause(causeKey, processKey); // a key from the other process's taxonomy resolves to nothing here
+  if (!entity || !node) return undefined;
+  const causes = listCauses(processKey);
+  const total = processKey === 'o2c' ? entity.metrics.o2cExceptionCount : entity.metrics.apBlockedCount;
   const raw = causes.map((c) => (c.sharePct / 100) * total);
   const counts = raw.map((v) => Math.floor(v + 1e-9));
   let remainder = total - counts.reduce((a, b) => a + b, 0); // integer in [0, causes.length)
@@ -333,6 +349,14 @@ export function causePool(entityCode: string, causeKey: string): { count: number
     remainder -= 1;
   }
   return { count: counts[causes.findIndex((c) => c.key === causeKey)], valueCr: node.valueAtRisk };
+}
+
+// §7.20 — the multi-cause filter pools each selected cause's own pool; the sum is exact because the per-cause
+// counts are largest-remainder over the same entity total (no double counting, no rounding drift).
+export function causesPool(entityCode: string, causeKeys: string[], processKey: 'p2p' | 'o2c' = 'p2p'): { count: number; valueCr: number } | undefined {
+  const pools = causeKeys.map((k) => causePool(entityCode, k, processKey)).filter((p): p is { count: number; valueCr: number } => !!p);
+  if (pools.length === 0) return undefined;
+  return { count: pools.reduce((s, p) => s + p.count, 0), valueCr: Math.round(pools.reduce((s, p) => s + p.valueCr, 0) * 10) / 10 };
 }
 
 export function getCashOpportunities(): CashOpportunity[] {
@@ -349,48 +373,39 @@ export function causeBacklog(ce: CauseElimination): { identified: number; elimin
   return { ...ce, notStarted: ce.identified - ce.eliminated - ce.inProgress };
 }
 
-// §7.30 — the register row as rendered: the stored row plus name / value at risk / recurrence joined from the
-// group taxonomy at read time (the register holds entity-level rows; the taxonomy holds the twelve group nodes).
-export interface CauseBacklogEntry extends CauseBacklogRow {
-  name: string;
-  valueAtRisk: number; // ₹ cr — from the taxonomy node
-  recurrence: number; // months — displayed via formatRecurrence() (§7.12)
+// §17 — the root cause register (group level): one row per root cause under a §6.1 cause. The parent cause's name
+// and value at risk join from the taxonomy (mock/causes.ts) at read time, so a single edit to a node flows through
+// every screen that shows it; entries never store those figures twice.
+export function listRootCauses(): RootCauseEntry[] {
+  return rootCauses;
 }
 
-// §7.30 — cause elimination backlog register (thirty-four entity-level rows, mock/causeBacklog.ts).
-export function listCauseBacklog(): CauseBacklogEntry[] {
-  return causeBacklogRows.map((row) => {
-    const node = getCause(row.causeKey);
-    return { ...row, name: node?.name ?? row.causeKey, valueAtRisk: node?.valueAtRisk ?? 0, recurrence: node?.recurrence ?? 0 };
-  });
+export function getRootCause(id: string): RootCauseEntry | undefined {
+  return rootCauses.find((e) => e.id === id);
 }
 
-// §7.30 — headline counts derived from the register rows (never stored): 34 identified · 11 eliminated ·
-// 6 in progress · 17 not started, matching the per-entity pins in §7.18.
-export function causeBacklogCounts(): { identified: number; eliminated: number; inProgress: number; notStarted: number } {
-  const identified = causeBacklogRows.length;
-  const eliminated = causeBacklogRows.filter((r) => r.status === 'eliminated').length;
-  const inProgress = causeBacklogRows.filter((r) => r.status === 'in-progress').length;
-  return { identified, eliminated, inProgress, notStarted: identified - eliminated - inProgress };
+// §17 — headline counts derived from the register (never stored): 36 identified · 4 eliminated ·
+// 7 fixed at source · 8 in progress · 17 not started.
+export function rootCauseCounts(): Record<RootCauseState, number> {
+  const counts: Record<RootCauseState, number> = { eliminated: 0, 'fixed-at-source': 0, 'in-progress': 0, identified: 0 };
+  for (const e of rootCauses) counts[e.state] += 1;
+  return counts;
 }
 
-// §7.30 — the mechanism trend over the six periods: cumulative causes eliminated (derived from the register's
-// eliminatedInPeriod marks) against group open exceptions. The exception series joins the four early points with
-// the live previous/current values, so both lines share exactly the same six points — which is what makes the
-// asserted relationship ("as eliminations rise, open exceptions fall") checkable point by point.
-export function causeEliminationTrend(): { eliminatedSeries: number[]; openExceptionsSeries: number[] } {
-  const eliminatedSeries = [1, 2, 3, 4, 5, 6].map((p) =>
-    causeBacklogRows.filter((r) => r.status === 'eliminated' && (r.eliminatedInPeriod ?? 0) <= p).length
-  );
-  return { eliminatedSeries, openExceptionsSeries: [...earlyOpenExceptions, openExceptionsPrevious(), openExceptions()] };
+// §7.30 — the mechanism trend over the six periods: cumulative root causes closed (eliminated + fixed at source,
+// §17.3) against group open exceptions. The exception series joins the four early points with the live previous/
+// current values, so both lines share exactly the same six points — which is what makes the asserted relationship
+// ("as causes close, open exceptions fall") checkable point by point.
+export function causeEliminationTrend(): { closedSeries: number[]; openExceptionsSeries: number[] } {
+  return { closedSeries: closedByPeriod, openExceptionsSeries: [...earlyOpenExceptions, openExceptionsPrevious(), openExceptions()] };
 }
 
-// §7.30 — the overclaim guard, as data: the defensible claim is about the causes eliminated THIS period (period
+// §7.30 — the overclaim guard, as data: the defensible claim is about the root causes closed THIS period (period
 // 6) — they generated N exceptions last period and none in this one. "Volume fell because we eliminated causes"
 // would be a different, unsupported claim; this accessor only ever produces the first kind.
 export function currentPeriodEliminations(): { count: number; generatedLastPeriod: number } {
-  const rows = causeBacklogRows.filter((r) => r.status === 'eliminated' && r.eliminatedInPeriod === 6);
-  return { count: rows.length, generatedLastPeriod: rows.reduce((s, r) => s + (r.generatedLastPeriod ?? 0), 0) };
+  const n = closedByPeriod.length;
+  return { count: closedByPeriod[n - 1] - closedByPeriod[n - 2], generatedLastPeriod: closedThisPeriodGeneratedLastPeriod };
 }
 
 // §7.2 — group aggregates are computed, never stored (score.ts is the single decider).
@@ -671,7 +686,8 @@ export function listPlants(entityCode?: string): PlantCounterparty[] {
 export function getPlantDetail(entityCode: string, id: string): { plant: PlantCounterparty; items: Exception[]; byCause: { causeKey: string; amountCr: number }[] } | undefined {
   const plant = plants.find((p) => p.entityCode === entityCode && p.id === id);
   if (!plant) return undefined;
-  const items = exceptions.filter((x) => x.entityCode === entityCode && x.plant === plant.name);
+  // Plant pages hold blocked-AP work only — O2C rows carry plants too, but they drill to customer pages (§7.24).
+  const items = exceptions.filter((x) => x.entityCode === entityCode && x.processKey === 'p2p' && x.plant === plant.name);
   const byCausePaise = new Map<string, number>();
   for (const x of items) byCausePaise.set(x.reasonKey, (byCausePaise.get(x.reasonKey) ?? 0) + Math.round(x.amount * 100));
   const byCause = [...byCausePaise.entries()].map(([causeKey, p]) => ({ causeKey, amountCr: p / 100 })).sort((a, b) => b.amountCr - a.amountCr);
@@ -687,6 +703,12 @@ export function listCostCentres(entityCode?: string): CostCentre[] {
 export function vendorRoute(entityCode: string, name: string): string | undefined {
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   return counterparties.some((c) => c.entityCode === entityCode && c.type === 'vendor' && c.id === id) ? `/entity/${entityCode}/vendor/${id}` : undefined;
+}
+
+// Customer ids are the forecast driver's stable identity (§7.23), not a name slug — look up by name, route by id.
+export function customerRoute(entityCode: string, name: string): string | undefined {
+  const c = counterparties.find((o) => o.entityCode === entityCode && o.type === 'customer' && o.name === name);
+  return c ? `/entity/${entityCode}/customer/${c.id}` : undefined;
 }
 
 export function plantRoute(entityCode: string, name: string): string | undefined {
@@ -758,6 +780,61 @@ export { agentCycleRan, creditBlockDecisionFor, decisionOverridden, decisionReco
 // §15.7 — commitments watch: open POs by delivery date, chase state, amendments and value at risk of slipping past
 // period-end; the PO detail page's decision record (the agent–owner exchange).
 export { commitmentsWatch, getPurchaseOrder, poActionLog, poDaysOut, poDecisionFor, purchaseOrders } from './mock/commitments';
+
+// §18 — requisitions: the top of the P2P funnel. The pipeline derives from the pinned §7.4 stage counts (PR − PO), and
+// row values are allocated at read time over the stage value difference so Σ rows ties to PR.inFlightValue −
+// PO.inFlightValue for every entity — demand not yet committed, never a second stored figure.
+export function prCauses(): PrCause[] {
+  return PR_CAUSES;
+}
+
+export function requisitionPipeline(entityCode: string): RequisitionPipeline | undefined {
+  const stages = stagesFor(entityCode);
+  const pr = stages.find((s) => s.processKey === 'p2p' && s.step === 'PR');
+  const po = stages.find((s) => s.processKey === 'p2p' && s.step === 'PO');
+  if (!pr || !po) return undefined;
+  // The value difference is exact in the stage data's one-decimal units (both are round1'd), so no drift.
+  const unconvertedValueCr = Math.round(((pr.inFlightValue ?? 0) - (po.inFlightValue ?? 0)) * 10) / 10;
+  return { prsInFlight: pr.inFlight, converted: po.inFlight, unconverted: pr.inFlight - po.inFlight, unconvertedValueCr };
+}
+
+export function listRequisitions(entityCode: string): RequisitionRow[] {
+  const raw = rawRequisitionRows[entityCode] ?? [];
+  if (raw.length === 0) return [];
+  // Integer arithmetic in hundredths of a cr — largest-remainder over the seeded weights, same pattern as causePool.
+  const stages = stagesFor(entityCode);
+  const prV = stages.find((s) => s.processKey === 'p2p' && s.step === 'PR')!.inFlightValue ?? 0;
+  const poV = stages.find((s) => s.processKey === 'p2p' && s.step === 'PO')!.inFlightValue ?? 0;
+  const totalUnits = Math.max(0, Math.round((prV - poV) * 100));
+  const wSum = raw.reduce((a, r) => a + r.weight, 0);
+  const rawU = raw.map((r) => (totalUnits * r.weight) / wSum);
+  const units = rawU.map((v) => Math.floor(v + 1e-9));
+  let remainder = totalUnits - units.reduce((a, b) => a + b, 0);
+  const byFrac = rawU.map((v, i) => ({ frac: v - Math.floor(v), i })).sort((a, b) => b.frac - a.frac || a.i - b.i);
+  for (const { i } of byFrac) {
+    if (remainder <= 0) break;
+    units[i] += 1;
+    remainder -= 1;
+  }
+  return raw
+    .map((r, i) => ({ id: r.id, entityCode, causeKey: r.causeKey, ageDays: r.ageDays, owner: r.owner, valueCr: units[i] / 100, chaseState: r.chaseState }))
+    .sort((a, b) => b.ageDays - a.ageDays || (a.id < b.id ? -1 : 1)); // oldest first — what is not moving, and why
+}
+
+// §18.2 — the downstream cause a preventive agent removes; joined from the taxonomy at read time so the name and its
+// share of blocked AP come from one source. Both preventive agents act on the P2P invoice process, so 'p2p' is their
+// declared scope: a prevents key outside the P2P taxonomy resolves to nothing and the line drops out rather than mis-joining.
+export function agentPreventsLine(a: Agent): string | undefined {
+  if (!a.prevents) return undefined;
+  const node = getCause(a.prevents.causeKey, 'p2p');
+  if (!node) return undefined;
+  return `${node.name} · ${node.sharePct}% of blocked AP`;
+}
+
+// §18.2 — the five requisition agents, in roster order (the roster numbers are their stable identity).
+export function requisitionAgents(): Agent[] {
+  return listAgents().filter((a) => a.number >= 23 && a.number <= 27);
+}
 
 // §15.2.0 — the lifecycle coverage strip: seven P2P and seven O2C stages with agents positioned where they act.
 export function coverageStrip(): CoverageStrip {

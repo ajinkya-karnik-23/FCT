@@ -6,8 +6,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { cutoffRiskThresholdDays, getCashOpportunities, getEntity, listCauseBacklog, listCauses } from '../api'
-import type { CauseBacklogEntry, CauseNode } from '../api'
+import { cutoffRiskThresholdDays, getCashOpportunities, getEntity, listCauses, listRootCauses } from '../api'
+import type { CauseNode, RootCauseEntry } from '../api'
+import { rootCauseTo } from '../app/paths'
 import { formatCr } from '../lib/format'
 import { animation, colors, fonts, radius } from '../theme/tokens'
 import { causeEliminationColor } from '../theme/derive'
@@ -49,25 +50,26 @@ const poolOf = (c: CauseNode): PoolKey => (c.processKey === 'p2p' ? 'ap' : 'ar')
 const fnOf = (c: CauseNode): string => c.originatingFunction ?? '—'
 const sumV = (cs: CauseNode[]): number => cs.reduce((t, c) => t + c.valueAtRisk, 0)
 
-// JGL's register rows drive the fix-status gutter and the inspector's remediation pane.
-const REGISTER: Map<string, CauseBacklogEntry> = new Map(
-  listCauseBacklog().filter((r) => r.entityCode === SCOPE).map((r) => [r.causeKey, r]),
+// The register's largest root cause per cause drives the fix-status gutter and the inspector's remediation pane.
+const REGISTER: Map<string, RootCauseEntry> = new Map(
+  listRootCauses()
+    .filter((e) => e.entityCodes.includes(SCOPE))
+    .reduce((m, e) => { const cur = m.get(e.parentCause); if (!cur || e.valueCr > cur.valueCr) m.set(e.parentCause, e); return m }, new Map<string, RootCauseEntry>()),
 )
-type Reg = CauseBacklogEntry | { status: 'none' }
-const NONE_REG: Reg = { status: 'none' }
+type Reg = RootCauseEntry | { state: 'none' }
+const NONE_REG: Reg = { state: 'none' }
 function regOf(key: string): Reg { return REGISTER.get(key) ?? NONE_REG }
 
 // §7.21 relative clock — target dates are stored as ISO from the start-of-day anchor; render them as "+N d".
 function startOfTodayMs(): number { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime() }
 function targetText(row: Reg): string | null {
-  if (row.status === 'none') return null
+  if (row.state === 'none') return null
   if ('targetDate' in row && row.targetDate) return `+${Math.round((Date.parse(row.targetDate) - startOfTodayMs()) / 86400000)} d`
-  if ('eliminatedInPeriod' in row && row.eliminatedInPeriod) return `met · period ${row.eliminatedInPeriod}`
   return null
 }
 
-const STATUS_LABEL: Record<Reg['status'], string> = { eliminated: 'Eliminated', 'in-progress': 'In progress', identified: 'Identified', none: 'Not on the register' }
-function statusColor(status: Reg['status']): string {
+const STATUS_LABEL: Record<Reg['state'], string> = { eliminated: 'Eliminated', 'fixed-at-source': 'Fixed at source', 'in-progress': 'In progress', identified: 'Identified', none: 'Not on the register' }
+function statusColor(status: Reg['state']): string {
   if (status === 'none') return colors.statusRed
   return causeEliminationColor(status)
 }
@@ -127,7 +129,7 @@ function computeLayout(H: number) {
 function passesLens(c: CauseNode, lens: LensKey): boolean {
   if (lens === 'outside') return !INSIDE[poolOf(c)].includes(fnOf(c))
   if (lens === 'human') return humanValue(c) > 0.35
-  if (lens === 'noowner') return regOf(c.key).status === 'none'
+  if (lens === 'noowner') return regOf(c.key).state === 'none'
   if (lens === 'close') return c.avgDelayDays >= cutoffRiskThresholdDays() // a proxy for cut-off risk, not a per-item deadline
   return true
 }
@@ -304,7 +306,7 @@ export function CashAttributionV2() {
       ? `Agents already clear ${formatCr(cleared)} of P2P. ${formatCr(residual)} of P2P still needs a person — the ${formatCr(unmodelled)} of O2C shows in full only because agent coverage there is not yet measured.`
       : `Agents already clear ${formatCr(cleared)}. ${formatCr(residual)} still needs a person.`
   } else if (lens === 'noowner') {
-    const nf = subset.filter((c) => regOf(c.key).status === 'none')
+    const nf = subset.filter((c) => regOf(c.key).state === 'none')
     // The lens's own predicate is "not on the register", so the denominator must be the process-scoped set
     // before the lens — otherwise the fraction reads "4 of 4" and conveys no scope.
     const scoped = CAUSES.filter((c) => proc === 'all' || poolOf(c) === proc).length
@@ -433,7 +435,7 @@ export function CashAttributionV2() {
 
         <div style={{ padding: '0 16px', marginTop: 14 }}>
           <span style={{ ...mlStyle, display: 'block', marginBottom: 8 }}>Fix status</span>
-          {([['eliminated', 'stops new cases'], ['in-progress', 'owner + target'], ['identified', 'no target set'], ['none', null]] as const).map(([s, suffix]) => (
+          {([['eliminated', 'stops new cases'], ['fixed-at-source', 'inflow stopped'], ['in-progress', 'owner + target'], ['identified', 'no target set'], ['none', null]] as const).map(([s, suffix]) => (
             <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, color: colors.textSecondary, fontFamily: fonts.mono, fontSize: 9.5 }}>
               <i aria-hidden style={{ width: 4, height: 13, borderRadius: 1, flexShrink: 0, background: statusColor(s) }} />
               {STATUS_LABEL[s]}{suffix ? ` · ${suffix}` : ''}
@@ -476,7 +478,7 @@ export function CashAttributionV2() {
             const py = poolsY[p]
             const tx = POOL_X + POOL_W + 14
             const outsideV = sumV(CAUSES.filter((c) => poolOf(c) === p && !INSIDE[p].includes(fnOf(c))))
-            const noFixV = sumV(CAUSES.filter((c) => poolOf(c) === p && regOf(c.key).status === 'none'))
+            const noFixV = sumV(CAUSES.filter((c) => poolOf(c) === p && regOf(c.key).state === 'none'))
             const op = (proc !== 'all' && proc !== p) ? 0.13 : sel && sel.pool !== p ? 0.3 : 1
             return (
               <a key={p} data-fct-ca-pool={p} href={p === 'ap' ? `/entity/${SCOPE}/p2p/invoices` : `/entity/${SCOPE}/o2c`} style={{ opacity: op, transition: 'opacity .3s ease', cursor: 'pointer' }}>
@@ -510,7 +512,7 @@ export function CashAttributionV2() {
                 data-fct-ca-band={c.key}
                 role="button"
                 tabIndex={0}
-                aria-label={`${c.name}, ${formatCr(c.valueAtRisk)} stuck, fix status ${STATUS_LABEL[reg.status]}`}
+                aria-label={`${c.name}, ${formatCr(c.valueAtRisk)} stuck, fix status ${STATUS_LABEL[reg.state]}`}
                 onClick={() => selectCause(c.key)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectCause(c.key) } }}
                 style={{ opacity: off ? 0.13 : 1, pointerEvents: off ? 'none' : undefined, transition: 'opacity .3s ease', cursor: 'pointer' }}
@@ -520,10 +522,10 @@ export function CashAttributionV2() {
                 {/* selection marker — a caret at the row's left edge, independent of opacity */}
                 <path d={`M14,${g.y + bh / 2 - 5} L20,${g.y + bh / 2} L14,${g.y + bh / 2 + 5} Z`} fill={colors.textPrimary} opacity={isSel ? 1 : 0} />
                 {/* remediation gutter — status of the fix, alongside the size of the problem */}
-                <rect className="fct-ca-stat" x={STAT_X} y={g.y} width={STAT_W} height={bh} rx={1} fill={statusColor(reg.status)} opacity={isSel || !selected ? (reg.status === 'none' ? 0.55 : 0.9) : 0.45} />
+                <rect className="fct-ca-stat" x={STAT_X} y={g.y} width={STAT_W} height={bh} rx={1} fill={statusColor(reg.state)} opacity={isSel || !selected ? (reg.state === 'none' ? 0.55 : 0.9) : 0.45} />
                 <rect className="fct-ca-node" x={NODE_X} y={g.y} width={NODE_W} height={bh} rx={2} fill={poolColor(g.pool)} opacity={isSel || !selected ? 1 : 0.4} />
-                {/* the name drills to the cause's root-cause screen; the rest of the row selects in place */}
-                <a href={`/entity/${SCOPE}/root-cause/${c.processKey}/${c.key}`} style={{ cursor: 'pointer' }}>
+                {/* the name drills to the cause's section of the register; the rest of the row selects in place */}
+                <a href={rootCauseTo(c.key)} style={{ cursor: 'pointer' }}>
                   <text className="fct-ca-cname" x={NODE_X - 16} y={ty + (bh < 26 ? 4 : 0)} textAnchor="end" pointerEvents="auto"
                     style={{ fontFamily: fonts.sans, fontSize: 11.5, fontWeight: isSel ? 700 : 600, fill: isSel ? colors.textPrimary : colors.textMuted }}>
                     {c.name}
@@ -585,8 +587,8 @@ export function CashAttributionV2() {
             }}>
               <span style={{ fontFamily: fonts.sans, fontSize: 11.5, fontWeight: 600, color: colors.textPrimary }}>{c.name}</span>
               <span style={{ fontFamily: fonts.mono, fontSize: 11, fontWeight: 600, color: colors.statusAmber, textAlign: 'right' }}>{formatCr(humanValue(c))}</span>
-              <span style={{ gridColumn: '1 / -1', color: reg.status === 'none' ? colors.statusRed : colors.textFaint, fontFamily: fonts.mono, fontSize: 9.5, lineHeight: 1.4 }}>
-                {STATUS_LABEL[reg.status].toLowerCase()}{('owner' in reg && reg.owner) ? ` · ${reg.owner}` : ''}{tt ? ` · ${tt}` : ''}
+              <span style={{ gridColumn: '1 / -1', color: reg.state === 'none' ? colors.statusRed : colors.textFaint, fontFamily: fonts.mono, fontSize: 9.5, lineHeight: 1.4 }}>
+                {STATUS_LABEL[reg.state].toLowerCase()}{('owner' in reg && reg.owner) ? ` · ${reg.owner}` : ''}{tt ? ` · ${tt}` : ''}
               </span>
             </button>
           )
@@ -607,7 +609,7 @@ export function CashAttributionV2() {
                 </span>
                 <span style={mlStyle}>{(sel.pool === 'ap' ? 'P2P · ' : 'O2C · ') + selCause.key.toUpperCase()}</span>
               </div>
-              <Link to={`/entity/${SCOPE}/root-cause/${selCause.processKey}/${selCause.key}`} style={{ display: 'block', margin: '8px 0 6px', fontFamily: fonts.sans, fontSize: 17, fontWeight: 650, letterSpacing: '-0.01em', color: colors.accentText, textDecoration: 'none' }}>
+              <Link to={rootCauseTo(selCause.key)} style={{ display: 'block', margin: '8px 0 6px', fontFamily: fonts.sans, fontSize: 17, fontWeight: 650, letterSpacing: '-0.01em', color: colors.accentText, textDecoration: 'none' }}>
                 {selCause.name}
               </Link>
               <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
@@ -640,10 +642,10 @@ export function CashAttributionV2() {
             <section style={paneStyle}>
               <span style={{ ...mlStyle, display: 'block', marginBottom: 9 }}>Remediation</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
-                <i aria-hidden style={{ width: 8, height: 8, borderRadius: radius.dot, flexShrink: 0, background: statusColor(selReg.status) }} />
-                <b style={{ fontFamily: fonts.sans, fontSize: 13, fontWeight: 650, color: statusColor(selReg.status) }}>{STATUS_LABEL[selReg.status]}</b>
+                <i aria-hidden style={{ width: 8, height: 8, borderRadius: radius.dot, flexShrink: 0, background: statusColor(selReg.state) }} />
+                <b style={{ fontFamily: fonts.sans, fontSize: 13, fontWeight: 650, color: statusColor(selReg.state) }}>{STATUS_LABEL[selReg.state]}</b>
               </span>
-              {selReg.status === 'none' ? (
+              {selReg.state === 'none' ? (
                 <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px' }}>
                   <dt style={{ color: colors.textFaint, fontFamily: fonts.mono, fontSize: 9, letterSpacing: '0.06em' }}>OWNER</dt>
                   <dd style={{ margin: 0, color: colors.textSecondary, fontFamily: fonts.mono, fontSize: 10 }}>— none assigned</dd>
@@ -654,7 +656,7 @@ export function CashAttributionV2() {
                 <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px' }}>
                   <dt style={{ color: colors.textFaint, fontFamily: fonts.mono, fontSize: 9, letterSpacing: '0.06em' }}>REGISTER</dt>
                   <dd style={{ margin: 0 }}>{'id' in selReg ? (
-                    <Link to="/cause-backlog" data-fct-ca-register-link style={{ color: colors.accentText, fontFamily: fonts.mono, fontSize: 10, textDecoration: 'none' }}>{selReg.id}</Link>
+                    <Link to="/root-causes" data-fct-ca-register-link style={{ color: colors.accentText, fontFamily: fonts.mono, fontSize: 10, textDecoration: 'none' }}>{selReg.id}</Link>
                   ) : null}</dd>
                   <dt style={{ color: colors.textFaint, fontFamily: fonts.mono, fontSize: 9, letterSpacing: '0.06em' }}>OWNER</dt>
                   <dd style={{ margin: 0, color: colors.textSecondary, fontFamily: fonts.mono, fontSize: 10 }}>{('owner' in selReg && selReg.owner) || '—'}</dd>
@@ -663,21 +665,22 @@ export function CashAttributionV2() {
                 </dl>
               )}
               <p style={{ margin: '9px 0 0', color: colors.textFaint, fontFamily: fonts.mono, fontSize: 9.5, lineHeight: 1.45 }}>
-                {selReg.status === 'eliminated' && `Eliminated stops the cause generating new exceptions. The ${formatCr(selCause.valueAtRisk)} above is the existing stock still draining.`}
-                {selReg.status === 'identified' && 'Identified but not started — the register carries no target date rather than an invented commitment.'}
-                {selReg.status === 'in-progress' && 'Fix in flight. Recheck the value against the target date to see whether it is working.'}
-                {selReg.status === 'none' && 'No row on the register, so nobody owns eliminating this and no date exists to review it against.'}
+                {selReg.state === 'eliminated' && `Eliminated stops the cause generating new exceptions.`}
+                {selReg.state === 'fixed-at-source' && `Fixed at source — the inflow has stopped; the ${formatCr(selCause.valueAtRisk)} above is the existing stock still draining.`}
+                {selReg.state === 'identified' && 'Identified but not started — the register carries no target date rather than an invented commitment.'}
+                {selReg.state === 'in-progress' && 'Fix in flight. Recheck the value against the target date to see whether it is working.'}
+                {selReg.state === 'none' && 'No row on the register, so nobody owns eliminating this and no date exists to review it against.'}
               </p>
             </section>
 
             {/* interventions + cash opportunity */}
             <section style={paneStyle}>
-              <span style={{ ...mlStyle, display: 'block', marginBottom: 9 }}>{selReg.status === 'eliminated' ? 'Interventions · applied' : 'Interventions · from the taxonomy'}</span>
+              <span style={{ ...mlStyle, display: 'block', marginBottom: 9 }}>{selReg.state === 'eliminated' ? 'Interventions · applied' : 'Interventions · from the taxonomy'}</span>
               <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                 {selCause.actions.map((a, i) => (
-                  <li key={i} style={{ position: 'relative', paddingBottom: 7, paddingLeft: 24, color: selReg.status === 'eliminated' ? colors.textFaint : colors.textSecondary, fontFamily: fonts.sans, fontSize: 11.5, lineHeight: 1.4, textDecoration: selReg.status === 'eliminated' ? 'line-through' : undefined, textDecorationColor: colors.borderDefault }}>
-                    <i aria-hidden style={{ position: 'absolute', left: 0, top: 0, width: 16, height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, border: `1px solid ${selReg.status === 'eliminated' ? `color-mix(in srgb, ${colors.statusGreen} 50%, transparent)` : colors.borderDefault}`, color: selReg.status === 'eliminated' ? colors.statusGreen : colors.textMuted, fontFamily: fonts.mono, fontSize: 9, fontStyle: 'normal' }}>
-                      {selReg.status === 'eliminated' ? '✓' : i + 1}
+                  <li key={i} style={{ position: 'relative', paddingBottom: 7, paddingLeft: 24, color: selReg.state === 'eliminated' ? colors.textFaint : colors.textSecondary, fontFamily: fonts.sans, fontSize: 11.5, lineHeight: 1.4, textDecoration: selReg.state === 'eliminated' ? 'line-through' : undefined, textDecorationColor: colors.borderDefault }}>
+                    <i aria-hidden style={{ position: 'absolute', left: 0, top: 0, width: 16, height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, border: `1px solid ${selReg.state === 'eliminated' ? `color-mix(in srgb, ${colors.statusGreen} 50%, transparent)` : colors.borderDefault}`, color: selReg.state === 'eliminated' ? colors.statusGreen : colors.textMuted, fontFamily: fonts.mono, fontSize: 9, fontStyle: 'normal' }}>
+                      {selReg.state === 'eliminated' ? '✓' : i + 1}
                     </i>
                     {a}
                   </li>

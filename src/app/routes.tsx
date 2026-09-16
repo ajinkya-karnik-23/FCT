@@ -1,11 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { defaultRootCauseTo } from './paths'
 import { closeCalendar, getAgent, getCounterparty, getEntity, listAgents, listCostCentres, listEntities, listExceptions, listPlants } from '../api'
 import { AgentDetail } from '../pages/AgentDetail'
 import { Agents } from '../pages/Agents'
 import { CashAttribution } from '../pages/CashAttribution'
 import { CashAttributionV2 } from '../pages/CashAttributionV2'
-import { CauseBacklog } from '../pages/CauseBacklog'
 import { CloseCalendar } from '../pages/CloseCalendar'
 import { CommitmentsWatch } from '../pages/CommitmentsWatch'
 import { CompliancePage } from '../pages/CompliancePage'
@@ -16,13 +14,15 @@ import { EntityHome } from '../pages/EntityHome'
 import { ExceptionDetail } from '../pages/ExceptionDetail'
 import { GroupView } from '../pages/GroupView'
 import { O2CCockpit } from '../pages/O2CCockpit'
+import { O2CWorklist } from '../pages/O2CWorklist'
 import { P2PCockpit } from '../pages/P2PCockpit'
 import { PlantPage } from '../pages/PlantPage'
 import { PoDetail } from '../pages/PoDetail'
 import { Predictive } from '../pages/Predictive'
 import { R2RCockpit } from '../pages/R2RCockpit'
+import { Requisitions } from '../pages/Requisitions'
 import { RiskControl } from '../pages/RiskControl'
-import { RootCause } from '../pages/RootCause'
+import { RootCauses } from '../pages/RootCauses'
 import { ServiceAttribution } from '../pages/ServiceAttribution'
 import { ServiceDesk } from '../pages/ServiceDesk'
 import { TouchEconomics } from '../pages/TouchEconomics'
@@ -46,7 +46,8 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
   if (parts.length === 1 && parts[0] === 'compliance') return [{ label: 'Group', to: '/' }, { label: 'Compliance' }]
   if (parts.length === 1 && parts[0] === 'data-quality') return [{ label: 'Group', to: '/' }, { label: 'Data quality' }]
   if (parts.length === 1 && parts[0] === 'service-desk') return [{ label: 'Group', to: '/' }, { label: 'Finance Service Desk' }]
-  if (parts.length === 1 && parts[0] === 'cause-backlog') return [{ label: 'Group', to: '/' }, { label: 'Cause elimination' }]
+  // §17 — the group-level root cause register; the ?cause= drill target lands here with its section pre-filtered.
+  if (parts.length === 1 && parts[0] === 'root-causes') return [{ label: 'Group', to: '/' }, { label: 'Root causes' }]
   if (parts.length === 1 && parts[0] === 'cash-attribution') return [{ label: 'Group', to: '/' }, { label: 'Cash attribution' }]
   // The reference prototype kept as a side-by-side baseline for the rebuilt spine; routes and rail only.
   if (parts.length === 1 && parts[0] === 'cash-attribution-original') return [{ label: 'Group', to: '/' }, { label: 'Cash attribution (original)' }]
@@ -60,11 +61,14 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
   const group: Crumb = { label: 'Group', to: '/' }
   const entityLink: Crumb = { label: code, to: `/entity/${code}` }
   const p2pLink: Crumb = { label: 'P2P', to: `/entity/${code}/p2p` }
+  const o2cLink: Crumb = { label: 'O2C', to: `/entity/${code}/o2c` }
 
   if (parts.length === 2) return [group, { label: code }]
   if (parts[2] === 'p2p' && parts.length === 3) return [group, entityLink, { label: 'P2P' }]
   if (parts[2] === 'o2c' && parts.length === 3) return [group, entityLink, { label: 'O2C' }]
   if (parts[2] === 'r2r' && parts.length === 3) return [group, entityLink, { label: 'R2R' }]
+  // §18/§9.1 — the requisition pipeline drills out of the P2P cockpit's PR stage; drill-only, no rail entry (like commitments watch).
+  if (parts[2] === 'requisitions' && parts.length === 3) return [group, entityLink, { label: 'Requisitions' }]
   // §16.3 — the close calendar sits beside its process cockpit; the crumb carries it back to the entity page.
   if (parts[2] === 'close-calendar' && parts.length === 3) return [group, entityLink, { label: 'Close calendar' }]
   if (parts[2] === 'p2p' && parts[3] === 'invoices' && parts.length === 4) {
@@ -73,17 +77,19 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
   if (parts[2] === 'p2p' && parts[3] === 'invoices' && parts.length >= 5) {
     return [group, entityLink, p2pLink, { label: 'Invoices', to: `/entity/${code}/p2p/invoices` }, { label: parts[4] }]
   }
+  // §18.3 — the O2C worklist and its item detail; same crumb shape as the P2P invoices pair.
+  if (parts[2] === 'o2c' && parts[3] === 'invoices' && parts.length === 4) {
+    return [group, entityLink, o2cLink, { label: 'Invoices' }]
+  }
+  if (parts[2] === 'o2c' && parts[3] === 'invoices' && parts.length >= 5) {
+    return [group, entityLink, o2cLink, { label: 'Invoices', to: `/entity/${code}/o2c/invoices` }, { label: parts[4] }]
+  }
   // §15.7 — the commitments watch and PO detail are drill-only under P2P (no rail entry), like the counterparty pages.
   if (parts[2] === 'p2p' && parts[3] === 'commitments' && parts.length === 4) {
     return [group, entityLink, p2pLink, { label: 'Commitments watch' }]
   }
   if (parts[2] === 'p2p' && parts[3] === 'commitments' && parts.length >= 5) {
     return [group, entityLink, p2pLink, { label: 'Commitments watch', to: `/entity/${code}/p2p/commitments` }, { label: parts[4] }]
-  }
-  if (parts[2] === 'root-cause') {
-    // The process segment picks the middle crumb: Group › JGL › P2P|O2C|R2R › Root cause
-    const processCrumb: Crumb = parts[3] === 'o2c' ? { label: 'O2C', to: `/entity/${code}/o2c` } : parts[3] === 'r2r' ? { label: 'R2R', to: `/entity/${code}/r2r` } : p2pLink
-    return [group, entityLink, processCrumb, { label: 'Root cause' }]
   }
   if (parts[2] === 'working-capital') return [group, entityLink, { label: 'Working capital' }]
   if (parts[2] === 'service') return [group, entityLink, { label: 'Service & attribution' }]
@@ -110,7 +116,7 @@ export function buildBreadcrumb(pathname: string): Crumb[] {
   return [{ label: 'Group' }]
 }
 
-export type NavKey = 'group' | 'entityHealth' | 'p2pCockpit' | 'o2cCockpit' | 'r2rCockpit' | 'closeCalendar' | 'worklist' | 'rootCause' | 'cashAttribution' | 'cashAttributionOriginal' | 'causeBacklog' | 'riskControl' | 'compliance' | 'dataQuality' | 'workingCapital' | 'predictive' | 'serviceAttribution' | 'serviceDesk' | 'agents' | 'touchEconomics'
+export type NavKey = 'group' | 'entityHealth' | 'p2pCockpit' | 'o2cCockpit' | 'r2rCockpit' | 'closeCalendar' | 'worklist' | 'rootCauses' | 'cashAttribution' | 'cashAttributionOriginal' | 'riskControl' | 'compliance' | 'dataQuality' | 'workingCapital' | 'predictive' | 'serviceAttribution' | 'serviceDesk' | 'agents' | 'touchEconomics'
 
 // Worklist stays active while an exception detail page is open (spec/02).
 export function activeNavKey(pathname: string): NavKey {
@@ -119,7 +125,8 @@ export function activeNavKey(pathname: string): NavKey {
   if (parts.length === 1 && parts[0] === 'compliance') return 'compliance'
   if (parts.length === 1 && parts[0] === 'data-quality') return 'dataQuality'
   if (parts.length === 1 && parts[0] === 'service-desk') return 'serviceDesk'
-  if (parts.length === 1 && parts[0] === 'cause-backlog') return 'causeBacklog'
+  // §17 — the register keeps its own rail entry active; it replaced both the per-entity taxonomy screen and Cause elimination.
+  if (parts.length === 1 && parts[0] === 'root-causes') return 'rootCauses'
   if (parts.length === 1 && parts[0] === 'cash-attribution') return 'cashAttribution'
   if (parts.length === 1 && parts[0] === 'cash-attribution-original') return 'cashAttributionOriginal'
   if (parts.length === 1 && parts[0] === 'agents') return 'agents'
@@ -134,15 +141,19 @@ export function activeNavKey(pathname: string): NavKey {
       if (parts.length > 3 && parts[3] !== 'commitments') return 'worklist'
       return 'p2pCockpit'
     }
-    case 'o2c':
+    case 'o2c': {
+      // §18.3 — the O2C worklist and its item detail keep the Worklist rail entry active, like their P2P pair.
+      if (parts.length > 3 && parts[3] === 'invoices') return 'worklist'
       return 'o2cCockpit'
+    }
     case 'r2r':
       return 'r2rCockpit'
+    // §18/§9.1 — the requisition pipeline drills out of the P2P cockpit's PR stage; it keeps that active, like commitments watch.
+    case 'requisitions':
+      return 'p2pCockpit'
     // §16.3 — the close calendar keeps its own rail entry active, like its process siblings.
     case 'close-calendar':
       return 'closeCalendar'
-    case 'root-cause':
-      return 'rootCause'
     case 'working-capital':
       return 'workingCapital'
     case 'predictive':
@@ -187,14 +198,13 @@ export const NAV_ITEMS: NavItem[] = [
   // §16.3 — the close calendar; the rail count is blocked tasks, the attention figure like its siblings' exception counts.
   { key: 'closeCalendar', label: 'Close calendar', group: 'PROCESS', count: closeCalendar(DEFAULT_ENTITY)!.blockerCount, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/close-calendar` },
   { key: 'worklist', label: 'Worklist', group: 'EXPLAIN', count: listExceptions(DEFAULT_ENTITY, 'p2p').length, to: (c) => `/entity/${c ?? DEFAULT_ENTITY}/p2p/invoices` },
-  { key: 'rootCause', label: 'Root cause', group: 'EXPLAIN', to: (c) => defaultRootCauseTo(c ?? DEFAULT_ENTITY) },
   // Where cash is stuck across both processes, grouped by the function that causes it rather than the one
   // that holds it. Sits under PROCESS since it spans both P2P and O2C cockpits; group-scoped, no entity in `to`.
   { key: 'cashAttribution', label: 'Cash attribution', group: 'PROCESS', to: () => '/cash-attribution' },
   // The reference prototype beside its rebuild — the labels say which is which; no count, like its sibling.
   { key: 'cashAttributionOriginal', label: 'Cash attribution (original)', group: 'PROCESS', to: () => '/cash-attribution-original' },
-  // §7.30 — the elimination backlog sits next to Root cause under EXPLAIN; group-scoped, so no entity in `to`.
-  { key: 'causeBacklog', label: 'Cause elimination', group: 'EXPLAIN', to: () => '/cause-backlog' },
+  // §17 — the group-level root cause register; it replaced both the per-entity taxonomy screen and Cause elimination. Group-scoped, so no entity in `to`.
+  { key: 'rootCauses', label: 'Root causes', group: 'EXPLAIN', to: () => '/root-causes' },
   { key: 'riskControl', label: 'Risk & control', group: 'ASSURE', to: () => '/risk-control' },
   { key: 'compliance', label: 'Compliance', group: 'ASSURE', to: () => '/compliance' },
   { key: 'dataQuality', label: 'Data quality', group: 'ASSURE', to: () => '/data-quality' },
@@ -224,12 +234,16 @@ export function AppRoutes() {
       {/* §15.7 — the commitments watch (open POs by delivery date) and its PO detail: drill-only, no rail entries */}
       <Route path="/entity/:code/p2p/commitments" element={<CommitmentsWatch />} />
       <Route path="/entity/:code/p2p/commitments/:poId" element={<PoDetail />} />
+      {/* §18 — the requisition pipeline, drilled from the P2P cockpit's PR stage */}
+      <Route path="/entity/:code/requisitions" element={<Requisitions />} />
       <Route path="/entity/:code/o2c" element={<O2CCockpit />} />
+      {/* §18.3 — the O2C worklist: same shape as the P2P pair, its own data (open O2C exceptions per entity) */}
+      <Route path="/entity/:code/o2c/invoices" element={<O2CWorklist />} />
+      <Route path="/entity/:code/o2c/invoices/:exceptionId" element={<ExceptionDetail />} />
       {/* §16.2 — the third process cockpit; its stage cards drill to the R2R root-cause taxonomy */}
       <Route path="/entity/:code/r2r" element={<R2RCockpit />} />
       {/* §16.3 — the close calendar: per-entity task pool, critical path and sign-off status */}
       <Route path="/entity/:code/close-calendar" element={<CloseCalendar />} />
-      <Route path="/entity/:code/root-cause/:process/:causeKey" element={<RootCause />} />
       <Route path="/entity/:code/working-capital" element={<WorkingCapital />} />
       <Route path="/entity/:code/service" element={<ServiceAttribution />} />
       <Route path="/entity/:code/predictive" element={<Predictive />} />
@@ -242,7 +256,8 @@ export function AppRoutes() {
       <Route path="/compliance" element={<CompliancePage />} />
       <Route path="/data-quality" element={<DataQualityPage />} />
       <Route path="/service-desk" element={<ServiceDesk />} />
-      <Route path="/cause-backlog" element={<CauseBacklog />} />
+      {/* §17 — the group-level root cause register; it replaced both the per-entity taxonomy screen and Cause elimination */}
+      <Route path="/root-causes" element={<RootCauses />} />
       <Route path="/cash-attribution" element={<CashAttributionV2 />} />
       {/* The reference prototype, kept as a side-by-side baseline — routes and rail only (no palette, no verify entries) */}
       <Route path="/cash-attribution-original" element={<CashAttribution />} />

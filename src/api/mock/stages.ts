@@ -41,6 +41,16 @@ const PO_IN_FLIGHT_CR: Record<string, number> = { JGL: 58.4, JBL: 35.5, JPS: 21.
 const COLLECTION_IN_FLIGHT_CR: Record<string, number> = { JGL: 56.3, JBL: 40.4, JPS: 23.2, JCP: 8.6, JHS: 17.3, JRP: 48.1 };
 // §16.5 — the journal population per entity; high-risk counts tie to §7.2's highRiskJEs (asserted in tests).
 const R2R_JOURNAL_POP: Record<string, number> = { JGL: 847, JBL: 692, JPS: 418, JCP: 264, JHS: 391, JRP: 913 };
+// §18.1 — the requisition pipeline per entity, pinned so the P2P stage cards and the requisition screen (which derives
+// unconverted = PR − PO) can never disagree; the spec asserts both ties to these counts.
+const REQUISITION_PIPELINE: Record<string, { pr: number; po: number }> = {
+  JGL: { pr: 412, po: 386 },
+  JBL: { pr: 358, po: 335 },
+  JPS: { pr: 196, po: 184 },
+  JCP: { pr: 142, po: 133 },
+  JHS: { pr: 224, po: 210 },
+  JRP: { pr: 441, po: 413 },
+};
 
 const round1 = (x: number) => Math.round(x * 10) / 10;
 
@@ -57,7 +67,9 @@ export function stagesFor(entityCode: string): ProcessStage[] {
     return { ...s, inFlight: Math.round(s.inFlight * scale), inFlightValue: s.inFlightValue != null ? round1(s.inFlightValue * scale) : undefined, inException: Math.round(s.inException * scale), exceptionValue: s.exceptionValue != null ? round1(s.exceptionValue * scale) : undefined };
   }).map((s) => {
     // §7.25 — pinned tie points override the scaled values so each cockpit agrees with its entity metrics.
-    if (s.processKey === 'p2p' && s.step === 'PO') return { ...s, inFlightValue: PO_IN_FLIGHT_CR[e.code] };
+    const pipe = REQUISITION_PIPELINE[e.code];
+    if (s.processKey === 'p2p' && s.step === 'PR') return { ...s, inFlight: pipe.pr }; // §18.1
+    if (s.processKey === 'p2p' && s.step === 'PO') return { ...s, inFlight: pipe.po, inFlightValue: PO_IN_FLIGHT_CR[e.code] }; // §18.1 + §7.25
     if (s.processKey === 'p2p' && s.step === 'INV') return { ...s, inException: e.metrics.apBlockedCount, exceptionValue: e.metrics.apBlocked.current };
     if (s.processKey === 'o2c' && s.step === 'COL') return { ...s, inException: e.metrics.o2cExceptionCount, inFlightValue: COLLECTION_IN_FLIGHT_CR[e.code] };
     if (s.processKey === 'o2c' && s.step === 'CSH') return { ...s, exceptionValue: e.metrics.cashUnapplied.current };

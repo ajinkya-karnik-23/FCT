@@ -2,12 +2,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import App from '../src/App'
+import { listRootCauses } from '../src/api'
 
-// Step 5 drill paths (spec/08 Part D). Item 1 — the O2C cockpit → worklist →
-// AP-104281 regression — already lives in p2p-worklist-exception.test.tsx; this
-// file covers items 2–4: each O2C row opening its own cause, direct linkability
-// of all twelve routes, and the no-cause entry points from a cold start and
-// immediately after viewing an O2C cause.
+// Step 5 drill paths (spec/08 Part D) — §17 rewired: every root-cause entry point lands on the group
+// register, pre-filtered to its cause via ?cause=. This file covers the O2C cockpit cards, direct
+// linkability of all twelve deep links, and the no-cause entry points from a cold start and
+// immediately after viewing a filtered section.
 
 // jsdom shares one window across tests in a file; BrowserRouter reads the live
 // pathname on mount, so reset before each render.
@@ -47,103 +47,85 @@ const O2C_CAUSES = [
   ['Customer master', 'customer-master'],
 ] as const
 
-function expectDefaultPair() {
-  expect(window.location.pathname).toBe('/entity/JGL/root-cause/p2p/missing-gr')
-  const m = main()
-  expect(m.getByRole('heading', { level: 1, name: 'Why blocked invoices keep recurring' })).toBeTruthy()
-  expect(m.getByText(/taxonomy — p2p/i)).toBeTruthy()
+// The register's row count label doubles as the filter proof: a cause section shows exactly its own rows.
+function expectRegisterRowLabel(m: ReturnType<typeof main>, n: number) {
+  expect(m.getByText(`${n} root causes`)).toBeTruthy()
 }
 
-describe('Drill paths (spec/08 Part D)', () => {
-  it('each of the six O2C taxonomy rows opens its own O2C cause with O2C copy', () => {
+describe('Drill paths (spec/08 Part D, §17)', () => {
+  it('every O2C analysis card carries its cause as a register deep link', () => {
     window.history.pushState(null, '', '/entity/JGL/o2c')
     render(<App />)
 
     for (const [name, key] of O2C_CAUSES) {
-      fireEvent.click(main().getByRole('link', { name: new RegExp(name) }))
-      expect(window.location.pathname).toBe(`/entity/JGL/root-cause/o2c/${key}`)
-
-      const m = main()
-      // Process-aware header, title and breadcrumb.
-      expect(m.getByRole('heading', { level: 1, name: 'Why receivables keep ageing' })).toBeTruthy()
-      expect(m.getByText(/taxonomy — o2c/i)).toBeTruthy()
-      for (const crumb of ['Group', 'JGL', 'O2C']) {
-        expect(crumbs().textContent).toContain(crumb)
-      }
-      expect(within(crumbs()).getByRole('link', { name: 'O2C' }).getAttribute('href')).toBe('/entity/JGL/o2c')
-
-      // Renamed driver-card headers; the P2P ones are gone.
-      expect(m.getByText(/by customer segment/i)).toBeTruthy()
-      expect(m.getByText(/by driver/i)).toBeTruthy()
-      expect(m.queryByText(/by plant/i)).toBeNull()
-      expect(m.queryByText(/by vendor group/i)).toBeNull()
-
-      // This row is the selected one and the primary panel reads from it.
-      expect(m.getByRole('link', { name: new RegExp(name) }).className).toContain('fct-tax-row--selected')
-      expect(m.getByText(new RegExp(`primary root cause — ${name.toLowerCase()}`, 'i'))).toBeTruthy()
-
-      // Walk back to the cockpit for the next row.
-      fireEvent.click(within(crumbs()).getByRole('link', { name: 'O2C' }))
-      expect(window.location.pathname).toBe('/entity/JGL/o2c')
+      expect(main().getByRole('link', { name: new RegExp(name) }).getAttribute('href')).toBe(`/root-causes?cause=${key}`)
     }
   })
 
-  it('every one of the twelve process-aware routes loads directly from its URL', () => {
-    for (const proc of ['p2p', 'o2c'] as const) {
-      const causes = proc === 'p2p' ? P2P_CAUSES : O2C_CAUSES
-      for (const [name, key] of causes) {
+  it('every one of the twelve deep links loads its cause section directly from its URL', () => {
+    for (const [proc, causes] of [['p2p', P2P_CAUSES], ['o2c', O2C_CAUSES]] as const) {
+      for (const [, key] of causes) {
         // Fresh tab: reset the URL and mount a fresh tree.
-        window.history.pushState(null, '', `/entity/JGL/root-cause/${proc}/${key}`)
+        window.history.pushState(null, '', `/root-causes?cause=${key}`)
         render(<App />)
 
         const m = main()
-        expect(m.getByRole('heading', { level: 1, name: proc === 'o2c' ? 'Why receivables keep ageing' : 'Why blocked invoices keep recurring' })).toBeTruthy()
-        expect(m.getByText(new RegExp(`taxonomy — ${proc}`, 'i'))).toBeTruthy()
-        expect(m.getByRole('link', { name: new RegExp(name) }).className).toContain('fct-tax-row--selected')
-        expect(m.getByText(new RegExp(`primary root cause — ${name.toLowerCase()}`, 'i'))).toBeTruthy()
+        expect(m.getByRole('heading', { level: 1, name: 'Root causes' })).toBeTruthy()
+        // §17.6 — three root causes per cause; the section shows exactly its own.
+        expectRegisterRowLabel(m, 3)
+        const selects = Array.from(screen.getByRole('main').querySelectorAll('.fct-input')) as HTMLSelectElement[]
+        expect(selects[0].value).toBe(proc === 'p2p' ? 'P2P' : 'O2C')
+        expect(selects[1].value).toBe(key)
 
         cleanup()
       }
     }
   })
 
-  it('cold start — rail Root cause, both tiles and Analyse → land on the default P2P pair', () => {
+  it('cold start — rail Root causes, both tiles and Analyse → land on the unfiltered register', () => {
     render(<App />) // '/' group view
 
-    fireEvent.click(within(rail()).getByRole('link', { name: /Root cause/ }))
-    expectDefaultPair()
+    fireEvent.click(within(rail()).getByRole('link', { name: /Root causes/ }))
+    expect(window.location.pathname).toBe('/root-causes')
+    expect(window.location.search).toBe('')
+    expectRegisterRowLabel(main(), listRootCauses().length)
 
-    // Entity home — walk back via the JGL crumb between drills.
-    fireEvent.click(within(crumbs()).getByRole('link', { name: 'JGL' }))
-    expect(window.location.pathname).toBe('/entity/JGL')
+    // Entity home — fresh tab, then the two R2R tiles and the Analyse link.
+    cleanup()
+    window.history.pushState(null, '', '/entity/JGL')
+    render(<App />)
 
     for (const tile of [/18 aged breaks/, /12 high-risk JEs/]) {
       fireEvent.click(main().getByRole('link', { name: tile }))
-      expectDefaultPair()
-      fireEvent.click(within(crumbs()).getByRole('link', { name: 'JGL' }))
+      expect(window.location.pathname).toBe('/root-causes')
+      expect(window.location.search).toBe('')
+      cleanup()
+      window.history.pushState(null, '', '/entity/JGL')
+      render(<App />)
     }
 
     fireEvent.click(main().getByRole('link', { name: 'Analyse →' }))
-    expectDefaultPair()
+    expect(window.location.pathname).toBe('/root-causes')
+    expect(window.location.search).toBe('')
   })
 
-  it('after viewing an O2C cause — the same entry points still land on the default P2P pair', () => {
-    window.history.pushState(null, '', '/entity/JGL/root-cause/o2c/pricing-disputes')
+  it('after viewing a cause section — the same entry points still land on the unfiltered register', () => {
+    window.history.pushState(null, '', '/root-causes?cause=pricing-disputes')
     render(<App />)
-    expect(main().getByRole('heading', { level: 1, name: 'Why receivables keep ageing' })).toBeTruthy()
+    expectRegisterRowLabel(main(), 3)
 
-    // The rail item must not inherit the O2C cause just viewed.
-    fireEvent.click(within(rail()).getByRole('link', { name: /Root cause/ }))
-    expectDefaultPair()
+    // The rail item must not inherit the cause just viewed.
+    fireEvent.click(within(rail()).getByRole('link', { name: /Root causes/ }))
+    expect(window.location.pathname).toBe('/root-causes')
+    expect(window.location.search).toBe('')
+    expectRegisterRowLabel(main(), listRootCauses().length)
 
-    fireEvent.click(within(crumbs()).getByRole('link', { name: 'JGL' }))
-    expect(window.location.pathname).toBe('/entity/JGL')
-
+    // Entity home entry points carry no cause either.
+    cleanup()
+    window.history.pushState(null, '', '/entity/JGL')
+    render(<App />)
     fireEvent.click(main().getByRole('link', { name: /18 aged breaks/ }))
-    expectDefaultPair()
-    fireEvent.click(within(crumbs()).getByRole('link', { name: 'JGL' }))
-
-    fireEvent.click(main().getByRole('link', { name: 'Analyse →' }))
-    expectDefaultPair()
+    expect(window.location.pathname).toBe('/root-causes')
+    expect(window.location.search).toBe('')
   })
 })

@@ -20,19 +20,17 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('cross-process trace (§8.10)', () => {
-  it('marks the goods-receipt point current on its root cause screen and links out to the other three', () => {
-    window.history.pushState(null, '', '/entity/JGL/root-cause/p2p/missing-gr')
+  it('links the goods-receipt point into its register section from a chain screen', () => {
+    window.history.pushState(null, '', '/entity/JGL/p2p/invoices?cause=missing-gr')
     render(<App />)
     const strip = traceStrip(main())
-    expect(strip.getByText('Missing goods receipt · P2P').className).toContain('fct-trace-current')
-    expect(strip.queryByRole('link', { name: 'Missing goods receipt · P2P' })).toBeNull()
-    expect(strip.getByRole('link', { name: 'Blocked invoice' }).getAttribute('href')).toBe('/entity/JGL/p2p/invoices?cause=missing-gr')
-    expect(strip.getByRole('link', { name: 'Understated accrual · R2R' }).getAttribute('href')).toBe('/entity/JGL#fct-consequence')
-    expect(strip.getByRole('link', { name: 'Close exposure' }).getAttribute('href')).toBe('/entity/JGL/r2r')
+    expect(strip.getByText('Blocked invoice').className).toContain('fct-trace-current')
+    // §17 — the chain's first point now lands on its section of the root-cause register.
+    expect(strip.getByRole('link', { name: 'Missing goods receipt · P2P' }).getAttribute('href')).toBe('/root-causes?cause=missing-gr')
   })
 
-  it('follows the chain from missing GR to the blocked invoice worklist', () => {
-    window.history.pushState(null, '', '/entity/JGL/root-cause/p2p/missing-gr')
+  it('follows the chain from the entity page to the blocked invoice worklist', () => {
+    window.history.pushState(null, '', '/entity/JGL')
     render(<App />)
     fireEvent.click(traceStrip(main()).getByRole('link', { name: 'Blocked invoice' }))
     expect(window.location.pathname).toBe('/entity/JGL/p2p/invoices')
@@ -69,7 +67,7 @@ describe('cross-process trace (§8.10)', () => {
     const strip = traceStrip(main())
     expect(strip.getByText('Close exposure').className).toContain('fct-trace-current')
     expect(strip.queryByRole('link', { name: 'Close exposure' })).toBeNull()
-    expect(strip.getByRole('link', { name: 'Missing goods receipt · P2P' }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
+    expect(strip.getByRole('link', { name: 'Missing goods receipt · P2P' }).getAttribute('href')).toBe('/root-causes?cause=missing-gr')
   })
 
   it('does not render the trace on a worklist that is not filtered to the goods-receipt cause', () => {
@@ -78,8 +76,8 @@ describe('cross-process trace (§8.10)', () => {
     expect(main().queryByText('CROSS-PROCESS TRACE')).toBeNull()
   })
 
-  it('does not render the trace on a root cause screen for any other cause', () => {
-    window.history.pushState(null, '', '/entity/JGL/root-cause/p2p/approval-pending')
+  it('does not render the trace on the root cause register', () => {
+    window.history.pushState(null, '', '/root-causes')
     render(<App />)
     expect(main().queryByText('CROSS-PROCESS TRACE')).toBeNull()
   })

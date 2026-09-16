@@ -168,8 +168,8 @@ describe('Touch economics screen (§15.3/§15.4)', () => {
       expect(row).toBeTruthy()
       expect(row!.textContent).toContain(`${c.sharePct}%`)
       expect(row!.textContent).toContain(`${c.agentResolvablePct}%`)
-      // §8.4 — the cause drills to its root-cause record on JGL, whose mix this is (§15.4).
-      expect(row!.querySelector('a')?.getAttribute('href')).toBe(`/entity/JGL/root-cause/p2p/${c.key}`)
+      // §8.4 — the cause drills to its section of the root-cause register (§17).
+      expect(row!.querySelector('a')?.getAttribute('href')).toBe(`/root-causes?cause=${c.key}`)
     }
   })
 

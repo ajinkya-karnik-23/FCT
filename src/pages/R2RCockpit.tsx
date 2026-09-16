@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getAccrualProvisions, getBalanceSheetIntegrity, getEntity, getIntercompany, getJournalRisk, getReconPanel, INTEGRITY_WEIGHTS, journalRiskFlagStates, listCauses, listStages } from '../api'
+import { getAccrualProvisions, getBalanceSheetIntegrity, getEntity, getIntercompany, getJournalRisk, getReconPanel, INTEGRITY_WEIGHTS, journalRiskFlagStates, listStages } from '../api'
+import { rootCauseTo } from '../app/paths'
 import type { AgeingBucket, IntegrityComponents } from '../api'
 import { Bar, CrossProcessTrace, Eyebrow, FreshnessStamp, Metric, StageFlow } from '../components'
 import { formatCr } from '../lib/format'
@@ -85,7 +86,6 @@ export function R2RCockpit() {
   const { code } = useParams()
   const entity = getEntity(code ?? '')
   const stages = listStages('r2r', code)
-  const firstCause = listCauses('r2r')[0].key
   // §16.4/§16.5 — the consequence layer: headline index plus the four panels, all joined from EntityMetrics in the data layer.
   const integrity = getBalanceSheetIntegrity(code ?? '')
   const recon = getReconPanel(code ?? '')
@@ -112,14 +112,14 @@ export function R2RCockpit() {
               <Metric label="Close" value={`${entity.metrics.closePercent.current}%`} trend={entity.metrics.closePercent} inverse={false} valueStyle={kpiValueStyle} />
             </Link>
             {/* §7.2 — open breaks tie to the rail count and the REC stage; §8.4 — same figure as the panel below, so it drills there too */}
-            <Link to={`/entity/${code}/root-cause/r2r/reconciliation`} className="fct-table-row" style={{ color: colors.textPrimary, textDecoration: 'none' }}>
+            <Link to={rootCauseTo()} className="fct-table-row" style={{ color: colors.textPrimary, textDecoration: 'none' }}>
               <Kpi label="Open breaks" value={`${entity.metrics.reconAgedBreaks}`} />
             </Link>
           </div>
         )}
       </div>
 
-      <StageFlow stages={stages} to={`/entity/${code}/root-cause/r2r/${firstCause}`} />
+      <StageFlow stages={stages} to={rootCauseTo()} />
 
       {/* §16.4 — the balance sheet integrity index: computed at read time, never stored; it feeds the risk dimension */}
       {integrity && (
@@ -156,7 +156,7 @@ export function R2RCockpit() {
                 <Stat label="Certified" value={recon.certified} />
                 <Stat
                   label="Overdue breaks"
-                  value={<Link to={`/entity/${code}/root-cause/r2r/reconciliation`} style={{ color: colors.statusRed, textDecoration: 'none' }}>{recon.overdueBreaks}</Link>}
+                  value={<Link to={rootCauseTo()} style={{ color: colors.statusRed, textDecoration: 'none' }}>{recon.overdueBreaks}</Link>}
                   sub={`oldest ${recon.oldestDays} d · ${formatCr(recon.valueCr)}`}
                 />
               </div>
@@ -175,7 +175,7 @@ export function R2RCockpit() {
                 <Stat label="Journals" value={journal.journals.toLocaleString()} />
                 <Stat
                   label="High-risk JEs"
-                  value={<Link to={`/entity/${code}/root-cause/r2r/journal`} style={{ color: breachColor(journal.highRiskJEs), textDecoration: 'none' }}>{journal.highRiskJEs}</Link>}
+                  value={<Link to={rootCauseTo()} style={{ color: breachColor(journal.highRiskJEs), textDecoration: 'none' }}>{journal.highRiskJEs}</Link>}
                   sub="drill to the journal root cause"
                 />
               </div>

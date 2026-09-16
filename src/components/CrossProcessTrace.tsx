@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
+import { rootCauseTo } from '../app/paths'
 import { tag } from '../theme/clay'
 import { colors, fonts } from '../theme/tokens'
 
@@ -11,7 +12,7 @@ import { colors, fonts } from '../theme/tokens'
 export type TraceNode = 'gr' | 'invoice' | 'accrual' | 'close'
 
 const NODES: Array<{ key: TraceNode; label: string; to: (code: string) => string }> = [
-  { key: 'gr', label: 'Missing goods receipt · P2P', to: (c) => `/entity/${c}/root-cause/p2p/missing-gr` },
+  { key: 'gr', label: 'Missing goods receipt · P2P', to: () => rootCauseTo('missing-gr') },
   { key: 'invoice', label: 'Blocked invoice', to: (c) => `/entity/${c}/p2p/invoices?cause=missing-gr` },
   { key: 'accrual', label: 'Understated accrual · R2R', to: (c) => `/entity/${c}#fct-consequence` },
   { key: 'close', label: 'Close exposure', to: (c) => `/entity/${c}/r2r` },

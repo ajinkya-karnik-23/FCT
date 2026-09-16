@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { agentWorkforceSummary, causeBacklogCounts, closeCalendar, commitmentsWatch, computeScore, getControlSignals, getEntity, getForecast, listAgents, listCauses, listCompliance, listCostCentres, listCounterparties, listDataQuality, listEntities, listExceptions, listPlants, listRequests, listTouchFunnel, slaBreachSplit } from '../api'
+import { agentWorkforceSummary, closeCalendar, commitmentsWatch, computeScore, getControlSignals, getEntity, getForecast, listAgents, listCauses, listCompliance, listCostCentres, listCounterparties, listDataQuality, listEntities, listExceptions, listPlants, listRequests, listRootCauses, listTouchFunnel, requisitionPipeline, rootCauseCounts, slaBreachSplit } from '../api'
 import { formatCr } from '../lib/format'
 import { colors, fonts, layout, paletteShadow, radius } from '../theme/tokens'
+import { rootCauseTo } from '../app/paths'
 import { DEFAULT_ENTITY, entityCodeFromPath } from '../app/routes'
 
 interface PaletteItem {
@@ -20,14 +21,15 @@ export function buildItems(entityCode: string): PaletteItem[] {
     items.push({ kind: 'ENTITY', label: e.name, meta: `health ${computeScore(e).displayed}`, to: `/entity/${e.code}` })
   }
   for (const x of listExceptions()) {
-    items.push({ kind: 'EXCEPTION', label: `${x.id} · ${x.vendor}`, meta: `${formatCr(x.amount, 2)} · ${x.ageDays} d`, to: `/entity/${x.entityCode}/p2p/invoices/${x.id}` })
+    // §18.3 — O2C rows open in the O2C worklist; the counterparty name is a customer there, not a vendor.
+    items.push({ kind: 'EXCEPTION', label: `${x.id} · ${x.vendor}`, meta: `${formatCr(x.amount, 2)} · ${x.ageDays} d`, to: `/entity/${x.entityCode}/${x.processKey}/invoices/${x.id}` })
   }
   for (const processKey of ['p2p', 'o2c', 'r2r'] as const) {
     for (const c of listCauses(processKey)) {
       // The meta states what the row is — cause rows read "cause · R2R", agent rows "agent · shared" — so a name that
       // exists in both taxonomies (master data today; reconciliation and intercompany as agents land) never shows two
       // indistinguishable rows. Same pattern as the screen rows' metas.
-      items.push({ kind: 'ROOT CAUSE', label: `${c.name} · ${processKey.toUpperCase()}`, meta: `cause · ${processKey.toUpperCase()}`, to: `/entity/${entityCode}/root-cause/${processKey}/${c.key}` })
+      items.push({ kind: 'ROOT CAUSE', label: `${c.name} · ${processKey.toUpperCase()}`, meta: `cause · ${processKey.toUpperCase()}`, to: rootCauseTo(c.key) })
     }
   }
   // §7.24 — counterparties are first-class objects; scoped to the entity in context so a drill target is always one row away.
@@ -53,9 +55,14 @@ export function buildItems(entityCode: string): PaletteItem[] {
   const cc = ctx ? closeCalendar(entityCode) : undefined
   items.push({ kind: 'SCREEN', label: 'Close calendar', meta: cc ? `${cc.openCount} open · ${cc.blockerCount} blocked` : '—', to: `/entity/${entityCode}/close-calendar` })
   items.push({ kind: 'SCREEN', label: 'Blocked invoices worklist', meta: ctx ? `${ctx.metrics.apBlockedCount} items` : '—', to: `/entity/${entityCode}/p2p/invoices` })
+  // §18.3 — the O2C worklist follows the entity in context; its row states the pool, like the P2P pair's.
+  items.push({ kind: 'SCREEN', label: 'O2C exceptions worklist', meta: ctx ? `${ctx.metrics.o2cExceptionCount} items` : '—', to: `/entity/${entityCode}/o2c/invoices` })
   // §15.7 — the commitments watch follows the entity in context; its row states the pool and what is at risk of slipping past period-end.
   const cw = ctx ? commitmentsWatch(entityCode) : undefined
   items.push({ kind: 'SCREEN', label: 'Commitments watch', meta: cw ? `${cw.openPosCount} open POs · ${formatCr(cw.valueAtRiskCr)} at risk` : '—', to: `/entity/${entityCode}/p2p/commitments` })
+  // §18 — the requisition pipeline follows the entity in context; its row states what is not converting.
+  const rp = ctx ? requisitionPipeline(entityCode) : undefined
+  items.push({ kind: 'SCREEN', label: 'Requisitions', meta: rp ? `${rp.unconverted} unconverted PRs` : '—', to: `/entity/${entityCode}/requisitions` })
   items.push({ kind: 'SCREEN', label: 'Working capital', meta: ctx ? `${formatCr(ctx.metrics.releasableCash)} releasable` : '—', to: `/entity/${entityCode}/working-capital` })
   items.push({ kind: 'SCREEN', label: 'Risk & control', meta: `${getControlSignals().length} open signals`, to: '/risk-control' })
   // §7.26/§7.27 — the ASSURE screens; counts come from the dataset, never literals.
@@ -64,9 +71,9 @@ export function buildItems(entityCode: string): PaletteItem[] {
   items.push({ kind: 'SCREEN', label: 'Service & attribution', meta: `${slaBreachSplit().total} SLA breaches`, to: `/entity/${entityCode}/service` })
   // §7.29 — the desk is group-scoped; its count comes from the request dataset, never a literal. §9.1 — full name in the rail and palette.
   items.push({ kind: 'SCREEN', label: 'Finance Service Desk', meta: `${listRequests().filter((r) => r.status !== 'closed').length} open requests`, to: '/service-desk' })
-  // §7.30 — the elimination backlog is group-scoped like the desk; counts derive from the register, never literals.
-  const cb = causeBacklogCounts()
-  items.push({ kind: 'SCREEN', label: 'Cause elimination', meta: `${cb.eliminated} of ${cb.identified} causes eliminated`, to: '/cause-backlog' })
+  // §17 — the group-level root cause register; "closed" is eliminated + fixed at source, derived from the register.
+  const rc = rootCauseCounts()
+  items.push({ kind: 'SCREEN', label: 'Root causes', meta: `${rc.eliminated + rc['fixed-at-source']} of ${listRootCauses().length} closed`, to: '/root-causes' })
   // §8.4 — the attribution spine is group-scoped; its row states the pool and cause count, derived from the taxonomy, never literals.
   const caCauses = [...listCauses('p2p'), ...listCauses('o2c')]
   items.push({ kind: 'SCREEN', label: 'Cash attribution', meta: `${caCauses.length} causes · ${formatCr(caCauses.reduce((s, c) => s + c.valueAtRisk, 0))} stuck`, to: '/cash-attribution' })

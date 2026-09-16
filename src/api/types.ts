@@ -160,9 +160,9 @@ export interface TimelineEvent {
 }
 
 export interface Exception {
-  id: string; // 'AP-104281'
+  id: string; // 'AP-104281' (p2p) · 'AR-704001' (o2c)
   entityCode: string;
-  processKey: 'p2p';
+  processKey: 'p2p' | 'o2c';
   vendor: string;
   amount: number; // ₹ cr
   ageDays: number;
@@ -176,6 +176,8 @@ export interface Exception {
   status?: 'open' | 'assigned' | 'chased' | 'released'; // §7.6 — populated in a later step
   po: string;
   bookedOn: string; // '14 Jul 2026'
+  rootCauseId?: string; // §17.9 — the register entry this item traces to; absent on items not yet attributed
+  traversal?: string[]; // §17.9 — the path walked to reach the root cause, one line per step (a few examples only)
 }
 
 export interface CauseNode {
@@ -303,23 +305,30 @@ export interface CauseElimination {
   inProgress: number; // elimination underway
 }
 
-// §7.30 — cause elimination backlog register: one row per identified cause, at entity level (the group taxonomy
-// holds twelve nodes; the register holds thirty-four entity-specific rows). name / valueAtRisk / recurrence join
-// from the taxonomy (mock/causes.ts) at read time and are never stored here. Owners are named people from the
-// owning entity's §7.17 pool — not departments, same rule as §7.29. targetDate is relative per §7.21 and exists
-// only on in-progress rows: a blank is more honest than an invented commitment. eliminatedInPeriod (1–6) places
-// the elimination on the six-period trend; generatedLastPeriod backs the mechanism claim — the causes eliminated
-// this period generated N exceptions last period and none in this one.
-export interface CauseBacklogRow {
-  id: string; // 'CB-JGL-01'
-  entityCode: string;
-  processKey: ProcessKey;
-  causeKey: string; // taxonomy key — name / valueAtRisk / recurrence join at read time
-  owner: string; // named person from the owning entity's §7.17 pool
-  status: 'identified' | 'in-progress' | 'eliminated';
-  targetDate?: string; // ISO date, relative per §7.21 — in-progress rows only
-  eliminatedInPeriod?: number; // 1–6 — which trend period the elimination landed in (eliminated rows only)
-  generatedLastPeriod?: number; // exceptions this cause generated last period (causes eliminated this period only)
+// §17.5 — root cause register entry: one row per root cause under a §6.1 cause, at group level (§17.2).
+// valueCr and affectedItems tie to the parent cause (§17.6): across a cause's entries they sum to the taxonomy
+// node's valueAtRisk and to that cause's §7.20 pool in the reference entity (JGL). Owners are named people from
+// an owning entity's §7.17 pool plus their function — not departments alone, same rule as §7.29. targetDate is
+// relative per §7.21 and exists only on in-progress entries: a blank is more honest than an invented commitment.
+// residueTrend (fixed-at-source only) must fall — inflow stopped, stock draining (§17.3). agentId is absent where
+// no agent can act (§17.8): the structural changes a commercial negotiation makes are not something an agent does.
+export type RootCauseState = 'eliminated' | 'fixed-at-source' | 'in-progress' | 'identified';
+
+export interface RootCauseEntry {
+  id: string; // 'RC-001'
+  parentCause: string; // §6.1 key — grouping and filter
+  process: 'P2P' | 'O2C' | 'R2R';
+  why: string; // "goods held in QC release"
+  entityCodes: string[]; // may span entities
+  valueCr: number; // ties to the parent cause, §17.6
+  affectedItems: number; // ties to the parent cause pool, §17.6
+  fix: string;
+  owner: string; // named person and function
+  agentId?: string; // absent where no agent can act
+  state: RootCauseState;
+  newArrivals: number; // §17.3/§17.4 — new instances arriving this period; zero exactly when the inflow has stopped (eliminated, fixed at source)
+  targetDate?: string; // in-progress only, relative per §7.21
+  residueTrend?: number[]; // fixed-at-source only — must fall
 }
 
 export interface TransformationHealth {
@@ -455,6 +464,38 @@ export interface PurchaseOrder {
   exchange?: PoExchange; // present once the agent has engaged with the owner
 }
 
+// --- §18 — Requisitions: the top of the P2P funnel ---
+// A PR is not an exception, it is work in flight taking too long to convert (§18.0). The unconverted pool derives from
+// the §7.4 stage counts (PR − PO); each row carries one cause from the PR-stage set — distinct from §6.1, which
+// describes exceptions downstream — with an age and an owner.
+
+export type PrCauseKey = 'budget' | 'approval' | 'completeness' | 'sourcing' | 'catalogue' | 'duplicate';
+
+export interface PrCause {
+  key: PrCauseKey;
+  name: string; // 'Budget'
+  detail: string; // §18.1's one-line description, verbatim
+}
+
+export type PrChaseState = 'waiting' | 'chased' | 'escalated';
+
+export interface RequisitionRow {
+  id: string; // 'JGL-PR-001'
+  entityCode: string;
+  causeKey: PrCauseKey;
+  ageDays: number;
+  owner: string; // a named human from the §7.17 pool for that entity
+  valueCr: number; // allocated at read time so Σ rows ties to PR.inFlightValue − PO.inFlightValue (§7.4)
+  chaseState: PrChaseState;
+}
+
+export interface RequisitionPipeline {
+  prsInFlight: number; // the §7.4 PR stage count
+  converted: number; // the §7.4 PO stage count
+  unconverted: number; // the difference — the screen's subject
+  unconvertedValueCr: number; // PR.inFlightValue − PO.inFlightValue (§7.4) — demand not yet committed
+}
+
 // §6/§7.26 — statutory obligations per entity, jurisdiction-matched in the dataset; only JRP carries an overdue item
 // (§7.26). valueAtRiskCr follows the §7.26 exposure table (ITC / input tax at risk, MSMED ageing); failCount carries
 // count-based operational failures where the spec states a number rather than a rupee figure — e-invoice IRN failures
@@ -491,7 +532,8 @@ export interface InterfaceHealth {
 // --- §15 — the agent workforce ---
 // Status is 'live' | 'designed' (overrides §15.5's 'active' | 'paused' | 'shadow'): live agents carry metrics, designed
 // ones render the honest-absence pattern of §7.7. The roster started at eighteen roles (§15.2); Step 27 extends it to
-// twenty-two with the four R2R agents (§16.6). process / type / boundedBy / advisoryOnly / proposesOnly extend §15.5's
+// twenty-two with the four R2R agents (§16.6), and §18.2 adds the five requisition roles (twenty-seven).
+// process / type / boundedBy / advisoryOnly / proposesOnly extend §15.5's
 // shape with the roster-grouping and boundary facts from §15.2 / §15.2.1.
 
 export type AgentProcess = 'shared' | 'p2p' | 'o2c' | 'r2r';
@@ -545,6 +587,7 @@ export interface Agent {
   status: AgentStatus;
   advisoryOnly?: boolean; // agents 4, 5, 13, 14 — flag and nudge but change nothing (§15.2)
   proposesOnly?: boolean; // agent 12 — assembles the run; a human releases it (§15.2)
+  prevents?: { causeKey: string }; // §18.2 — the downstream cause this preventive agent removes, joined from the taxonomy at read time
   metrics?: AgentMetrics; // live agents only
 }
 

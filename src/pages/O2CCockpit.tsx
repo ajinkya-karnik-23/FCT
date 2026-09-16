@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getEntity, getO2cKpis, getO2cServiceControl, getReceivablesAgeing, listCauses, listStages } from '../api'
+import { rootCauseTo } from '../app/paths'
 import { AgeingChart, Bar, Eyebrow, FreshnessStamp, Metric, StageFlow } from '../components'
 import { formatCr } from '../lib/format'
 import { colors, fonts, spacing, typeScale } from '../theme/tokens'
@@ -61,7 +62,20 @@ export function O2CCockpit() {
         </div>
       </div>
 
-      <StageFlow stages={stages} to={`/entity/${code}/working-capital`} />
+      {/* §18.4 — every stage drills the O2C worklist pre-filtered to that stage's causes; Delivery is omitted and takes
+          the base `to`, so it shows the full list unfiltered by "needs you". */}
+      <StageFlow
+        stages={stages}
+        to={`/entity/${code}/o2c/invoices`}
+        stageTo={{
+          ORD: `/entity/${code}/o2c/invoices?cause=customer-master`,
+          CRD: `/entity/${code}/o2c/invoices?cause=credit-block`,
+          BIL: `/entity/${code}/o2c/invoices?cause=billing-errors,pricing-disputes`,
+          DSP: `/entity/${code}/o2c/invoices?cause=billing-errors`,
+          COL: `/entity/${code}/o2c/invoices?cause=credit-block,pricing-disputes`,
+          CSH: `/entity/${code}/o2c/invoices?cause=cash-application,deductions`,
+        }}
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: spacing.gapCards }}>
         <AgeingChart title="Receivables by ageing" buckets={ageing} />
@@ -71,7 +85,7 @@ export function O2CCockpit() {
           {causes.map((c) => (
             <Link
               key={c.key}
-              to={`/entity/${code}/root-cause/o2c/${c.key}`}
+              to={rootCauseTo(c.key)}
               className="fct-cause-row"
               style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: colors.textPrimary, textDecoration: 'none' }}
             >

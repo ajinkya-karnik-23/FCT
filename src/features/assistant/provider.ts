@@ -6,7 +6,6 @@
 
 import {
   applySensitivity,
-  causeBacklogCounts,
   computeScore,
   currentPeriodEliminations,
   DIMENSION_KEYS,
@@ -16,15 +15,16 @@ import {
   getEntity,
   getForecast,
   getRecurringCauses,
-  listCauseBacklog,
   listCompliance,
   listDataQuality,
+  listRootCauses,
   priorScore,
+  rootCauseCounts,
   slaBreachSplit,
 } from '../../api'
 import type { Attribution, DimensionKey, Entity, Veto } from '../../api'
 import type { ScoreResult } from '../../api'
-import { defaultRootCauseTo } from '../../app/paths'
+import { rootCauseTo } from '../../app/paths'
 import { formatCr, formatRecurrence } from '../../lib/format'
 import { statusWord } from '../../theme/derive'
 
@@ -118,7 +118,7 @@ function whyAmber(entity: Entity): ResolvedAnswer {
     ],
     followUps: [
       { label: 'What lifts it fastest?', ask: 'What lifts it fastest?' },
-      { label: 'Show root cause', to: defaultRootCauseTo(entity.code) },
+      { label: 'Show root cause', to: rootCauseTo() },
       { label: 'Open the worklist', to: `/entity/${entity.code}/p2p/invoices` },
     ],
   }
@@ -199,7 +199,7 @@ function liftsFastest(entity: Entity): ResolvedAnswer {
 // Seed 3 — "Why do blocked invoices keep recurring?"
 function blockedRecurring(entity: Entity): ResolvedAnswer {
   const m = entity.metrics
-  const gr = getCause('missing-gr')
+  const gr = getCause('missing-gr', 'p2p')
   const recurring = getRecurringCauses()
   const parts: string[] = [`${formatCr(m.apBlocked.current)} is blocked across ${m.apBlockedCount} invoices at ${entity.name}.`]
   if (m.accrualExposure !== undefined) {
@@ -212,12 +212,12 @@ function blockedRecurring(entity: Entity): ResolvedAnswer {
   return {
     text: parts.join(' '),
     citations: [
-      ...(gr ? [{ label: `Missing GR · ${formatCr(gr.valueAtRisk)}`, to: `/entity/${entity.code}/root-cause/p2p/missing-gr` }] : []),
+      ...(gr ? [{ label: `Missing GR · ${formatCr(gr.valueAtRisk)}`, to: rootCauseTo('missing-gr') }] : []),
       { label: 'Blocked invoices worklist', to: `/entity/${entity.code}/p2p/invoices?cause=missing-gr` },
     ],
     followUps: [
       { label: 'What is our exposure at close?', ask: 'What is our exposure at close?' },
-      { label: 'Show the root cause', to: `/entity/${entity.code}/root-cause/p2p/missing-gr` },
+      { label: 'Show the root cause', to: rootCauseTo('missing-gr') },
     ],
   }
 }
@@ -308,7 +308,7 @@ function complianceOverdue(entity: Entity): ResolvedAnswer {
 
 // Seed 8 — "What has master data quality cost us?"
 function masterDataCost(entity: Entity): ResolvedAnswer {
-  const vm = getCause('vendor-master')
+  const vm = getCause('vendor-master', 'p2p')
   const vendorChecks = listDataQuality(entity.code, 'vendor')
   const fails = vendorChecks.reduce((sum, d) => sum + d.failCount, 0)
   let text = ''
@@ -320,11 +320,11 @@ function masterDataCost(entity: Entity): ResolvedAnswer {
   return {
     text,
     citations: [
-      ...(vm ? [{ label: `Vendor master · ${formatCr(vm.valueAtRisk)}`, to: `/entity/${entity.code}/root-cause/p2p/vendor-master` }] : []),
+      ...(vm ? [{ label: `Vendor master · ${formatCr(vm.valueAtRisk)}`, to: rootCauseTo('vendor-master') }] : []),
       { label: 'Data quality checks', to: '/data-quality' },
     ],
     followUps: [
-      { label: 'Show the root cause', to: `/entity/${entity.code}/root-cause/p2p/vendor-master` },
+      { label: 'Show the root cause', to: rootCauseTo('vendor-master') },
       { label: 'Open data quality', to: '/data-quality' },
     ],
   }
@@ -332,22 +332,20 @@ function masterDataCost(entity: Entity): ResolvedAnswer {
 
 // Seed 9 — "Which causes have we eliminated?" (group-wide, spans the register screen)
 function causesEliminated(): ResolvedAnswer {
-  const counts = causeBacklogCounts()
+  const counts = rootCauseCounts()
+  const total = listRootCauses().length
   const p6 = currentPeriodEliminations()
-  const thisPeriod = listCauseBacklog().filter((r) => r.status === 'eliminated' && r.eliminatedInPeriod === 6)
-  let text = `Of ${counts.identified} identified causes, ${counts.eliminated} are fully eliminated and ${counts.inProgress} are in progress.`
-  if (p6.count > 0 && thisPeriod.length > 0) {
-    const names = thisPeriod.map((r) => r.name).join(' and ')
-    text += ` This period closed ${p6.count === 1 ? 'one elimination' : `${p6.count} eliminations`} — ${names} — which generated ${p6.generatedLastPeriod} exceptions last period and none in this one.`
+  let text = `The register holds ${total} root causes across the group — ${counts.eliminated} eliminated, ${counts['fixed-at-source']} fixed at source and ${counts['in-progress']} in progress.`
+  if (p6.count > 0) {
+    text += ` This period closed ${p6.count === 1 ? 'one root cause' : `${p6.count} root causes`}, which generated ${p6.generatedLastPeriod} exceptions last period and none in this one.`
   }
   return {
     text,
     citations: [
-      { label: 'Cause elimination register', to: '/cause-backlog' },
-      ...thisPeriod.map((r) => ({ label: r.name, to: `/entity/${r.entityCode}/root-cause/${r.processKey}/${r.causeKey}` })),
+      { label: 'Root cause register', to: '/root-causes' },
     ],
     followUps: [
-      { label: 'Open the register', to: '/cause-backlog' },
+      { label: 'Open the register', to: '/root-causes' },
       { label: 'What lifts it fastest?', ask: 'What lifts it fastest?' },
     ],
   }

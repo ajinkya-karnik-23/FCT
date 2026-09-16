@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import App from '../src/App'
-import { agentActions, agentRates, agentReversibility, agentWorkforceSummary, creditBlockDecisionFor, coverageStrip, exceptionWalkthrough, getAgent, getCounterparty, getException, getPurchaseOrder, listAgents, listExceptions, listRequests, listTouchFunnel, poActionLog, requestOwnerPool } from '../src/api'
+import { agentActions, agentRates, agentReversibility, agentWorkforceSummary, creditBlockDecisionFor, coverageStrip, exceptionWalkthrough, getAgent, getCounterparty, getException, getPurchaseOrder, laneForException, listAgents, listExceptions, listRequests, listTouchFunnel, poActionLog, requestOwnerPool, resetAgentLaneStore, runNextAgentCycle } from '../src/api'
 
 // jsdom shares one window across tests in a file; BrowserRouter reads the live
 // pathname on mount, so reset to "/" before each render.
@@ -27,27 +27,27 @@ function activeNavLabel(): string | null {
 // §15.2 — the Built column pins which ten roles are live in this prototype (Step 27 adds cut-off surveillance).
 const LIVE_IDS = ['follow-up', 'master-data', 'commitments', 'approval-routing', 'match-resolution', 'duplicate-adjudication', 'provisioning', 'credit-release', 'cash-application', 'cut-off-surveillance']
 
-// §15.2.1 / §16.6 — eight of twenty-two are preventive; the table (not the prose) is authoritative where they disagree.
-const PREVENTIVE_IDS = ['commitments', 'buying-compliance', 'receipt-discipline', 'contract-price-sync', 'credit-watch', 'billing-readiness', 'collections-outreach', 'cut-off-surveillance']
+// §15.2.1 / §16.6 / §18.2 — twelve of twenty-seven are preventive; the table (not the prose) is authoritative where they disagree.
+const PREVENTIVE_IDS = ['commitments', 'buying-compliance', 'receipt-discipline', 'contract-price-sync', 'credit-watch', 'billing-readiness', 'collections-outreach', 'cut-off-surveillance', 'budget-exposure', 'contract-catalogue-routing', 'pr-completeness', 'duplicate-pr']
 
-// §15.2 — advisory only: flag and nudge, change nothing.
-const ADVISORY_IDS = ['buying-compliance', 'receipt-discipline', 'credit-watch', 'billing-readiness', 'cut-off-surveillance']
+// §15.2 / §18.2 — advisory only: flag and nudge, change nothing.
+const ADVISORY_IDS = ['buying-compliance', 'receipt-discipline', 'credit-watch', 'billing-readiness', 'cut-off-surveillance', 'budget-exposure', 'duplicate-pr']
 
 describe('Agent workforce dataset (§15.2)', () => {
-  it('pins twenty-two roles — ten live, twelve designed — with unique roster numbers 1–22', () => {
+  it('pins twenty-seven roles — ten live, seventeen designed — with unique roster numbers 1–27', () => {
     const agents = listAgents()
-    expect(agents).toHaveLength(22)
-    expect(agents.map((a) => a.number).sort((x, y) => x - y)).toEqual(Array.from({ length: 22 }, (_, i) => i + 1))
+    expect(agents).toHaveLength(27)
+    expect(agents.map((a) => a.number).sort((x, y) => x - y)).toEqual(Array.from({ length: 27 }, (_, i) => i + 1))
     expect(agents.filter((a) => a.status === 'live').map((a) => a.id).sort()).toEqual([...LIVE_IDS].sort())
-    expect(agents.filter((a) => a.status === 'designed')).toHaveLength(12)
+    expect(agents.filter((a) => a.status === 'designed')).toHaveLength(17)
   })
 
-  it('exactly eight of twenty-two are preventive, per the §15.2 and §16.6 tables', () => {
+  it('exactly twelve of twenty-seven are preventive, per the §15.2, §16.6 and §18.2 tables', () => {
     const agents = listAgents()
     expect(agents.filter((a) => a.type === 'preventive').map((a) => a.id).sort()).toEqual([...PREVENTIVE_IDS].sort())
   })
 
-  it('the five advisory-only agents change nothing; payment proposal proposes but never releases', () => {
+  it('the seven advisory-only agents change nothing; payment proposal proposes but never releases', () => {
     for (const id of ADVISORY_IDS) {
       const a = getAgent(id)!
       expect(a.advisoryOnly).toBe(true)
@@ -144,8 +144,21 @@ describe('Agent workforce dataset (§15.2)', () => {
       // §15.2.1/§15.7 — a precedent may cite an exception, a prior intake, a counterparty or an earlier PO engagement; each must resolve to something openable
       for (const pid of act.precedents) {
         expect(getException(pid) !== undefined || requests.some((r) => r.id === pid) || getCounterparty(pid) !== undefined || getPurchaseOrder(pid) !== undefined).toBe(true)
+        // §6.1 — P2P and O2C cause keys are disjoint only by naming; an exception precedent stays inside its target's process.
+        const p = getException(pid)
+        if (p && act.targetType === 'exception') expect(p.processKey).toBe(getException(act.targetId)!.processKey)
       }
       expect(act.withinDelegation).toBe(true)
+    }
+  })
+
+  it('the demo cycle is process-scoped — a P2P press leaves every O2C lane untouched', () => {
+    runNextAgentCycle('JGL', 'p2p')
+    try {
+      expect(listExceptions('JGL', 'p2p').some((x) => laneForException(x).state === 'resolved')).toBe(true) // the cycle actually ran
+      for (const x of listExceptions('JGL', 'o2c')) expect(laneForException(x).state).toBe('never-automated')
+    } finally {
+      resetAgentLaneStore()
     }
   })
 
@@ -185,8 +198,8 @@ describe('Agent workforce dataset (§15.2)', () => {
     const s = agentWorkforceSummary()
     const live = listAgents().filter((a) => a.status === 'live')
     expect(s.liveRoles).toBe(10)
-    expect(s.totalRoles).toBe(22)
-    expect(s.preventive).toBe(8)
+    expect(s.totalRoles).toBe(27)
+    expect(s.preventive).toBe(12)
     expect(s.actionsThisPeriod).toBe(live.reduce((t, a) => t + a.metrics!.actionsThisPeriod, 0))
     expect(s.resolvedWithoutHuman).toBe(live.reduce((t, a) => t + a.metrics!.resolvedWithoutHuman, 0))
     expect(s.escalated).toBe(live.reduce((t, a) => t + a.metrics!.escalated, 0))
@@ -209,13 +222,13 @@ describe('Agents screen (§15.5)', () => {
     expect(m.getByRole('heading', { level: 1 }).previousElementSibling?.textContent).toBe('Agents')
     // §15.1 — every agent surface carries the honesty label.
     expect(m.getByText('Simulated data')).toBeTruthy()
-    expect(m.getByText('22 roles · 10 active')).toBeTruthy()
+    expect(m.getByText('27 roles · 10 active')).toBeTruthy()
     // §15.1.1 — spec-pinned cycle times.
     expect(m.getByText('agents last ran 06:42 · next cycle 07:00')).toBeTruthy()
     const summary = m.getByText('Workforce').closest('section') as HTMLElement
     const statValue = (label: string) => within(summary).getAllByText(label).map((el) => el.nextElementSibling?.textContent ?? null).find((v) => v !== null)
-    expect(statValue('ACTIVE ROLES')).toBe('10 of 22')
-    expect(statValue('PREVENTIVE')).toBe('8 of 22')
+    expect(statValue('ACTIVE ROLES')).toBe('10 of 27')
+    expect(statValue('PREVENTIVE')).toBe('12 of 27')
     for (const label of ['ACTIONS THIS PERIOD', 'RESOLVED WITHOUT HUMAN', 'ESCALATED', 'OVERRIDDEN', 'REVERSED']) {
       expect(/^\d+$/.test(statValue(label) ?? '')).toBe(true)
     }
@@ -228,12 +241,12 @@ describe('Agents screen (§15.5)', () => {
     expect(activeNavLabel()).toContain('Agents')
   })
 
-  it('the roster lists all twenty-two agents, each card stating live or designed', () => {
+  it('the roster lists all twenty-seven agents, each card stating live or designed', () => {
     window.history.pushState(null, '', '/agents')
     render(<App />)
     const m = main()
     const section = m.getByText('The roster').closest('section') as HTMLElement
-    expect(section.querySelectorAll('[data-fct-agent]')).toHaveLength(22)
+    expect(section.querySelectorAll('[data-fct-agent]')).toHaveLength(27)
     for (const a of listAgents()) {
       expect(within(section).getByText(a.name)).toBeTruthy()
     }
@@ -245,7 +258,7 @@ describe('Agents screen (§15.5)', () => {
       else if (badges.includes('Not active')) designed += 1
     }
     expect(live).toBe(10)
-    expect(designed).toBe(12)
+    expect(designed).toBe(17)
   })
 
   it("every card carries a drill into that agent's own record (§15.7)", () => {
@@ -275,8 +288,10 @@ describe('Agents screen (§15.5)', () => {
     }
     expect(sections).toEqual([
       { group: 'SHARED', type: 'REACTIVE', ids: ['follow-up', 'master-data'] },
-      { group: 'P2P', type: 'PREVENTIVE', ids: ['commitments', 'buying-compliance', 'receipt-discipline', 'contract-price-sync'] },
-      { group: 'P2P', type: 'REACTIVE', ids: ['approval-routing', 'match-resolution', 'duplicate-adjudication', 'tax-determination', 'provisioning', 'payment-proposal'] },
+      // §18.2 — the four preventive requisition agents join P2P's preventive section in roster order (23–26).
+      { group: 'P2P', type: 'PREVENTIVE', ids: ['commitments', 'buying-compliance', 'receipt-discipline', 'contract-price-sync', 'budget-exposure', 'contract-catalogue-routing', 'pr-completeness', 'duplicate-pr'] },
+      // §18.2 — PR ageing and chase (27) is the one reactive requisition agent.
+      { group: 'P2P', type: 'REACTIVE', ids: ['approval-routing', 'match-resolution', 'duplicate-adjudication', 'tax-determination', 'provisioning', 'payment-proposal', 'pr-ageing-chase'] },
       { group: 'O2C', type: 'PREVENTIVE', ids: ['credit-watch', 'billing-readiness', 'collections-outreach'] },
       { group: 'O2C', type: 'REACTIVE', ids: ['credit-release', 'cash-application', 'deduction-triage'] },
       // §16.6 — the four R2R agents; cut-off surveillance is preventive, the other three reactive (roster order).
@@ -317,6 +332,8 @@ describe('Agents screen (§15.5)', () => {
     // PO carries three agents (commitments, buying compliance, contract price sync); DLV and DSP are the visible gaps.
     const chips = (code: string) => section.querySelector(`[data-fct-stage="${code}"]`)!.querySelectorAll('span[title]').length
     expect(chips('PO')).toBe(3)
+    // §18.2 — PR carries six: buying compliance plus the five requisition agents, the top of the funnel covered.
+    expect(chips('PR')).toBe(6)
     expect(chips('DLV')).toBe(0)
     expect(chips('DSP')).toBe(0)
     // §16.6 — the four R2R agents sit on their stages; SUB, TB, PCK and SGN are visible gaps.

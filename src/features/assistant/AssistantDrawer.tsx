@@ -1,7 +1,7 @@
 import { createContext, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { defaultRootCauseTo } from '../../app/paths'
+import { rootCauseTo } from '../../app/paths'
 import { Eyebrow, StatusDot } from '../../components'
 import { colors, fonts, layout, radius, shadows } from '../../theme/tokens'
 import { mockAssistant, type AssistantProvider, type Citation, type FollowUpAction } from './provider'
@@ -29,7 +29,7 @@ const PRESET_QUESTIONS = ['Why is this entity amber?', 'What lifts it fastest?',
 function fallbackFollowUps(entityCode: string): FollowUpAction[] {
   return [
     { label: 'Open the worklist', to: `/entity/${entityCode}/p2p/invoices` },
-    { label: 'Show root cause', to: defaultRootCauseTo(entityCode) },
+    { label: 'Show root cause', to: rootCauseTo() },
   ]
 }
 

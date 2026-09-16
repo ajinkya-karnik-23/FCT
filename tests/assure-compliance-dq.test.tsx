@@ -112,7 +112,7 @@ describe('Data quality checks (§7.27)', () => {
   })
 
   it('the vendor-master failure is the §7.5 cause — share and value come from the dataset', () => {
-    const cause = getCause('vendor-master')!
+    const cause = getCause('vendor-master', 'p2p')!
     expect(cause.sharePct).toBe(11)
     expect(cause.valueAtRisk).toBe(2.0)
   })
@@ -191,7 +191,7 @@ describe('Data quality screen (§7.27)', () => {
     const sections = Array.from(m.querySelectorAll('section'))
     const panel = sections[sections.length - 1]
 
-    expect(panel.querySelector('a')?.getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/vendor-master')
+    expect(panel.querySelector('a')?.getAttribute('href')).toBe('/root-causes?cause=vendor-master')
     // The §7.5 cause figures ride on the dataset, not literals: 11% of JGL's blocked AP, ₹2.0 cr.
     expect(panel.textContent).toContain('11%')
     expect(panel.textContent).toContain('₹2.0 cr')

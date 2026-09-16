@@ -43,7 +43,8 @@ export function VendorPage() {
     )
   }
 
-  const causeName = (key: string) => getCause(key)?.name ?? key
+  // Vendor pages hold blocked-AP work only — the cause keys are P2P taxonomy members.
+  const causeName = (key: string) => getCause(key, 'p2p')?.name ?? key
   const items = vendor.openItems.map((x) => getException(x)).filter((x): x is Exception => !!x)
 
   const metrics = [

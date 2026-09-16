@@ -33,11 +33,20 @@ describe('O2C cockpit (spec/08 Part B)', () => {
     expect(m.getByText('In flight at each stage')).toBeTruthy()
     expect(m.getByText('Open work in progress, not period volumes')).toBeTruthy()
 
-    // Seven stage cards plus the pinned button all target working capital.
-    const toWorkingCapital = m.getAllByRole('link').filter((l) => l.getAttribute('href') === '/entity/JGL/working-capital')
-    expect(toWorkingCapital).toHaveLength(8)
-    for (const name of ['Order', 'Credit check', 'Delivery', 'Billing', 'Invoice dispatch', 'Collection', 'Cash application']) {
-      expect(toWorkingCapital.some((l) => (l.textContent ?? '').includes(name))).toBe(true)
+    // §18.4 — the seven stage cards drill the O2C worklist pre-filtered to that stage's causes; Delivery keeps the full
+    // list, and only the pinned button stays on working capital.
+    const toWorklist = m.getAllByRole('link').filter((l) => (l.getAttribute('href') ?? '').startsWith('/entity/JGL/o2c/invoices'))
+    expect(toWorklist).toHaveLength(7)
+    for (const [name, href] of [
+      ['Order', '/entity/JGL/o2c/invoices?cause=customer-master'],
+      ['Credit check', '/entity/JGL/o2c/invoices?cause=credit-block'],
+      ['Delivery', '/entity/JGL/o2c/invoices'],
+      ['Billing', '/entity/JGL/o2c/invoices?cause=billing-errors,pricing-disputes'],
+      ['Invoice dispatch', '/entity/JGL/o2c/invoices?cause=billing-errors'],
+      ['Collection', '/entity/JGL/o2c/invoices?cause=credit-block,pricing-disputes'],
+      ['Cash application', '/entity/JGL/o2c/invoices?cause=cash-application,deductions'],
+    ] as const) {
+      expect(toWorklist.find((l) => (l.textContent ?? '').includes(name))?.getAttribute('href')).toBe(href)
     }
 
     // Stage card contents: thousands-separated volume and the exception rate (Collection stage).
@@ -54,7 +63,7 @@ describe('O2C cockpit (spec/08 Part B)', () => {
     }
     expect(m.getByText('₹24.1 cr')).toBeTruthy()
 
-    // O2C taxonomy — six rows drill to their O2C cause on the process-aware route (Part D).
+    // O2C taxonomy — six rows drill to their cause section of the root-cause register (§17).
     for (const [name, key] of [
       ['Pricing disputes', 'pricing-disputes'],
       ['Deductions & short-pay', 'deductions'],
@@ -63,7 +72,7 @@ describe('O2C cockpit (spec/08 Part B)', () => {
       ['Cash application mismatch', 'cash-application'],
       ['Customer master', 'customer-master'],
     ] as const) {
-      expect(m.getByRole('link', { name: new RegExp(name, 'i') }).getAttribute('href')).toBe(`/entity/JGL/root-cause/o2c/${key}`)
+      expect(m.getByRole('link', { name: new RegExp(name, 'i') }).getAttribute('href')).toBe(`/root-causes?cause=${key}`)
     }
     expect(m.getByText('31%')).toBeTruthy()
 

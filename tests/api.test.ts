@@ -1,13 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  agentActions,
   apControlEffectiveness,
   applySensitivity,
   applyWorklistAction,
   attributionReason,
   causeBacklog,
+  causeEliminationTrend,
   causePool,
+  causesPool,
   closeCalendar,
   computeScore,
+  currentPeriodEliminations,
   driverOpenAtMonthEnd,
   entityTileSubs,
   exceptionTimeline,
@@ -38,9 +42,11 @@ import {
   itemEffort,
   JOURNAL_RISK_FLAGS,
   journalRiskFlagStates,
+  laneForException,
   listCauses,
   listEntities,
   listExceptions,
+  listRootCauses,
   listStages,
   monthEndIso,
   openExceptions,
@@ -49,6 +55,7 @@ import {
   priorScore,
   projectDsoDays,
   resetWorklistActionStore,
+  rootCauseCounts,
   serviceScorecard,
   slaBreachSplit,
   stageExceptionPct,
@@ -70,7 +77,12 @@ function daysAgo(n: number): string {
 describe('row counts (spec/03)', () => {
   it('6 entities', () => expect(listEntities()).toHaveLength(6))
   it('7 P2P stages', () => expect(listStages('p2p')).toHaveLength(7))
-  it('72 exceptions — twelve per entity (§7.17)', () => expect(listExceptions()).toHaveLength(72))
+  // §18.3 — the O2C worklist carries its own sample: twelve rows per entity against o2cExceptionCount, beside P2P's.
+  it('144 exceptions — twelve P2P + twelve O2C rows per entity (§7.17/§18.3)', () => expect(listExceptions()).toHaveLength(144))
+  it('the process split is 72 P2P / 72 O2C', () => {
+    expect(listExceptions(undefined, 'p2p')).toHaveLength(72)
+    expect(listExceptions(undefined, 'o2c')).toHaveLength(72)
+  })
   it('6 causes', () => expect(listCauses('p2p')).toHaveLength(6))
 })
 
@@ -135,7 +147,7 @@ describe('spec values transcribed exactly', () => {
   })
 
   it('missing-gr cause with narrative, drivers and actions intact', () => {
-    const c = getCause('missing-gr')
+    const c = getCause('missing-gr', 'p2p')
     expect(c).toMatchObject({
       processKey: 'p2p',
       key: 'missing-gr',
@@ -476,6 +488,77 @@ describe('cause pools (§7.20)', () => {
   })
 })
 
+describe('root cause register triangulation (§17.4)', () => {
+  // §17.4 — an eliminated root cause holds in three places at once: zero open items on the worklist, a closed action
+  // in the agent log for each traced item, and zero new arrivals this period. The register's state is the claim;
+  // these are the checks that make it verifiable rather than asserted.
+
+  const entries = listRootCauses()
+  const eliminated = entries.filter((e) => e.state === 'eliminated')
+  const tracedTo = (entryId: string) => listExceptions().filter((x) => x.rootCauseId === entryId && x.processKey === 'p2p')
+
+  it('the register carries closed and open states', () => {
+    expect(eliminated.length).toBeGreaterThan(0)
+    expect(entries.some((e) => e.state === 'fixed-at-source')).toBe(true)
+    expect(entries.some((e) => e.state === 'in-progress')).toBe(true)
+    expect(entries.some((e) => e.state === 'identified')).toBe(true)
+  })
+
+  for (const entry of eliminated) {
+    it(`${entry.id}: no open worklist item traces to it`, () => {
+      const traced = tracedTo(entry.id)
+      expect(traced.length).toBeGreaterThan(0) // the Items drill has something to show
+      for (const x of traced) expect(laneForException(x).state, `${entry.id} / ${x.id}`).toBe('resolved')
+    })
+
+    it(`${entry.id}: every traced item's closure is in its agent's log`, () => {
+      for (const x of tracedTo(entry.id)) {
+        const lane = laneForException(x)
+        expect(lane.agentId, `${entry.id} / ${x.id}`).toBeTruthy()
+        const closed = agentActions(lane.agentId!).some((a) => a.targetType === 'exception' && a.targetId === x.id && a.outcome === 'resolved')
+        expect(closed, `${entry.id} / ${x.id}: no resolved action in the log`).toBe(true)
+      }
+    })
+
+    it(`${entry.id}: zero new arrivals this period`, () => {
+      expect(entry.newArrivals).toBe(0)
+    })
+  }
+
+  for (const entry of entries.filter((e) => e.state === 'fixed-at-source')) {
+    it(`${entry.id}: fixed at source also carries no new arrivals`, () => {
+      expect(entry.newArrivals).toBe(0)
+    })
+  }
+
+  // §17.6 — the register ties to its parent cause: values sum to valueAtRisk, and items sum to the JGL pool count —
+  // apBlockedCount for P2P, o2cExceptionCount for O2C (§18.3).
+  for (const c of [...listCauses('p2p'), ...listCauses('o2c')]) {
+    it(`${c.key}: entries tie to the cause node`, () => {
+      const es = listRootCauses().filter((e) => e.parentCause === c.key)
+      expect(es.length).toBeGreaterThan(0)
+      expect(Math.round(es.reduce((s, e) => s + e.valueCr, 0) * 10) / 10).toBe(c.valueAtRisk)
+      if (c.processKey === 'p2p') {
+        expect(es.reduce((s, e) => s + e.affectedItems, 0)).toBe(causePool('JGL', c.key)?.count)
+      } else if (c.processKey === 'o2c') {
+        expect(es.reduce((s, e) => s + e.affectedItems, 0)).toBe(causePool('JGL', c.key, 'o2c')?.count)
+      }
+    })
+  }
+
+  // §7.20 — the multi-cause pool is exact: it sums the per-cause pools, which partition the entity total.
+  const ALL_P2P = listCauses('p2p').map((c) => c.key)
+  for (const e of listEntities()) {
+    it(`${e.code}: all six causes pooled equal the entity-wide pool`, () => {
+      expect(causesPool(e.code, ALL_P2P)).toEqual({ count: e.metrics.apBlockedCount, valueCr: Math.round(listCauses('p2p').reduce((s, c) => s + c.valueAtRisk, 0) * 10) / 10 })
+    })
+  }
+
+  it('causesPool: the invoice-stage drill set', () => {
+    expect(causesPool('JGL', ['vendor-master', 'duplicate-suspicion', 'tax-mismatch'])).toEqual({ count: 85, valueCr: 4.8 })
+  })
+})
+
 describe('seeded exceptions per entity (§7.17)', () => {
   // §7.17 — each entity's twelve-row sample sums to its shown value, no row's age exceeds the
   // entity's pool oldest (§7.13; the oldest sampled row need not reach it), and every entity keeps
@@ -561,19 +644,68 @@ describe('seeded exceptions per entity (§7.17)', () => {
   })
 })
 
+describe('O2C exceptions per entity (§18.3)', () => {
+  // §18.3 — the same sample shape as the blocked-invoice worklist: twelve rows per entity against o2cExceptionCount;
+  // the shown value scales with the pool (JGL pinned at ₹9.60 cr), and customers are only those already named in the
+  // entity's forecast drivers (§7.23) so every customer cell drills to an existing counterparty page.
+  const O2C_SHOWN_VALUE: Record<string, number> = { JGL: 9.6, JBL: 6.6, JPS: 2.8, JCP: 1.0, JHS: 1.8, JRP: 8.1 }
+
+  for (const code of ['JGL', 'JBL', 'JPS', 'JCP', 'JHS', 'JRP']) {
+    const rows = listExceptions(code, 'o2c')
+
+    it(`${code}: twelve rows summing to the shown value`, () => {
+      expect(rows).toHaveLength(12)
+      const sum = Math.round(rows.reduce((s, x) => s + x.amount, 0) * 100) / 100
+      expect(sum).toBe(O2C_SHOWN_VALUE[code])
+    })
+
+    it(`${code}: the oldest row reaches arOver90OldestDays exactly`, () => {
+      const maxAge = getEntity(code)!.metrics.arOver90OldestDays
+      expect(Math.max(...rows.map((x) => x.ageDays))).toBe(maxAge)
+    })
+
+    it(`${code}: every customer is one of the entity's forecast-driver customers (§7.23)`, () => {
+      const fc = getForecast(code)!
+      const driverNames = new Set(fc.drivers.map((d) => d.label.slice(0, d.label.indexOf(' — '))))
+      for (const x of rows) expect(driverNames.has(x.vendor), `${code} / ${x.id}: ${x.vendor}`).toBe(true)
+    })
+
+    it(`${code}: nothing is resolvable today; every row is an open receivable exception`, () => {
+      for (const x of rows) {
+        expect(x.resolvableToday).toBe(false) // §7.19's tabulated set is P2P's
+        expect(x.processKey).toBe('o2c')
+        expect(x.id.startsWith('AR-')).toBe(true)
+      }
+    })
+  }
+
+  it('JGL: seven traced rows reach the register, one per cause with pricing twice', () => {
+    const traced = listExceptions('JGL', 'o2c').filter((x) => x.rootCauseId)
+    expect(traced).toHaveLength(7)
+    for (const x of traced) expect(x.traversal?.length ?? 0).toBeGreaterThan(0)
+  })
+
+  it('the O2C pool ties: all six causes pooled equal o2cExceptionCount, per entity', () => {
+    const ALL_O2C = listCauses('o2c').map((c) => c.key)
+    for (const e of listEntities()) {
+      expect(causesPool(e.code, ALL_O2C, 'o2c')).toEqual({ count: e.metrics.o2cExceptionCount, valueCr: Math.round(listCauses('o2c').reduce((s, c) => s + c.valueAtRisk, 0) * 10) / 10 })
+    }
+  })
+})
+
 describe('item effort and attribution reason (§7.19/§8.9)', () => {
   it('effort is a property of the item — cause plus resolvable state, per the §7.19 eight-situation table', () => {
     // The three tabulated causes: same cause reads High/Medium while open, Low when resolvable today.
-    expect(itemEffort({ reasonKey: 'missing-gr', resolvableToday: false })).toBe('High')
-    expect(itemEffort({ reasonKey: 'missing-gr', resolvableToday: true })).toBe('Low')
-    expect(itemEffort({ reasonKey: 'po-price-mismatch', resolvableToday: false })).toBe('High')
-    expect(itemEffort({ reasonKey: 'po-price-mismatch', resolvableToday: true })).toBe('Low')
-    expect(itemEffort({ reasonKey: 'approval-pending', resolvableToday: false })).toBe('Medium')
-    expect(itemEffort({ reasonKey: 'approval-pending', resolvableToday: true })).toBe('Low')
+    expect(itemEffort({ processKey: 'p2p', reasonKey: 'missing-gr', resolvableToday: false })).toBe('High')
+    expect(itemEffort({ processKey: 'p2p', reasonKey: 'missing-gr', resolvableToday: true })).toBe('Low')
+    expect(itemEffort({ processKey: 'p2p', reasonKey: 'po-price-mismatch', resolvableToday: false })).toBe('High')
+    expect(itemEffort({ processKey: 'p2p', reasonKey: 'po-price-mismatch', resolvableToday: true })).toBe('Low')
+    expect(itemEffort({ processKey: 'p2p', reasonKey: 'approval-pending', resolvableToday: false })).toBe('Medium')
+    expect(itemEffort({ processKey: 'p2p', reasonKey: 'approval-pending', resolvableToday: true })).toBe('Low')
     // The untabulated causes follow the same shape.
     for (const key of ['vendor-master', 'duplicate-suspicion', 'tax-mismatch']) {
-      expect(itemEffort({ reasonKey: key, resolvableToday: false })).toBe('Medium')
-      expect(itemEffort({ reasonKey: key, resolvableToday: true })).toBe('Low')
+      expect(itemEffort({ processKey: 'p2p', reasonKey: key, resolvableToday: false })).toBe('Medium')
+      expect(itemEffort({ processKey: 'p2p', reasonKey: key, resolvableToday: true })).toBe('Low')
     }
   })
 
@@ -582,9 +714,9 @@ describe('item effort and attribution reason (§7.19/§8.9)', () => {
   })
 
   it('attribution reason names the side that owns the fix', () => {
-    expect(attributionReason('missing-gr')).toContain('client plant stores')
-    expect(attributionReason('vendor-master')).toContain('provider-run AP process')
-    expect(attributionReason('duplicate-suspicion')).toContain('dedup control')
+    expect(attributionReason('p2p', 'missing-gr')).toContain('client plant stores')
+    expect(attributionReason('p2p', 'vendor-master')).toContain('provider-run AP process')
+    expect(attributionReason('p2p', 'duplicate-suspicion')).toContain('dedup control')
   })
 })
 
@@ -895,20 +1027,20 @@ describe('narrative and display conventions (§7.12)', () => {
   })
 
   it('missing-gr narrative reconciles with the §7.5 plant split', () => {
-    const c = getCause('missing-gr')!
+    const c = getCause('missing-gr', 'p2p')!
     expect(c.plants[0].pct + c.plants[1].pct).toBe(72)
     expect(c.narrative).toContain('72%')
     expect(c.narrative).not.toContain('62%')
   })
 
   it('po-price-mismatch narrative no longer claims four contracts at 71%', () => {
-    const c = getCause('po-price-mismatch')!
+    const c = getCause('po-price-mismatch', 'p2p')!
     expect(c.narrative).not.toContain('71%')
     expect(c.narrative).toContain('₹4.1 cr')
   })
 
   it('approval-pending stores its approver split so the narrative derives from data', () => {
-    const c = getCause('approval-pending')!
+    const c = getCause('approval-pending', 'p2p')!
     expect(c.byGroup).toEqual([{ name: 'Approvers', count: 7, pct: 64 }])
     expect(c.narrative).toContain('seven approvers')
     expect(c.narrative).toContain('64%')
@@ -937,7 +1069,7 @@ describe('narrative and display conventions (§7.12)', () => {
 
 describe('narrative backing data (§7.13)', () => {
   it('pricing-disputes stores the customer cut separately from the segment cut', () => {
-    const c = getCause('pricing-disputes')!
+    const c = getCause('pricing-disputes', 'o2c')!
     expect(c.concentrationCount).toBe(9)
     expect(c.concentrationPctOfValue).toBe(64)
     expect(c.plants[0]).toEqual({ name: 'Distribution', pct: 41 })
@@ -947,25 +1079,25 @@ describe('narrative backing data (§7.13)', () => {
   })
 
   it('the five remaining claims each resolve to a stored field', () => {
-    const vm = getCause('vendor-master')!
+    const vm = getCause('vendor-master', 'p2p')!
     expect(vm.recordsCreatedQuarter).toBe(23)
     expect(vm.narrative).toContain('23 vendor records')
 
-    const ds = getCause('duplicate-suspicion')!
+    const ds = getCause('duplicate-suspicion', 'p2p')!
     expect(ds.concentrationCount).toBe(9)
     expect(ds.concentration).toBe('9 invoice pairs')
     expect(ds.narrative).toContain('Nine invoice pairs')
 
-    const ded = getCause('deductions')!
+    const ded = getCause('deductions', 'o2c')!
     expect(ded.acceptanceRatePct).toBe(71)
     expect(ded.narrative).toContain('71% of deductions are eventually accepted')
 
-    const tm = getCause('tax-mismatch')!
+    const tm = getCause('tax-mismatch', 'p2p')!
     expect(tm.byGroup).toHaveLength(2)
     expect(tm.byGroup!.reduce((sum, g) => sum + g.pct, 0)).toBe(100) // sums to the ₹1.3 cr value
     expect(tm.narrative).toContain('two states')
 
-    const ca = getCause('cash-application')!
+    const ca = getCause('cash-application', 'o2c')!
     expect(getEntity('JGL')!.metrics.cashUnappliedOldestDays).toBe(22)
     expect(ca.narrative).toContain('the oldest for 22 days')
   })
@@ -1107,25 +1239,26 @@ describe('trend series (§7.14)', () => {
 
   // §7.14 — "the series must not contradict a stated recurrence", in checkable form: for a down-is-good
   // metric the last N points (N = the mapped cause's recurrence) must not be monotonically decreasing.
-  const CAUSE_METRIC: Record<string, 'apBlocked' | 'arOver90' | 'cashUnapplied'> = {
-    'missing-gr': 'apBlocked',
-    'po-price-mismatch': 'apBlocked',
-    'approval-pending': 'apBlocked',
-    'vendor-master': 'apBlocked',
-    'duplicate-suspicion': 'apBlocked',
-    'tax-mismatch': 'apBlocked',
-    'pricing-disputes': 'arOver90',
-    deductions: 'arOver90',
-    'billing-errors': 'arOver90',
-    'credit-block': 'arOver90',
-    'customer-master': 'arOver90',
-    'cash-application': 'cashUnapplied',
+  // The process is part of the mapping: getCause resolves within one taxonomy only.
+  const CAUSE_METRIC: Record<string, ['apBlocked' | 'arOver90' | 'cashUnapplied', 'p2p' | 'o2c']> = {
+    'missing-gr': ['apBlocked', 'p2p'],
+    'po-price-mismatch': ['apBlocked', 'p2p'],
+    'approval-pending': ['apBlocked', 'p2p'],
+    'vendor-master': ['apBlocked', 'p2p'],
+    'duplicate-suspicion': ['apBlocked', 'p2p'],
+    'tax-mismatch': ['apBlocked', 'p2p'],
+    'pricing-disputes': ['arOver90', 'o2c'],
+    deductions: ['arOver90', 'o2c'],
+    'billing-errors': ['arOver90', 'o2c'],
+    'credit-block': ['arOver90', 'o2c'],
+    'customer-master': ['arOver90', 'o2c'],
+    'cash-application': ['cashUnapplied', 'o2c'],
   }
 
   it('no mapped cause recurrence window shows steady decline (§7.14)', () => {
     for (const e of listEntities()) {
-      for (const [causeKey, metric] of Object.entries(CAUSE_METRIC)) {
-        const n = getCause(causeKey)!.recurrence
+      for (const [causeKey, [metric, proc]] of Object.entries(CAUSE_METRIC)) {
+        const n = getCause(causeKey, proc)!.recurrence
         if (n < 3) continue // one step of movement is not a trend; §7.2 pins one-month dips on the N=2 metrics
         const window = e.metrics[metric].series.slice(6 - n)
         // 1e-9 tolerance: grid spacing is 0.1/1, so this only absorbs double-representation noise
@@ -1638,5 +1771,76 @@ describe('reconciliation panel (§16.5)', () => {
       expect(p.breaksWithEvidence).toBeLessThanOrEqual(p.overdueBreaks)
       expect(p.certified).toBeLessThanOrEqual(p.accountsReconciled)
     }
+  })
+})
+
+describe('root cause register (§17)', () => {
+  it('one row per root cause under each of the twelve §6.1 causes — three apiece', () => {
+    const rows = listRootCauses()
+    expect(rows).toHaveLength(36)
+    expect(new Set(rows.map((r) => r.id)).size).toBe(rows.length)
+    for (const proc of ['p2p', 'o2c'] as const) {
+      for (const c of listCauses(proc)) {
+        expect(rows.filter((r) => r.parentCause === c.key), `${proc}/${c.key}`).toHaveLength(3)
+      }
+    }
+    // Every entry joins a real taxonomy cause and names at least one real entity. The parent key must resolve in
+    // exactly one process's taxonomy, and the entry's label must name that process — not merely its own.
+    const codes = new Set(listEntities().map((e) => e.code))
+    for (const r of rows) {
+      const p2pNode = getCause(r.parentCause, 'p2p')
+      const o2cNode = getCause(r.parentCause, 'o2c')
+      expect(!!p2pNode !== !!o2cNode, r.id).toBe(true) // a key shared across taxonomies would make the join ambiguous
+      const node = (p2pNode ?? o2cNode)!
+      expect(node.key, r.id).toBe(r.parentCause)
+      expect(r.process, r.id).toBe(node.processKey.toUpperCase())
+      expect(r.entityCodes.length, r.id).toBeGreaterThan(0)
+      for (const code of r.entityCodes) expect(codes.has(code), `${r.id}: ${code}`).toBe(true)
+    }
+  })
+
+  it('headline counts derive from the register and sum to its rows', () => {
+    const c = rootCauseCounts()
+    expect(c.eliminated + c['fixed-at-source'] + c['in-progress'] + c.identified).toBe(listRootCauses().length)
+    for (const state of Object.keys(c) as Array<keyof typeof c>) {
+      expect(c[state]).toBe(listRootCauses().filter((r) => r.state === state).length)
+    }
+  })
+
+  it('§17.3 — fixed-at-source residues fall across the six periods; in-progress entries carry a target date', () => {
+    for (const r of listRootCauses()) {
+      if (r.state === 'fixed-at-source') {
+        expect(r.residueTrend, r.id).toHaveLength(6)
+        for (let i = 1; i < r.residueTrend!.length; i++) {
+          expect(r.residueTrend![i]!, `${r.id}: residue must fall`).toBeLessThan(r.residueTrend![i - 1]!)
+        }
+      } else {
+        expect(r.residueTrend, `${r.id}: residue is fixed-at-source only`).toBeUndefined()
+      }
+      if (r.state === 'in-progress') expect(r.targetDate, r.id).toBeTruthy()
+    }
+  })
+
+  it('§7.30 — closures accumulate to the live register total while open exceptions fall point by point', () => {
+    const t = causeEliminationTrend()
+    expect(t.closedSeries).toHaveLength(6)
+    for (let i = 1; i < t.closedSeries.length; i++) {
+      expect(t.closedSeries[i]!).toBeGreaterThanOrEqual(t.closedSeries[i - 1]!)
+    }
+    // The endpoint ties to the live register: closed = eliminated + fixed at source.
+    const c = rootCauseCounts()
+    expect(t.closedSeries[5]).toBe(c.eliminated + c['fixed-at-source'])
+
+    expect(t.openExceptionsSeries).toHaveLength(6)
+    for (let i = 1; i < t.openExceptionsSeries.length; i++) {
+      expect(t.openExceptionsSeries[i]!, 'open exceptions must fall').toBeLessThan(t.openExceptionsSeries[i - 1]!)
+    }
+    // The last two points are the live group figures — one definition wherever they appear.
+    expect(t.openExceptionsSeries[4]).toBe(openExceptionsPrevious())
+    expect(t.openExceptionsSeries[5]).toBe(openExceptions())
+
+    const p = currentPeriodEliminations()
+    expect(p.count).toBe(t.closedSeries[5]! - t.closedSeries[4]!)
+    expect(p.count).toBeGreaterThan(0)
   })
 })

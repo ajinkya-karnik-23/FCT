@@ -44,3 +44,11 @@
 - [x] Step 31 — Reconcile the O2C label, and the small drills
 - [x] Step 32 — Cash attribution v2
 - [x] Step 32b — Cash attribution: original restored as second screen, lens drives the highlight
+- [x] Step 33 — Root cause register (§17)
+- [x] Step 33b — Drill-script settle engine and shared click/wait helpers
+- [x] Step 34 — Stage drills by cause, multi-select filter, and the elimination triangulation
+- [x] Step 35 — Requisition pipeline (§18): screen, five requisition agents, P2P drill; register label carryovers
+- [x] Step 36 — O2C exceptions worklist (§18.3) + the two Step 35 carryovers
+- [x] Step 37 — Requisitions becomes a drill, and a process-filter sweep
+- [x] Step 37b — Harden what is currently safe by coincidence
+- [x] Step 37c — The lookup underneath: getCause process-aware, per-cause maps keyed by process

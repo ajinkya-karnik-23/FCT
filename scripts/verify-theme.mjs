@@ -300,17 +300,16 @@ const ROUTES = [
   // §16.3 — the close calendar: blocked badges + sent escalations + critical-path dots on JGL
   ['/entity/JGL/close-calendar', 'close-calendar'],
   ['/entity/JGL/p2p/invoices', 'worklist'],
+  // §18.3 — the O2C worklist; same audit targets as its P2P pair plus the age/control colours JGL's sample carries
+  ['/entity/JGL/o2c/invoices', 'o2c-worklist'],
   ['/entity/JGL/p2p/invoices/AP-104281', 'exception-detail'],
-  ['/entity/JGL/root-cause/p2p/missing-gr', 'root-cause-p2p'],
-  ['/entity/JGL/root-cause/o2c/pricing-disputes', 'root-cause-o2c'],
-  // §6.1 — the R2R taxonomy's largest node; same page shape as its siblings, so the same tokens must resolve
-  ['/entity/JGL/root-cause/r2r/reconciliation', 'root-cause-r2r'],
   ['/entity/JGL/working-capital', 'working-capital'],
   ['/risk-control', 'risk-control'],
   ['/compliance', 'compliance'],
   ['/data-quality', 'data-quality'],
   ['/service-desk', 'service-desk'],
-  ['/cause-backlog', 'cause-backlog'],
+  // §17 — the group-level root cause register; state colours + process tags are the audit targets
+  ['/root-causes', 'root-causes'],
   ['/entity/JGL/predictive', 'predictive'],
   // Screens built since Step 3b — the contrast walk must reach every one of them (Step 16 item 10)
   ['/entity/JGL/service', 'service-attribution'],
@@ -329,6 +328,8 @@ const ROUTES = [
   // §15.7 — the commitments watch (chase-state badges in all four colours on JGL) and its PO detail (the amended beat)
   ['/entity/JGL/p2p/commitments', 'commitments-watch'],
   ['/entity/JGL/p2p/commitments/PO-48115', 'po-detail'],
+  // §18 — the requisition pipeline; chase-state text (chased amber, escalated red) + mono metric labels are the audit targets
+  ['/entity/JGL/requisitions', 'requisitions'],
   // §8.4 — the cash attribution spine; elimination-status swatches + pool colours are the audit targets
   ['/cash-attribution', 'cash-attribution'],
 ]
@@ -342,16 +343,15 @@ const EXPECTED_PRESENT = {
   'r2r-cockpit': ['statusGreen', 'statusAmber', 'statusRed', 'ageingBarAlt', 'textFaint', 'accentText'], // §16.4/§16.5 — stage flow carries all three status colours; integrity component bars + recon age-band bars add ageingBarAlt fills; source tags, weights and subs are textFaint; drill links (recon overdue, high-risk JEs, IC netting, accrual exposure) carry accentText
   'close-calendar': ['statusAmber', 'statusRed', 'accent', 'textFaint'], // §16.3 — BLOCKED badges + SGN dot (amber), sent-escalation lines (red), critical-path dots (accent fill), mono metric labels (faint)
   worklist: ['accentText', 'textFaint'],
+  // §18.3 — item/customer links accent; JGL's sample carries red ages (>30 d) and amber (15–30 d) plus High/Medium control significance; untraced rows read faint
+  'o2c-worklist': ['accentText', 'statusRed', 'statusAmber', 'textFaint'],
   'exception-detail': ['statusGreen', 'statusRed'],
-  'root-cause-p2p': ['accentText', 'textFaint'],
-  'root-cause-o2c': ['accentText', 'textFaint'],
-  'root-cause-r2r': ['accentText', 'textFaint'], // ask button + eyebrow/labels, like its siblings
   'working-capital': ['statusGreen', 'chartArOld', 'accent'], // no amber on the page itself — statusAmber was only ever in the top-bar score chip
   'risk-control': ['statusRed', 'bgRiskSoft', 'accentText'], // + agent governance rows drill into the record via accent links
   compliance: ['statusGreen', 'statusAmber', 'statusRed'], // filed / due / overdue tags
   'data-quality': ['statusGreen', 'statusAmber', 'statusRed'], // DQ-score header colours + interface health tags
   'service-desk': ['statusRed', 'statusGreen', 'textFaint'], // queue SLA words (breached/met) + measuring-since line; clay cards are shadow-raised, no border tokens
-  'cause-backlog': ['statusGreen', 'statusAmber', 'accentText'], // elimination status colours + cause back-links; clay cards are shadow-raised, no border tokens
+  'root-causes': ['statusGreen', 'statusAmber', 'textFaint'], // register state colours (eliminated / in-progress+fixed-at-source) + process tags and dimmed agent lines; no links on the page itself
   predictive: ['statusAmber'], // base case renders four OPEN AT MONTH-END tags
   'service-attribution': ['accent', 'ageingBarAlt', 'borderAccent', 'statusAmber'], // SLA split segments (thirdParty folds into system) + JGL health score amber
   'vendor-page': ['accentText', 'statusRed', 'textFaint'], // invoice links; Suraksha items at 41d/52d age red; bucket bars use Bar's default ageingBarAlt, no accent on the page
@@ -364,6 +364,7 @@ const EXPECTED_PRESENT = {
   'touch-economics': ['textFaint', 'textMuted', 'borderDefault', 'bgRaised'], // mono stat/section labels, sim tag + touches-per-thousand captions, card borders, raised lever-stage cards
   'commitments-watch': ['statusRed', 'statusAmber', 'statusGreen', 'textFaint'], // JGL carries all four chase states (at-risk tile red, chased amber, amended green) + mono metric labels
   'po-detail': ['statusGreen', 'accentText', 'textFaint', 'borderDefault'], // PO-48115 is the amended beat: green badge/dots, AGENT tags + cost-centre link, time sub-labels, card borders
+  'requisitions': ['statusRed', 'statusAmber', 'accentText', 'textFaint', 'borderDefault'], // §18 — unconverted tile red + escalated badges, chased badges amber, record links accent, mono metric labels faint, card borders (JGL's seeded pool carries both chase states)
   'cash-attribution': ['statusGreen', 'statusAmber', 'statusRed', 'accentText', 'textFaint', 'borderDefault', 'bgRaised'], // §8.4 — fix-status legend swatches (green/amber/red), scope dot + human values amber, clock + inspector links accent, mono labels faint, pane borders + raised readout/chip surfaces
 }
 

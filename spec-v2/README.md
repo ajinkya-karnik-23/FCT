@@ -16,6 +16,8 @@ names.** The whole spec is roughly 24,000 tokens; no task needs more than two fi
 | `spec-v2/ui.md` | §8 · §9 · §11 | Cross-cutting UI rules, screen inventory, the assistant |
 | `spec-v2/agents.md` | §15 | The agent workforce, delegation model, touch economics |
 | `spec-v2/r2r.md` | §16 | Record to report — close calendar, balance sheet integrity, four more agents |
+| `spec-v2/rootcause.md` | §17 | The root cause register — three layers, four states, triangulation |
+| `spec-v2/upstream.md` | §18 | Requisitions, five PR agents, the O2C worklist |
 
 Section numbers are unchanged, so a cross-reference like "§7.19" still resolves — it
 lives in `spec-v2/data-detail.md`.

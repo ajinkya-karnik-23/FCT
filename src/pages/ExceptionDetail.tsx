@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { attributionReason, decisionOverridden, decisionRecordFor, exceptionTimeline, exceptionWalkthrough, getCause, getCounterparty, getEntity, getException, laneForException, overrideDecision } from '../api'
+import { attributionReason, closingLine, decisionOverridden, decisionRecordFor, exceptionTimeline, exceptionWalkthrough, getCause, getCounterparty, getEntity, getException, laneForException, overrideDecision } from '../api'
 import type { Agent, AgentAction, TimelineEvent, WalkthroughStep } from '../api'
+import { rootCauseTo } from '../app/paths'
 import { Eyebrow, FreshnessStamp, StatusDot } from '../components'
 import { formatCr } from '../lib/format'
 import { ageColor, controlColor } from '../theme/derive'
@@ -28,7 +29,12 @@ export function ExceptionDetail() {
   if (!x) return <UnknownException code={code} id={exceptionId ?? ''} />
 
   const entity = getEntity(code ?? '')
-  const causeName = getCause(x.reasonKey)?.name ?? x.reasonKey
+  const causeName = getCause(x.reasonKey, x.processKey)?.name ?? x.reasonKey
+
+  // §18.3 — O2C rows share this screen with their P2P pair; the back link, responsible function and next action follow
+  // the row's own process rather than assuming payables.
+  const isO2c = x.processKey === 'o2c'
+  const worklistBack = `/entity/${code}/${x.processKey}/invoices`
 
   // §7.6/§8.9 — the timeline is data-driven: seeded lifecycle + session action lines + today's status.
   const timeline = exceptionTimeline(x)
@@ -38,7 +44,7 @@ export function ExceptionDetail() {
 
   return (
     <div style={pageStyle}>
-      <Link to={`/entity/${code}/p2p/invoices`} className="fct-link" style={backLinkStyle}>
+      <Link to={worklistBack} className="fct-link" style={backLinkStyle}>
         ← Back to worklist
       </Link>
 
@@ -52,7 +58,7 @@ export function ExceptionDetail() {
           <span style={{ fontFamily: fonts.mono, fontSize: 13, color: colors.textMuted }}>{`${x.id} · ${x.po} · booked ${x.bookedOn}`}</span>
         </div>
         <div style={{ display: 'flex', gap: 16 }}>
-          <Link to={`/entity/${code}/root-cause/p2p/${x.reasonKey}`} className="fct-detail-btn" style={{ padding: '10px 16px', fontSize: 13, color: colors.textPrimary, textDecoration: 'none' }}>
+          <Link to={rootCauseTo(x.reasonKey)} className="fct-detail-btn" style={{ padding: '10px 16px', fontSize: 13, color: colors.textPrimary, textDecoration: 'none' }}>
             Why does this keep happening?
           </Link>
           <button type="button" className="fct-escalate-btn" onClick={() => {}} style={{ padding: '10px 16px', fontSize: 13 }}>
@@ -93,19 +99,23 @@ export function ExceptionDetail() {
             </div>
             <div style={fieldRow}>
               <span style={{ color: colors.textMuted }}>Responsible function</span>
-              <span>P2P tower — invoice processing</span>
+              {/* O2C rows name the cause's originating function from the taxonomy; P2P keeps its fixed line. */}
+              <span>{isO2c ? `O2C tower — ${getCause(x.reasonKey, x.processKey)?.originatingFunction ?? ''}` : 'P2P tower — invoice processing'}</span>
             </div>
             <div style={fieldRow}>
               <span style={{ color: colors.textMuted }}>Owner</span>
               <span>{x.owner}</span>
             </div>
-            <div style={fieldRow}>
-              <span style={{ color: colors.textMuted }}>SLA</span>
-              <span style={{ fontFamily: fonts.mono, color: colors.statusRed }}>{`Breached by ${Math.max(1, x.ageDays - 15)} days`}</span>
-            </div>
+            {/* The 15-day SLA is the P2P invoice-processing one; O2C rows carry no such threshold in this build. */}
+            {!isO2c && (
+              <div style={fieldRow}>
+                <span style={{ color: colors.textMuted }}>SLA</span>
+                <span style={{ fontFamily: fonts.mono, color: colors.statusRed }}>{`Breached by ${Math.max(1, x.ageDays - 15)} days`}</span>
+              </div>
+            )}
             <div style={fieldRow}>
               <span style={{ color: colors.textMuted }}>Control significance</span>
-              <span style={{ fontFamily: fonts.mono, fontSize: 12, color: controlColor(x.controlSignificance) }}>{`${x.controlSignificance} — payables completeness`}</span>
+              <span style={{ fontFamily: fonts.mono, fontSize: 12, color: controlColor(x.controlSignificance) }}>{`${x.controlSignificance}${isO2c ? '' : ' — payables completeness'}`}</span>
             </div>
           </div>
         </section>
@@ -129,17 +139,21 @@ export function ExceptionDetail() {
             {/* §7.6 — attribution and the reason for it sit with the lifecycle, not in a separate panel */}
             <div style={{ borderTop: `1px solid ${colors.borderSubtle}`, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <span style={typeScale.tableHeader}>{`Attribution — ${x.attribution}`}</span>
-              <span style={{ fontSize: 13, color: colors.textSecondary }}>{attributionReason(x.reasonKey)}</span>
+              <span style={{ fontSize: 13, color: colors.textSecondary }}>{attributionReason(x.processKey, x.reasonKey)}</span>
             </div>
           </section>
 
           <section style={{ ...clay.cardAccent, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Eyebrow style={{ ...typeScale.tableHeader, color: colors.accentText }}>Next action</Eyebrow>
+            {/* O2C rows clear through a customer conversation — the open line with its own escalation timer; P2P keeps
+                the goods-receipt text. No "Chase GR" for receivables. */}
             <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: colors.textSecondary }}>
-              {`Goods receipt is pending at ${x.plant} stores. Auto-escalation to the plant controller fires in 6 hours; releasing this invoice clears ${formatCr(x.amount, 2)} of payment block.`}
+              {isO2c
+                ? `${closingLine(x.processKey, x.reasonKey, x.resolvableToday, x.ageDays)}; clearing this item releases ${formatCr(x.amount, 2)} of blocked receivable.`
+                : `Goods receipt is pending at ${x.plant} stores. Auto-escalation to the plant controller fires in 6 hours; releasing this invoice clears ${formatCr(x.amount, 2)} of payment block.`}
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
-              {['Chase GR', 'Assign owner', 'Log control exception'].map((label) => (
+              {(isO2c ? ['Assign owner', 'Log control exception'] : ['Chase GR', 'Assign owner', 'Log control exception']).map((label) => (
                 <button key={label} type="button" className="fct-action-chip" onClick={() => {}} style={{ padding: '8px 12px', fontSize: 12 }}>
                   {label}
                 </button>
@@ -210,7 +224,7 @@ function Walkthrough({ steps }: { steps: WalkthroughStep[] }) {
 // §15.2.1 — a precedent must be readable: exception ids open the invoice, counterparty ids open their page, anything else stays plain text.
 function PrecedentLink({ pid }: { pid: string }) {
   const ex = getException(pid)
-  if (ex) return <PidLink to={`/entity/${ex.entityCode}/p2p/invoices/${pid}`} pid={pid} />
+  if (ex) return <PidLink to={`/entity/${ex.entityCode}/${ex.processKey}/invoices/${pid}`} pid={pid} />
   const cp = getCounterparty(pid)
   if (cp) return <PidLink to={cp.type === 'customer' ? `/entity/${cp.entityCode}/customer/${pid}` : `/entity/${cp.entityCode}/vendor/${pid}`} pid={pid} />
   return <span style={{ fontFamily: fonts.mono, fontSize: 12, color: colors.textMuted }}>{pid}</span>

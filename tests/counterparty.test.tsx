@@ -24,10 +24,20 @@ describe('Counterparty reconciliation ties (§7.24)', () => {
   it('Σ vendor blocked = worklist shown value, per entity; JGL pinned at ₹12.77 cr', () => {
     for (const code of ENTITIES) {
       const vendors = listCounterparties(code, 'vendor')
-      const rows = listExceptions(code)
+      // Vendor pages hold blocked-AP work only — the tie is against the P2P worklist's shown value (§7.24).
+      const rows = listExceptions(code, 'p2p')
       expect(paise(vendors.reduce((s, v) => s + v.blockedCr, 0))).toBe(rows.reduce((s, x) => s + paise(x.amount), 0))
     }
     expect(paise(listCounterparties('JGL', 'vendor').reduce((s, v) => s + v.blockedCr, 0))).toBe(1277)
+  })
+
+  it('no O2C counterparty name appears in the vendor list, per entity', () => {
+    for (const code of ENTITIES) {
+      const customerNames = new Set(listCounterparties(code, 'customer').map((c) => c.name))
+      expect(customerNames.size).toBeGreaterThan(0) // guard: the absence check must have something to be absent from
+      // Vendors derive from P2P rows only; an O2C row's counterparty is a customer, and its name must not surface as a vendor.
+      for (const v of listCounterparties(code, 'vendor')) expect(customerNames.has(v.name)).toBe(false)
+    }
   })
 
   it('Σ plant blocked = entity blocked AP (the pool), per entity; JGL follows the §7.24 overall split', () => {

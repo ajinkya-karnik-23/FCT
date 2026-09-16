@@ -49,7 +49,8 @@ export function PlantPage() {
   }
 
   const { plant, items, byCause } = detail
-  const causeName = (key: string) => getCause(key)?.name ?? key
+  // Plant pages hold blocked-AP work only — the cause keys are P2P taxonomy members.
+  const causeName = (key: string) => getCause(key, 'p2p')?.name ?? key
   const vendorSpread = new Set(items.map((x) => x.vendor)).size
   // §7.20 — the worklist shows a sample of the pool; where the shown rows do not cover the plant figure, say so.
   const itemsTotal = items.reduce((sum, x) => sum + x.amount, 0)

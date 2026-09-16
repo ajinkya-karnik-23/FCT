@@ -1,7 +1,7 @@
 import { useContext, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { AGGREGATED_ROW_DEFINITION, closeCalendar, computeScore, DIMENSION_DEFINITIONS, DIMENSION_KEYS, DIMENSION_LABELS, getEntity, getGroupSummary, getRecurringCauses, groupRows, GROUP_SCORE_DEFINITION, OPEN_EXCEPTIONS_DEFINITION, pointDirection, VALUE_AT_RISK_DEFINITION } from '../api'
+import { AGGREGATED_ROW_DEFINITION, closeCalendar, computeScore, DIMENSION_DEFINITIONS, DIMENSION_KEYS, DIMENSION_LABELS, getEntity, getGroupSummary, getRecurringCauses, groupRows, GROUP_SCORE_DEFINITION, listRootCauses, OPEN_EXCEPTIONS_DEFINITION, pointDirection, rootCauseCounts, VALUE_AT_RISK_DEFINITION } from '../api'
 import type { Grouping, Trend, TrendDelta } from '../api'
 import { useAppMode, type CockpitMode } from '../app/mode'
 import { DEFAULT_ENTITY } from '../app/routes'
@@ -84,6 +84,8 @@ export function GroupView() {
   const cal = closeCalendar(DEFAULT_ENTITY)!
   const closePct = getEntity(DEFAULT_ENTITY)!.metrics.closePercent.current
   const transform = summary.transformationHealth
+  // §17.1 — cause elimination is consolidated into the root-cause register; "closed" is eliminated + fixed at source, as in the palette row.
+  const rc = rootCauseCounts()
 
   // Worst first, capped rows pinned — the controller scans for trouble, not for alphabet.
   const rows = groupRows(grouping)
@@ -97,7 +99,7 @@ export function GroupView() {
   const transformRows: { label: string; value: string; color?: string }[] = [
     { label: 'Automation rate', value: `${transform.automationRatePct}% ↑`, color: colors.statusGreen },
     { label: 'Repeat exceptions', value: `${transform.repeatExceptionsQoqPct}% QoQ`, color: colors.statusGreen },
-    { label: 'Causes eliminated', value: `${transform.causeElimination.eliminated} of ${transform.causeElimination.identified}` }, // §7.5 — group backlog figures; notStarted derived, never stored
+    { label: 'Causes eliminated', value: `${rc.eliminated + rc['fixed-at-source']} of ${listRootCauses().length}` }, // §17.1 — the register is now the source; closed = eliminated + fixed at source
     { label: 'Touchless invoices', value: `${transform.touchlessInvoicesPct}%` },
   ]
 

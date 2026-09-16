@@ -2,7 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import App from '../src/App'
-import { cutoffRiskThresholdDays, getCashOpportunities, getEntity, listCauses, listCauseBacklog } from '../src/api'
+import { cutoffRiskThresholdDays, getCashOpportunities, getEntity, listCauses, listRootCauses } from '../src/api'
+import type { RootCauseEntry } from '../src/api'
 import { formatCr } from '../src/lib/format'
 
 // jsdom shares one window across tests in a file; BrowserRouter reads the live
@@ -27,7 +28,12 @@ function activeNavLabel(): string | null {
 
 const ALL = [...listCauses('p2p'), ...listCauses('o2c')]
 const sumV = (cs: typeof ALL) => cs.reduce((t, c) => t + c.valueAtRisk, 0)
-const JGL_REG = new Map(listCauseBacklog().filter((r) => r.entityCode === 'JGL').map((r) => [r.causeKey, r]))
+// The register's largest JGL row per cause drives the inspector — mirror the screen's selection, never a literal.
+const JGL_REG = new Map(
+  listRootCauses()
+    .filter((e) => e.entityCodes.includes('JGL'))
+    .reduce((m, e) => { const cur = m.get(e.parentCause); if (!cur || e.valueCr > cur.valueCr) m.set(e.parentCause, e); return m }, new Map<string, RootCauseEntry>()),
+)
 
 describe('Cash attribution dataset (§8.4)', () => {
   it('the P2P pool ties to the entity AP-blocked metric shown on every other screen', () => {
@@ -40,11 +46,10 @@ describe('Cash attribution dataset (§8.4)', () => {
     for (const c of ALL) expect(c.valueAtRisk).toBeGreaterThan(0)
   })
 
-  it('the JGL register leaves exactly four causes without a row — the no-fix lens set', () => {
-    const noOwner = ALL.filter((c) => !JGL_REG.has(c.key))
-    expect(noOwner.map((c) => c.key).sort()).toEqual(['billing-errors', 'credit-block', 'customer-master', 'duplicate-suspicion'])
-    // The P2P slice of that set is a single cause, so process + lens combine to one band.
-    expect(listCauses('p2p').filter((c) => !JGL_REG.has(c.key)).map((c) => c.key)).toEqual(['duplicate-suspicion'])
+  it('every cause carries at least one JGL register row — the no-fix lens set is empty', () => {
+    for (const c of ALL) expect(JGL_REG.has(c.key), `register row for ${c.key}`).toBe(true)
+    // The screen's no-fix figure derives from this coverage; pin that it is zero, not a stored constant.
+    expect(ALL.filter((c) => !JGL_REG.has(c.key))).toHaveLength(0)
   })
 
   it('missing GR carries the pinned cash opportunity', () => {
@@ -94,8 +99,8 @@ describe('Cash attribution screen (§8.4)', () => {
     const ap = document.querySelector('[data-fct-ca-pool="ap"]')!
     expect(ap.getAttribute('href')).toBe('/entity/JGL/p2p/invoices')
     expect(ap.textContent).toContain(formatCr(sumV(listCauses('p2p'))))
-    const noFixAp = sumV(listCauses('p2p').filter((c) => !JGL_REG.has(c.key)))
-    expect(ap.textContent).toContain(`${formatCr(noFixAp)} has no fix in flight`)
+    // Full register coverage — no cause is without a row, so the pool carries no "no fix in flight" line at all.
+    expect(ap.textContent).not.toContain('has no fix in flight')
     const ar = document.querySelector('[data-fct-ca-pool="ar"]')!
     expect(ar.getAttribute('href')).toBe('/entity/JGL/o2c')
     expect(ar.textContent).toContain(formatCr(sumV(listCauses('o2c'))))
@@ -109,12 +114,13 @@ describe('Cash attribution screen (§8.4)', () => {
       `${formatCr(mg.valueAtRisk)} · ${Math.round((mg.valueAtRisk / sumV(listCauses('p2p'))) * 100)}% of Blocked AP`,
     )
     const insp = document.querySelector('#fct-ca-inspector')!
-    expect(insp.querySelector('a[href^="/entity/JGL/root-cause/"]')?.getAttribute('href')).toBe(`/entity/JGL/root-cause/p2p/${mg.key}`)
+    expect(insp.querySelector('a[href^="/root-causes?cause="]')?.getAttribute('href')).toBe(`/root-causes?cause=${mg.key}`)
     const regLink = document.querySelector('[data-fct-ca-register-link]') as HTMLElement
     expect(regLink.textContent).toBe(JGL_REG.get('missing-gr')!.id)
-    expect(regLink.getAttribute('href')).toBe('/cause-backlog')
-    // The eliminated row shows its met target, not an invented date.
-    expect(insp.textContent).toContain(`met · period ${(JGL_REG.get('missing-gr') as { eliminatedInPeriod: number }).eliminatedInPeriod}`)
+    expect(regLink.getAttribute('href')).toBe('/root-causes')
+    // The eliminated row carries no target date — the register says none rather than inventing one.
+    expect(insp.textContent).toContain('Eliminated')
+    expect(insp.textContent).toContain('— none set')
     const opp = getCashOpportunities().find((o) => o.causeKey === 'missing-gr')!
     const oppLink = document.querySelector('[data-fct-ca-opp-link]') as HTMLElement
     expect(oppLink.getAttribute('href')).toBe('/entity/JGL/working-capital')
@@ -151,9 +157,9 @@ describe('Cash attribution screen (§8.4)', () => {
     expect(bandOp('missing-gr')).toBe('1')
 
     fireEvent.click(document.querySelector('[data-fct-ca-lens="noowner"]')!)
-    // The highlight moves to the new set: missing GR is on the register, duplicate suspicion is not.
+    // Every cause is on the register now — the no-fix lens dims all twelve bands, none lit.
     expect(bandOp('missing-gr')).toBe('0.13')
-    expect(bandOp('duplicate-suspicion')).toBe('1')
+    expect(bandOp('duplicate-suspicion')).toBe('0.13')
   })
 
   it('ribbon geometry derives from cause values — band height is proportional to value at risk', () => {
@@ -192,14 +198,16 @@ describe('Cash attribution screen (§8.4)', () => {
     expect(big()).toBe(formatCr(sumV(ALL)))
 
     fireEvent.click(document.querySelector('[data-fct-ca-lens="noowner"]')!)
+    // Full register coverage: the lens's survivor set is empty, so the readout says exactly that.
     const noOwner = ALL.filter((c) => !JGL_REG.has(c.key))
+    expect(noOwner).toHaveLength(0)
     expect(big()).toBe(formatCr(sumV(noOwner)))
-    expect(note().startsWith(`${noOwner.length} of ${ALL.length} causes have no row on the elimination register`)).toBe(true)
+    expect(note()).toBe('No causes in this process match the lens.')
 
+    // The process filter combines with the empty set — still zero, same message.
     fireEvent.click(document.querySelector('[data-fct-ca-proc="ap"]')!)
-    const noOwnerP2p = listCauses('p2p').filter((c) => !JGL_REG.has(c.key))
-    expect(big()).toBe(formatCr(sumV(noOwnerP2p)))
-    expect(note().startsWith(`${noOwnerP2p.length} of ${listCauses('p2p').length} causes have no row`)).toBe(true)
+    expect(big()).toBe(formatCr(0))
+    expect(note()).toBe('No causes in this process match the lens.')
 
     fireEvent.click(document.querySelector('[data-fct-ca-proc="all"]')!)
     fireEvent.click(document.querySelector('[data-fct-ca-lens="all"]')!)
@@ -215,12 +223,22 @@ describe('Cash attribution screen (§8.4)', () => {
       `${formatCr(ppm.valueAtRisk)} · ${Math.round((ppm.valueAtRisk / sumV(listCauses('p2p'))) * 100)}% of Blocked AP`,
     )
     const insp = document.querySelector('#fct-ca-inspector')!
-    expect(document.querySelector('[data-fct-ca-register-link]')?.textContent).toBe(JGL_REG.get('po-price-mismatch')!.id)
-    // In-progress with a target date — the day count is computed against today, not stored.
-    expect(insp.textContent).toContain('+70 d')
-    expect(insp.textContent).toContain((JGL_REG.get('po-price-mismatch') as { owner: string }).owner)
-    // No opportunity is listed for this cause — the screen says so instead of inventing one.
+    const ppmRow = JGL_REG.get('po-price-mismatch')!
+    expect(document.querySelector('[data-fct-ca-register-link]')?.textContent).toBe(ppmRow.id)
+    // The largest row is eliminated — its owner comes from the register, and no opportunity is listed for this cause.
+    expect(insp.textContent).toContain('Eliminated')
+    expect(insp.textContent).toContain(ppmRow.owner)
     expect(insp.textContent).toContain('No cash opportunity listed against this cause.')
+
+    // An in-progress row shows its target date — the day count is computed against today, not stored.
+    const ca = ALL.find((c) => c.key === 'cash-application')!
+    fireEvent.click(document.querySelector('[data-fct-ca-band="cash-application"]')!)
+    expect((document.querySelector('#fct-ca-caption') as SVGTextElement).textContent).toBe(
+      `${formatCr(ca.valueAtRisk)} · ${Math.round((ca.valueAtRisk / sumV(listCauses('o2c'))) * 100)}% of Revenue at risk`,
+    )
+    const caRow = JGL_REG.get('cash-application')!
+    expect(document.querySelector('[data-fct-ca-register-link]')?.textContent).toBe(caRow.id)
+    expect(insp.textContent).toContain('+24 d')
   })
 
   it('is registered in the command palette and navigates when picked', () => {

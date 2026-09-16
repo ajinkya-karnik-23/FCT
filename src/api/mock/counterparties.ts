@@ -53,7 +53,8 @@ function bucketsFromPaise(labels: string[], paiseByBucket: number[]): AgeingBuck
 export const counterparties: Counterparty[] = [];
 
 for (const e of entities) {
-  const rows = exceptions.filter((x) => x.entityCode === e.code);
+  // P2P rows only — vendor and plant pages hold blocked-AP work; O2C exceptions drill to customer pages instead.
+  const rows = exceptions.filter((x) => x.entityCode === e.code && x.processKey === 'p2p');
 
   // --- Vendors — grouped from the entity's exception rows, first-appearance order (the worklist's own ordering).
   const vendorNames: string[] = [];
@@ -151,7 +152,7 @@ const PLANT_SHARES: Record<string, [string, number][]> = {
 };
 
 for (const e of entities) {
-  const rows = exceptions.filter((x) => x.entityCode === e.code);
+  const rows = exceptions.filter((x) => x.entityCode === e.code && x.processKey === 'p2p'); // plant pages hold blocked-AP work only
   // §7.24 — plants tie to the POOL: Σ plant blocked = entity blocked AP, allocated by integer paise so the tie is exact.
   const poolPaise = paise(e.metrics.apBlocked.current);
   const shares = PLANT_SHARES[e.code];

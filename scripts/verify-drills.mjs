@@ -1,28 +1,32 @@
 // Drill-path verification driver (headless Chrome + CDP) — spec/08 Part D, step 5.
-// Walks the six drill paths in both themes:
-//   1. O2C cockpit → Pricing disputes → worklist → AP-104281 → "Why does this keep happening?"
-//      must land on Missing GR / P2P (no inherited selection).
-//   2. Each of the six O2C taxonomy rows opens its own O2C cause with O2C copy.
-//   3. Rail Root cause + entity-home tiles + "Analyse →" land on the default P2P pair,
-//      from a cold start and immediately after viewing an O2C cause.
-//   4. All twelve process-aware routes load directly from their URL (fresh page load).
-//   5. ⌘K lists all twelve ROOT CAUSE entries, six per process, each opening its pair.
+// Walks the drill paths in both themes:
+//   1. O2C cockpit → Pricing disputes → register section (?cause=pricing-disputes), then worklist →
+//      AP-104281 → "Why does this keep happening?" must land on the missing-GR section (no inherited selection).
+//   2. Each of the six O2C taxonomy rows opens its own section of the root cause register (§17).
+//   3. Rail Root causes + entity-home tiles + "Analyse →" land on the full register,
+//      from a cold start and immediately after viewing a cause section.
+//   4. All twelve ?cause= deep links load directly from their URL (fresh page load); R2R keys fall back to the full register (§17.6).
+//   5. ⌘K lists all twenty ROOT CAUSE entries, each opening its register section (or the full register for R2R).
 //   6. The §8.2 consequence strip drills out: accrual exposure to the blocked worklist
-//      filtered to missing GR (?cause=missing-gr), revenue at risk to the O2C Collection
-//      stage (#fct-stage-COL), provision adequacy to the R2R accruals panel
+//      filtered to missing GR (?cause=missing-gr), revenue at risk to the O2C worklist
+//      filtered to disputes and credit blocks (§18.3), provision adequacy to the R2R accruals panel
 //      (#fct-panel-accruals), FX/intercompany to the intercompany netting row
 //      (#fct-ic-netting) — cross-page hash anchors scroll into view. All four figures are links,
 //      and the entity-home Close tile reaches the same close calendar as a second entry point.
 // Counterparty pages (spec/11): vendor / customer / cost-centre / plant load from their URLs, are
-// reached by drill from worklist, root-cause and P2P-cockpit rows, and are findable in ⌘K; §8.8
+// reached by drill from worklist and P2P-cockpit rows, and are findable in ⌘K; §8.8
 // restricted content is absent from all four routes.
-// Plus the theme legibility pass: status colors and ageing-bar fills on the O2C cockpit
-// and both root-cause variants in dark AND light, and the new nav item's active state
-// compared against its P2P sibling. Weak contrast is reported, never adjusted here —
+// Plus the theme legibility pass: status colors and ageing-bar fills on the O2C and R2R cockpits
+// (the register carries no fill-coloured elements — it is contrast-audited only) in dark AND light,
+// and the new nav item's active state compared against its P2P sibling. Weak contrast is reported, never adjusted here —
 // tokens are shared with every other screen.
 //
 // Usage:  npm run verify:drills       (dev server must be running on :5200)
 // Env overrides: FCT_CHROME / FCT_BASE_URL / FCT_SHOTS_DIR / FCT_DRILL_DEBUG_PORT (same as verify-theme.mjs)
+
+// Two escaping traps, both of which have cost a session:
+// - `\d` inside a direct regex literal matches a literal backslash-d. Use `\d` only in strings passed to `new RegExp()`.
+// - Never nest template literals inside `evaluate()`. Build the string node-side and inject it with `JSON.stringify`.
 
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
@@ -138,23 +142,42 @@ async function evaluate(expression, opts = {}) {
   return res.result.value
 }
 
-// The app is ready when its shell has rendered — the rail or the breadcrumb nav exists in the DOM.
-// A painted background (or readyState) only proves the document loaded: a boot animation can still
-// sit over the shell, and auditing through it produces blank captures and dead clicks.
+// The app is ready when its shell has rendered AND no boot overlay sits over it. A painted background
+// (or readyState) only proves the document loaded: the splash (first load of a session, up to ~900ms)
+// intercepts every pointer event while it is up — auditing through it produces blank captures and dead clicks.
 async function waitForApp(timeoutMs = 20000) {
   const t0 = Date.now()
+  let shellUp = false
   while (Date.now() - t0 < timeoutMs) {
-    if (await evaluate(`!!document.querySelector('nav[aria-label="Primary"], nav[aria-label="Breadcrumb"]')`)) return
-    await new Promise((r) => setTimeout(r, 250))
+    if ((shellUp = await evaluate(`!!document.querySelector('nav[aria-label="Primary"], nav[aria-label="Breadcrumb"]')`))) break
+    await sleep(250)
   }
-  throw new Error('app shell never appeared — no rail or breadcrumb in the DOM')
+  if (!shellUp) throw new Error('app shell never appeared — no rail or breadcrumb in the DOM')
+  const s0 = Date.now()
+  while (await evaluate(`!!document.querySelector('.splash-title')`)) {
+    if (Date.now() - s0 > 5000) throw new Error('splash never dismissed — .splash-title still in the DOM after the shell rendered')
+    await sleep(100)
+  }
 }
 
-async function navigate(url) {
+// Navigate to a full URL and wait for the app to have committed the target route: document loaded,
+// shell up (and splash gone), URL matches pathname AND search, <main> rendered with content, DOM settled.
+// A URL change is not a render — React commits after it (~130ms measured) — so "the URL flipped" is never enough.
+async function goTo(url) {
   const loaded = waitForEvent('Page.loadEventFired', 20000)
   await send('Page.navigate', { url })
   await loaded
   await waitForApp()
+  const u = new URL(url)
+  await waitForUrl(u.pathname + u.search, `goTo ${url}`)
+  await installSettle()
+  const m0 = Date.now()
+  while (true) {
+    if (Date.now() - m0 > 10000) throw new Error(`goTo ${url}: <main> never rendered with content`)
+    if (await evaluate(`!!(document.querySelector('main') && document.querySelector('main').textContent.trim())`)) break
+    await sleep(60)
+  }
+  await waitForCommit(`goTo ${url}`)
 }
 
 async function screenshot(name) {
@@ -172,55 +195,58 @@ async function ctrlK() {
   await key('keyDown', { key: 'k', code: 'KeyK', windowsVirtualKeyCode: 75, nativeVirtualKeyCode: 75, modifiers: 2 })
   await key('keyUp', { key: 'k', code: 'KeyK', windowsVirtualKeyCode: 75, nativeVirtualKeyCode: 75, modifiers: 2 })
 }
-async function clickAt(x, y) {
-  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 })
-  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 })
-}
 
 // ---------- in-page probes ----------
-// <main> scrolls internally (AppShell), so a target below the initial fold is only
-// reachable after scrolling it into view; TopBar/Rail sit outside the scroller and are
-// unaffected. 'nearest' leaves already-visible targets exactly where they were.
-const FIND_BY_TEXT_JS = `(text) => {
-  const els = Array.from(document.querySelectorAll('button, a'))
-  const el = els.find((e) => e.textContent.trim().replace(/\\s+/g, ' ').includes(text))
+// One resolver for every click target — no per-probe coordinate math. A string is a CSS selector; an
+// object may carry css (a plain selector) and/or find the first element in scope whose text matches
+// (match: includes | exact | prefix). With rowText, the search runs inside the first row (q.rows ||
+// '.fct-table-row') whose own text contains it — for targets that are only addressable through their
+// ancestor. xf places the click at a fraction of the element's width (default 0.5) — needed where an
+// element is dual-purpose and its centre sits on a nested anchor: the cash-attribution bands select in
+// place anywhere but their name, which drills to the register (§8.4). <main> scrolls internally
+// (AppShell), so a target below the initial fold is only reachable after scrolling it into view;
+// 'nearest' leaves already-visible targets exactly where they were. The element must be visible with a
+// non-zero box AND topmost at its own centre — something parked over it (a fading overlay, layout that
+// has grown) reads as "not actionable yet" and the caller keeps waiting.
+const RESOLVE_TARGET_JS = `(q) => {
+  const norm = (t) => t.trim().replace(/\\s+/g, ' ')
+  let el
+  if (typeof q === 'string') el = document.querySelector(q)
+  else if (q.css) el = document.querySelector(q.css)
+  else {
+    let root = document
+    if (q.scope) { const s = document.querySelector(q.scope); if (!s) return null; root = s }
+    if (q.rowText) {
+      const rows = Array.from(root.querySelectorAll(q.rows || '.fct-table-row'))
+      const row = rows.find((e) => norm(e.textContent).includes(q.rowText))
+      if (!row) return null
+      root = row
+    }
+    const els = Array.from(root.querySelectorAll(q.tags || 'button, a'))
+    if (!q.text) el = els[0]
+    else if (q.match === 'exact') el = els.find((e) => norm(e.textContent) === q.text)
+    else if (q.match === 'prefix') el = els.find((e) => norm(e.textContent).startsWith(q.text))
+    else el = els.find((e) => norm(e.textContent).includes(q.text))
+  }
   if (!el) return null
   el.scrollIntoView({ block: 'nearest', behavior: 'instant' })
   const r = el.getBoundingClientRect()
-  return { x: r.x + r.width / 2, y: r.y + r.height / 2, text: el.textContent.trim().slice(0, 60) }
-}`
-
-// Scoped to the breadcrumb nav by its aria-label, exact label match —
-// a global substring search would hit the rail's "O2C cockpit" first.
-const CRUMB_CLICK_JS = `(text) => {
-  const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
-  if (!bc) return null
-  const el = Array.from(bc.querySelectorAll('a')).find((e) => e.textContent.trim() === text)
-  if (!el) return null
-  const r = el.getBoundingClientRect()
-  return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
-}`
-
-// Scoped to the rail (the nav holding .fct-nav-item), label prefix match.
-const RAIL_CLICK_JS = `(label) => {
-  const rail = Array.from(document.querySelectorAll('nav')).find((n) => n.querySelector('.fct-nav-item'))
-  if (!rail) return null
-  const el = Array.from(rail.querySelectorAll('a, button')).find((e) => e.textContent.trim().startsWith(label))
-  if (!el) return null
-  const r = el.getBoundingClientRect()
-  return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
-}`
-
-// Scoped to the §8.2 consequence strip (#fct-consequence) — a global text search would hit
-// the callout's ₹6.4 cr anchor, which precedes the strip figure in DOM order.
-const STRIP_CLICK_JS = `(text) => {
-  const strip = document.getElementById('fct-consequence')
-  if (!strip) return null
-  const el = Array.from(strip.querySelectorAll('a')).find((e) => e.textContent.trim().replace(/\\s+/g, ' ').includes(text))
-  if (!el) return null
-  el.scrollIntoView({ block: 'nearest', behavior: 'instant' })
-  const r = el.getBoundingClientRect()
-  return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
+  if (r.width <= 0 || r.height <= 0) return null
+  let x, y
+  // SVG is hit-tested per painted region — a text element's box centre can fall in an inter-glyph gap and
+  // the point falls through to whatever is behind. For SVG text, aim at the first character's own box.
+  if (typeof el.getExtentOfChar === 'function' && (el.textContent || '').trim()) {
+    const ext = el.getExtentOfChar(0)
+    const m = el.getScreenCTM()
+    if (m) { const p = new DOMPoint(ext.x + ext.width / 2, ext.y + ext.height / 2).matrixTransform(m); x = p.x; y = p.y }
+  }
+  if (x == null) {
+    const xf = (q && typeof q === 'object' && q.xf != null) ? q.xf : 0.5
+    x = r.x + r.width * xf; y = r.y + r.height / 2
+  }
+  const at = document.elementFromPoint(x, y)
+  if (!at || !(el === at || el.contains(at))) return null
+  return { x, y }
 }`
 
 // React-compatible typing into the palette input (native setter + input event).
@@ -235,19 +261,23 @@ const TYPE_JS = `(text) => {
 
 const PALETTE_ROWS_JS = `Array.from(document.querySelectorAll('.fct-palette-row')).map((r) => r.textContent.trim().replace(/\\s+/g, ' '))`
 
-// Page state for the root-cause assertions: title, taxonomy eyebrow, breadcrumb, selected row.
-const STATE_JS = `(() => {
+// Page state for the register assertions (§17): title, breadcrumb, filter selects, row count, mechanism grid.
+const REGISTER_STATE_JS = `(() => {
   const h1 = document.querySelector('main h1')
-  const leaves = Array.from(document.querySelectorAll('main *')).filter((e) => e.children.length === 0)
-  const eb = leaves.find((e) => /taxonomy/i.test(e.textContent))
   const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
-  const sel = Array.from(document.querySelectorAll('.fct-tax-row--selected')).map((e) => e.textContent.trim().replace(/\\s+/g, ' '))
+  const leaves = Array.from(document.querySelectorAll('main *')).filter((e) => e.children.length === 0)
+  const countLabel = (leaves.find((e) => /root causes$/.test(e.textContent.trim())) || {}).textContent || null
+  const selects = Array.from(document.querySelectorAll('main select.fct-input'))
   return {
-    path: location.pathname,
+    path: location.pathname + location.search,
     h1: h1 ? h1.textContent : null,
-    eyebrow: eb ? eb.textContent.trim() : null,
     breadcrumb: bc ? bc.textContent.trim().replace(/\\s+/g, ' ') : null,
-    selected: sel,
+    countLabel,
+    process: selects[0] ? selects[0].value : null,
+    cause: selects[1] ? selects[1].value : null,
+    entity: selects[2] ? selects[2].value : null,
+    rowCount: document.querySelectorAll('main .fct-table-row').length,
+    mechRows: document.querySelectorAll('main .fct-mech-row').length,
   }
 })()`
 
@@ -336,95 +366,180 @@ const R2R_CAUSES = [
   ['Judgement', 'judgement'],
   ['Master data', 'master-data'],
 ]
+// §17 — every palette cause row opens the register: a ?cause= section for P2P/O2C, the full register for R2R (§17.6).
 const PALETTE_CASES = [
-  ['missing gr', 'Missing GR · P2P', '/entity/JGL/root-cause/p2p/missing-gr'],
-  ['po price mismatch', 'PO price mismatch · P2P', '/entity/JGL/root-cause/p2p/po-price-mismatch'],
-  ['approval pending', 'Approval pending · P2P', '/entity/JGL/root-cause/p2p/approval-pending'],
-  ['vendor master', 'Vendor master · P2P', '/entity/JGL/root-cause/p2p/vendor-master'],
-  ['duplicate suspicion', 'Duplicate suspicion · P2P', '/entity/JGL/root-cause/p2p/duplicate-suspicion'],
-  ['tax mismatch', 'Tax mismatch · P2P', '/entity/JGL/root-cause/p2p/tax-mismatch'],
-  ['pricing disputes', 'Pricing disputes · O2C', '/entity/JGL/root-cause/o2c/pricing-disputes'],
-  ['short-pay', 'Deductions & short-pay · O2C', '/entity/JGL/root-cause/o2c/deductions'],
-  ['billing errors', 'Billing errors · O2C', '/entity/JGL/root-cause/o2c/billing-errors'],
-  ['credit block delays', 'Credit block delays · O2C', '/entity/JGL/root-cause/o2c/credit-block'],
-  ['cash application mismatch', 'Cash application mismatch · O2C', '/entity/JGL/root-cause/o2c/cash-application'],
-  ['customer master', 'Customer master · O2C', '/entity/JGL/root-cause/o2c/customer-master'],
+  ['missing gr', 'Missing GR · P2P', '/root-causes?cause=missing-gr'],
+  ['po price mismatch', 'PO price mismatch · P2P', '/root-causes?cause=po-price-mismatch'],
+  ['approval pending', 'Approval pending · P2P', '/root-causes?cause=approval-pending'],
+  ['vendor master', 'Vendor master · P2P', '/root-causes?cause=vendor-master'],
+  ['duplicate suspicion', 'Duplicate suspicion · P2P', '/root-causes?cause=duplicate-suspicion'],
+  ['tax mismatch', 'Tax mismatch · P2P', '/root-causes?cause=tax-mismatch'],
+  ['pricing disputes', 'Pricing disputes · O2C', '/root-causes?cause=pricing-disputes'],
+  ['short-pay', 'Deductions & short-pay · O2C', '/root-causes?cause=deductions'],
+  ['billing errors', 'Billing errors · O2C', '/root-causes?cause=billing-errors'],
+  ['credit block delays', 'Credit block delays · O2C', '/root-causes?cause=credit-block'],
+  ['cash application mismatch', 'Cash application mismatch · O2C', '/root-causes?cause=cash-application'],
+  ['customer master', 'Customer master · O2C', '/root-causes?cause=customer-master'],
   // §6.1 — the R2R taxonomy; each query is unique across all twenty causes plus the screen rows, except
   // 'master data' (agent #2) and 'intercompany' (agent #20), which also match an agent's record (§15/§16.6) —
-  // root causes sort before agents, so they stay first.
-  ['reconciliation breaks', 'Reconciliation breaks · R2R', '/entity/JGL/root-cause/r2r/reconciliation'],
-  ['interface breaks', 'Interface breaks · R2R', '/entity/JGL/root-cause/r2r/interface'],
-  ['journal risk', 'Journal risk · R2R', '/entity/JGL/root-cause/r2r/journal'],
-  ['close dependencies', 'Close dependencies · R2R', '/entity/JGL/root-cause/r2r/close-dependency'],
-  ['source data', 'Source data · R2R', '/entity/JGL/root-cause/r2r/source-data'],
-  ['intercompany', 'Intercompany · R2R', '/entity/JGL/root-cause/r2r/intercompany'],
-  ['judgement', 'Judgement · R2R', '/entity/JGL/root-cause/r2r/judgement'],
-  ['master data', 'Master data · R2R', '/entity/JGL/root-cause/r2r/master-data'],
+  // root causes sort before agents, so they stay first. R2R keys carry no register section yet, so the row lands on the full register.
+  ['reconciliation breaks', 'Reconciliation breaks · R2R', '/root-causes?cause=reconciliation'],
+  ['interface breaks', 'Interface breaks · R2R', '/root-causes?cause=interface'],
+  ['journal risk', 'Journal risk · R2R', '/root-causes?cause=journal'],
+  ['close dependencies', 'Close dependencies · R2R', '/root-causes?cause=close-dependency'],
+  ['source data', 'Source data · R2R', '/root-causes?cause=source-data'],
+  ['intercompany', 'Intercompany · R2R', '/root-causes?cause=intercompany'],
+  ['judgement', 'Judgement · R2R', '/root-causes?cause=judgement'],
+  ['master data', 'Master data · R2R', '/root-causes?cause=master-data'],
 ]
 
-const P2P_TITLE = 'Why blocked invoices keep recurring'
-const O2C_TITLE = 'Why receivables keep ageing'
-const R2R_TITLE = 'Where close exposure comes from'
-const DEFAULT_PATH = '/entity/JGL/root-cause/p2p/missing-gr'
+const DEFAULT_PATH = '/root-causes'
 
 // ---------- helpers ----------
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// The commit detector — installed once per document (reinstall after every full load). A URL flip is
+// not a render: React commits ~130ms after it, and a commit that is scheduled but not yet run must not
+// read as "settled". The app has committed when the DOM has been mutation-quiet for QUIET_MS and at
+// least MIN_SETTLE_MS have elapsed. Every navigation (goTo) and click (clickOn) ends in this wait —
+// nothing acts on a page that has not committed.
+const SETTLE_INSTALL_JS = `(() => {
+  if (window.__fctSettle) return true
+  window.__fctLastMut = Date.now()
+  const obs = new MutationObserver(() => { window.__fctLastMut = Date.now() })
+  obs.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true })
+  window.__fctSettle = true
+  return true
+})()`
+
+const QUIET_MS = 200
+const MIN_SETTLE_MS = 300
+
+async function installSettle() { await evaluate(SETTLE_INSTALL_JS) }
+
+// Wait until the page has committed. Tolerates a mid-navigation document swap (a probe that fails is
+// "not settled yet", not an error). Times out and fails with what it was waiting for — a silent hang
+// is worse than a failure.
+async function waitForCommit(what, timeoutMs = 8000) {
+  const t0 = Date.now()
+  while (Date.now() - t0 < timeoutMs) {
+    let quietFor = null
+    try { quietFor = await evaluate(`Date.now() - (window.__fctLastMut || 0)`) } catch { /* document mid-swap */ }
+    if (quietFor !== null && quietFor >= QUIET_MS && Date.now() - t0 >= MIN_SETTLE_MS) return
+    await sleep(60)
+  }
+  throw new Error(`waitForCommit: app never settled — ${what}`)
+}
+
 async function waitForPath(pred, what, timeoutMs = 6000) {
   const t0 = Date.now()
   while (Date.now() - t0 < timeoutMs) {
     const p = await evaluate('location.pathname')
     if (pred(p)) return p
-    await new Promise((r) => setTimeout(r, 120))
+    await sleep(120)
   }
   throw new Error(`navigation did not reach ${what} (still at ${await evaluate('location.pathname')})`)
 }
 
-async function clickByText(text) {
-  const hit = await evaluate(`(${FIND_BY_TEXT_JS})(${JSON.stringify(text)})`)
-  if (!hit) throw new Error(`click target not found: "${text}"`)
-  await clickAt(hit.x, hit.y)
-}
-async function clickCrumb(text) {
-  const hit = await evaluate(`(${CRUMB_CLICK_JS})(${JSON.stringify(text)})`)
-  if (!hit) throw new Error(`breadcrumb crumb not found: "${text}"`)
-  await clickAt(hit.x, hit.y)
-}
-async function clickRail(label) {
-  const hit = await evaluate(`(${RAIL_CLICK_JS})(${JSON.stringify(label)})`)
-  if (!hit) throw new Error(`rail item not found: "${label}"`)
-  await clickAt(hit.x, hit.y)
+// The register's deep links live in the query string — pathname alone cannot tell a section from the full register.
+async function waitForUrl(url, what, timeoutMs = 6000) {
+  const t0 = Date.now()
+  while (Date.now() - t0 < timeoutMs) {
+    const u = await evaluate('location.pathname + location.search')
+    if (u === url) return u
+    await sleep(120)
+  }
+  throw new Error(`navigation did not reach ${what} (still at ${await evaluate('location.pathname + location.search')})`)
 }
 
-async function clickStripFigure(text) {
-  const hit = await evaluate(`(${STRIP_CLICK_JS})(${JSON.stringify(text)})`)
-  if (!hit) throw new Error(`consequence strip figure not found: "${text}"`)
-  await clickAt(hit.x, hit.y)
+// Scroll the target into view, wait until it is actionable (visible, non-zero box, topmost at its
+// centre), dispatch a real mouse press+release there, then wait for the resulting commit. If the click
+// took us to a fresh document — a native anchor; script .click() does not navigate SVG <a> either —
+// wait for that document's app to commit too. Times out and fails with the target it was waiting for.
+async function clickOn(target, what = 'the click') {
+  const desc = typeof target === 'string' ? `css "${target}"` : JSON.stringify({ ...target, scope: target.scope || '(document)' })
+  let hit = null
+  const t0 = Date.now()
+  while (!hit && Date.now() - t0 < 6000) {
+    hit = await evaluate(`(${RESOLVE_TARGET_JS})(${JSON.stringify(target)})`)
+    if (!hit) await sleep(80)
+  }
+  if (!hit) throw new Error(`clickOn: target never became actionable — ${desc} (${what})`)
+  await evaluate(`window.__fctDocSeq = (window.__fctDocSeq || 0) + 1`)
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: hit.x, y: hit.y, button: 'left', clickCount: 1 })
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: hit.x, y: hit.y, button: 'left', clickCount: 1 })
+  await waitForCommit(`after ${what}`)
+  let sameDoc = true
+  try { sameDoc = await evaluate('!!window.__fctDocSeq') } catch { /* mid-swap — assume a reload */ }
+  if (!sameDoc) {
+    await waitForApp()
+    await installSettle()
+    await waitForCommit(`after ${what} (reloaded document)`)
+  }
 }
+
+// clickOn throws when its target never becomes actionable. The interaction checks that recorded the old
+// synthetic-click probes' success boolean keep that shape: a failed click is a failed check, and the next
+// assertion fails loudly on top of it — exactly as before.
+async function clicked(target, what) {
+  try { await clickOn(target, what); return true } catch (e) { console.log(`  (clickOn gave up: ${e.message})`); return false }
+}
+
+// Poll within a scope until its text contains s; hard timeout that fails loudly with the scope and the
+// string it was waiting for. Scope every query — the rail carries every screen label, so an unscoped
+// match can satisfy itself against navigation rather than content.
+async function waitForText(scope, s, what = 'text', timeoutMs = 6000) {
+  const scopeSel = scope || 'body'
+  const t0 = Date.now()
+  while (Date.now() - t0 < timeoutMs) {
+    if (await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(scopeSel)}); return !!r && r.textContent.includes(${JSON.stringify(s)}) })()`)) return true
+    await sleep(80)
+  }
+  throw new Error(`waitForText: ${what} — "${s}" never appeared in scope ${scopeSel}`)
+}
+
+// Attribute values, not getBoundingClientRect — rects on elements inside <defs> always return zero.
+async function readAttr(sel, attr) {
+  return evaluate(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); return el ? el.getAttribute(${JSON.stringify(attr)}) : null })()`)
+}
+
 // The AppShell hash-scroll effect runs post-commit; poll until the anchor is in view.
 async function waitForInView(id, what, timeoutMs = 4000) {
   const t0 = Date.now()
   while (Date.now() - t0 < timeoutMs) {
     const inView = await evaluate(`(() => { const el = document.getElementById(${JSON.stringify(id)}); if (!el) return false; const r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight })()`)
     if (inView) return true
-    await new Promise((r) => setTimeout(r, 120))
+    await sleep(120)
   }
   throw new Error(`${what} never scrolled into view`)
 }
 
-function assertRootCause(state, proc, causeName, label) {
-  const wantTitle = proc === 'o2c' ? O2C_TITLE : proc === 'r2r' ? R2R_TITLE : P2P_TITLE
-  check(`${label}: page title is the ${proc.toUpperCase()} one`, state.h1 === wantTitle, `h1=${JSON.stringify(state.h1)}`)
-  check(`${label}: taxonomy eyebrow says ${proc.toUpperCase()}`, !!state.eyebrow && new RegExp(`taxonomy — ${proc}$`, 'i').test(state.eyebrow), JSON.stringify(state.eyebrow))
-  check(`${label}: selected row is ${causeName}`, state.selected.length === 1 && state.selected[0].startsWith(causeName), JSON.stringify(state.selected))
+// §17 — the register: a ?cause= deep link filters to that cause's three rows; anything else shows all thirty-six.
+function assertRegister(state, label, cause = null) {
+  check(`${label}: page title is the register one`, state.h1 === 'Root causes', `h1=${JSON.stringify(state.h1)}`)
+  check(`${label}: breadcrumb shows Root causes under Group`, !!state.breadcrumb && state.breadcrumb.includes('Group') && state.breadcrumb.includes('Root causes'), JSON.stringify(state.breadcrumb))
+  if (cause) {
+    const proc = P2P_CAUSES.some(([, k]) => k === cause) ? 'P2P' : 'O2C'
+    check(`${label}: cause filter is ${cause}`, state.cause === cause, `cause=${JSON.stringify(state.cause)}`)
+    check(`${label}: process filter follows the cause`, state.process === proc, `process=${JSON.stringify(state.process)}`)
+    check(`${label}: section lists its three rows`, state.rowCount === 3 && state.countLabel === '3 root causes', `rows=${state.rowCount} label=${JSON.stringify(state.countLabel)}`)
+  } else {
+    check(`${label}: full register with all filters open`, state.cause === 'all' && state.process === 'all' && state.entity === 'all', JSON.stringify({ p: state.process, c: state.cause, e: state.entity }))
+    check(`${label}: all thirty-six rows listed`, state.rowCount === 36 && state.countLabel === '36 root causes', `rows=${state.rowCount} label=${JSON.stringify(state.countLabel)}`)
+  }
+  check(`${label}: mechanism section carries six periods`, state.mechRows === 6, `mech=${state.mechRows}`)
 }
 
 // ---------- theme pass ----------
 async function setTheme(themeName) {
-  await navigate(BASE + '/')
-  await evaluate(`localStorage.setItem('fct-theme', '${themeName}')`)
+  await goTo(BASE + '/')
+  await evaluate(`localStorage.setItem('fct-theme', ${JSON.stringify(themeName)})`)
   const reloaded = waitForEvent('Page.loadEventFired', 20000)
   await send('Page.reload')
   await reloaded
   await waitForApp()
+  await installSettle()
+  await waitForCommit(`theme reload (${themeName})`)
 }
 
 async function drillPass(themeName, palette) {
@@ -433,126 +548,130 @@ async function drillPass(themeName, palette) {
   await setTheme(themeName)
 
   // ---- item 1: the regression that matters ----
-  console.log('\n-- item 1: O2C → Pricing disputes → worklist → AP-104281 → "Why does this keep happening?"')
-  await navigate(BASE + '/entity/JGL/o2c')
-  await clickByText('Pricing disputes')
-  await waitForPath((p) => p === '/entity/JGL/root-cause/o2c/pricing-disputes', 'the O2C pricing-disputes cause')
+  console.log('\n-- item 1: O2C → Pricing disputes → register section, then worklist → AP-104281 → "Why does this keep happening?"')
+  await goTo(BASE + '/entity/JGL/o2c')
+  await clickOn({ text: 'Pricing disputes' }, 'O2C pricing-disputes card')
+  await waitForUrl('/root-causes?cause=pricing-disputes', 'the pricing-disputes section from the O2C cockpit')
+  let state = await evaluate(REGISTER_STATE_JS)
+  assertRegister(state, `${themeName}/item1:cockpit-drill`, 'pricing-disputes')
 
-  await clickRail('Worklist')
+  await clickOn({ scope: 'nav[aria-label="Primary"]', text: 'Worklist', match: 'prefix' }, 'rail Worklist')
   await waitForPath((p) => p === '/entity/JGL/p2p/invoices', 'the worklist')
-  await clickByText('AP-104281')
+  await clickOn({ text: 'AP-104281' }, 'worklist row AP-104281')
   await waitForPath((p) => p.includes('/invoices/AP-104281'), 'the AP-104281 exception')
-  await clickByText('Why does this keep happening?')
-  await waitForPath((p) => p === DEFAULT_PATH, 'Missing GR / P2P from the exception button')
-  let state = await evaluate(STATE_JS)
-  assertRootCause(state, 'p2p', 'Missing GR', `${themeName}/item1`)
-  check(`${themeName}/item1: breadcrumb shows the P2P process`, !!state.breadcrumb && state.breadcrumb.includes('P2P'), JSON.stringify(state.breadcrumb))
+  await clickOn({ text: 'Why does this keep happening?' }, '"why does this keep happening?" button')
+  await waitForUrl('/root-causes?cause=missing-gr', 'the missing-GR section from the exception button')
+  state = await evaluate(REGISTER_STATE_JS)
+  assertRegister(state, `${themeName}/item1`, 'missing-gr')
   await screenshot(`${themeName}-item1-missing-gr.png`)
 
-  // ---- item 2: each O2C row opens its own cause with O2C copy ----
-  console.log('\n-- item 2: six O2C taxonomy rows, each opening its own O2C cause')
-  await navigate(BASE + '/entity/JGL/o2c')
+  // ---- item 2: each O2C row opens its own section of the register ----
+  console.log('\n-- item 2: six O2C taxonomy rows, each opening its own register section')
+  await goTo(BASE + '/entity/JGL/o2c')
   for (const [name, key] of O2C_CAUSES) {
-    await clickByText(name)
-    await waitForPath((p) => p === `/entity/JGL/root-cause/o2c/${key}`, `the ${key} cause`)
-    state = await evaluate(STATE_JS)
-    assertRootCause(state, 'o2c', name, `${themeName}/item2:${name}`)
-    check(`${themeName}/item2:${name}: breadcrumb shows the O2C process`, !!state.breadcrumb && state.breadcrumb.includes('O2C'), JSON.stringify(state.breadcrumb))
-    await clickCrumb('O2C') // back to the cockpit for the next row
-    await waitForPath((p) => p === '/entity/JGL/o2c', 'the O2C cockpit (crumb walk-back)')
+    await clickOn({ text: name }, `O2C ${name} card`)
+    await waitForUrl(`/root-causes?cause=${key}`, `the ${key} section`)
+    state = await evaluate(REGISTER_STATE_JS)
+    assertRegister(state, `${themeName}/item2:${name}`, key)
+    // The register is group-level — no entity crumb to walk back by; navigate for the next row.
+    await goTo(BASE + '/entity/JGL/o2c')
   }
 
-  // ---- item 3: no-cause entry points, cold start and post-O2C ----
-  console.log('\n-- item 3a: cold start — rail Root cause, both tiles, Analyse →')
-  await navigate(BASE + '/')
-  await clickRail('Root cause')
-  await waitForPath((p) => p === DEFAULT_PATH, 'the default pair from the rail (cold start)')
-  state = await evaluate(STATE_JS)
-  assertRootCause(state, 'p2p', 'Missing GR', `${themeName}/item3:rail-cold`)
+  // ---- item 3: no-cause entry points land on the full register, cold start and post-section ----
+  console.log('\n-- item 3a: cold start — rail Root causes, both tiles, Analyse →')
+  await goTo(BASE + '/')
+  await clickOn({ scope: 'nav[aria-label="Primary"]', text: 'Root causes', match: 'prefix' }, 'rail Root causes (cold start)')
+  await waitForPath((p) => p === DEFAULT_PATH, 'the full register from the rail (cold start)')
+  state = await evaluate(REGISTER_STATE_JS)
+  assertRegister(state, `${themeName}/item3:rail-cold`)
 
-  await navigate(BASE + '/entity/JGL')
+  await goTo(BASE + '/entity/JGL')
   for (const [tile, label] of [['18 aged breaks', 'Reconciliations tile'], ['12 high-risk JEs', 'Controls tile']]) {
-    await clickByText(tile)
-    await waitForPath((p) => p === DEFAULT_PATH, `the default pair from the ${label} (cold start)`)
-    state = await evaluate(STATE_JS)
-    assertRootCause(state, 'p2p', 'Missing GR', `${themeName}/item3:${label}-cold`)
-    await clickCrumb('JGL')
-    await waitForPath((p) => p === '/entity/JGL', 'the entity home (crumb walk-back)')
+    await clickOn({ text: tile }, `${label} drill`)
+    await waitForPath((p) => p === DEFAULT_PATH, `the full register from the ${label} (cold start)`)
+    state = await evaluate(REGISTER_STATE_JS)
+    assertRegister(state, `${themeName}/item3:${label}-cold`)
+    // The register is group-level — no entity crumb to walk back by; navigate for the next tile.
+    await goTo(BASE + '/entity/JGL')
   }
-  await clickByText('Analyse')
-  await waitForPath((p) => p === DEFAULT_PATH, 'the default pair from Analyse → (cold start)')
-  state = await evaluate(STATE_JS)
-  assertRootCause(state, 'p2p', 'Missing GR', `${themeName}/item3:analyse-cold`)
+  await clickOn({ text: 'Analyse' }, 'Analyse button (cold start)')
+  await waitForPath((p) => p === DEFAULT_PATH, 'the full register from Analyse → (cold start)')
+  state = await evaluate(REGISTER_STATE_JS)
+  assertRegister(state, `${themeName}/item3:analyse-cold`)
 
-  console.log('\n-- item 3b: immediately after viewing an O2C cause — same entry points')
-  await navigate(BASE + '/entity/JGL/root-cause/o2c/pricing-disputes') // fresh load = just viewed the O2C cause
-  state = await evaluate(STATE_JS)
-  check(`${themeName}/item3: starting point is the O2C cause`, state.h1 === O2C_TITLE, `h1=${JSON.stringify(state.h1)}`)
+  console.log('\n-- item 3b: immediately after viewing a cause section — same entry points stay unfiltered')
+  await goTo(BASE + '/root-causes?cause=pricing-disputes') // fresh load = just viewed the O2C section
+  state = await evaluate(REGISTER_STATE_JS)
+  assertRegister(state, `${themeName}/item3:starting-point`, 'pricing-disputes')
 
-  await clickRail('Root cause')
-  await waitForPath((p) => p === DEFAULT_PATH, 'the default pair from the rail (post-O2C)')
-  state = await evaluate(STATE_JS)
-  assertRootCause(state, 'p2p', 'Missing GR', `${themeName}/item3:rail-post-o2c`)
+  await clickOn({ scope: 'nav[aria-label="Primary"]', text: 'Root causes', match: 'prefix' }, 'rail Root causes (post-section)')
+  // Same pathname as the section — only the query drops, so a pathname wait would return before the navigation lands.
+  // The URL flips before React commits the filter reset; clickOn does not return until the DOM has settled with it.
+  await waitForUrl('/root-causes', 'the full register from the rail (post-section)')
+  state = await evaluate(REGISTER_STATE_JS)
+  assertRegister(state, `${themeName}/item3:rail-post-o2c`)
 
-  await navigate(BASE + '/entity/JGL')
+  await goTo(BASE + '/entity/JGL')
   for (const [tile, label] of [['18 aged breaks', 'Reconciliations tile'], ['12 high-risk JEs', 'Controls tile']]) {
-    await clickByText(tile)
-    await waitForPath((p) => p === DEFAULT_PATH, `the default pair from the ${label} (post-O2C)`)
-    state = await evaluate(STATE_JS)
-    assertRootCause(state, 'p2p', 'Missing GR', `${themeName}/item3:${label}-post-o2c`)
-    await clickCrumb('JGL')
-    await waitForPath((p) => p === '/entity/JGL', 'the entity home (crumb walk-back)')
+    await clickOn({ text: tile }, `${label} drill`)
+    await waitForPath((p) => p === DEFAULT_PATH, `the full register from the ${label} (post-section)`)
+    state = await evaluate(REGISTER_STATE_JS)
+    assertRegister(state, `${themeName}/item3:${label}-post-o2c`)
+    await goTo(BASE + '/entity/JGL')
   }
-  await clickByText('Analyse')
-  await waitForPath((p) => p === DEFAULT_PATH, 'the default pair from Analyse → (post-O2C)')
-  state = await evaluate(STATE_JS)
-  assertRootCause(state, 'p2p', 'Missing GR', `${themeName}/item3:analyse-post-o2c`)
+  await clickOn({ text: 'Analyse' }, 'Analyse button (post-section)')
+  await waitForPath((p) => p === DEFAULT_PATH, 'the full register from Analyse → (post-section)')
+  state = await evaluate(REGISTER_STATE_JS)
+  assertRegister(state, `${themeName}/item3:analyse-post-o2c`)
 
-  // ---- item 4: every route directly linkable (fresh page load per URL) ----
-  console.log('\n-- item 4: all twenty process-aware routes load from their URL')
-  for (const proc of ['p2p', 'o2c', 'r2r']) {
-    const causes = proc === 'p2p' ? P2P_CAUSES : proc === 'o2c' ? O2C_CAUSES : R2R_CAUSES
-    for (const [name, key] of causes) {
-      await navigate(BASE + `/entity/JGL/root-cause/${proc}/${key}`)
-      state = await evaluate(STATE_JS)
-      assertRootCause(state, proc, name, `${themeName}/item4:${proc}/${key}`)
-    }
+  // ---- item 4: every deep link directly loadable (fresh page load per URL) ----
+  console.log('\n-- item 4: all twelve ?cause= sections load from their URL; R2R keys fall back to the full register')
+  for (const [name, key] of [...P2P_CAUSES, ...O2C_CAUSES]) {
+    await goTo(BASE + `/root-causes?cause=${key}`)
+    state = await evaluate(REGISTER_STATE_JS)
+    assertRegister(state, `${themeName}/item4:${key}`, key)
+  }
+  // §17.6 — R2R carries no register section yet; its keys must land on the full register, not an error.
+  for (const [name, key] of R2R_CAUSES) {
+    await goTo(BASE + `/root-causes?cause=${key}`)
+    state = await evaluate(REGISTER_STATE_JS)
+    assertRegister(state, `${themeName}/item4:r2r-fallback:${key}`)
   }
 
-  // ---- item 5: ⌘K lists all twenty root causes, each opening its pair ----
+  // ---- item 5: ⌘K lists all twenty root causes, each opening its register section (or the full register for R2R) ----
   console.log('\n-- item 5: command palette — twenty ROOT CAUSE entries across three processes')
-  await navigate(BASE + '/')
-  // headless Chrome intermittently drops the first key event right after a fast (cached) navigation — settle before ⌘K
-  await new Promise((r) => setTimeout(r, 400))
+  await goTo(BASE + '/')
+  // The page is settled by construction (goTo ends in a commit wait); a dropped ⌘K shows up as the typing check failing loudly.
   await ctrlK()
-  await new Promise((r) => setTimeout(r, 400))
+  await waitForCommit('palette open (item 5)')
   check(`${themeName}/item5: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('ROOT CAUSE')`)) === true)
-  await new Promise((r) => setTimeout(r, 200))
+  await waitForText('[aria-label="Command palette"]', '· P2P', '"ROOT CAUSE" rows rendered')
   let rows = await evaluate(PALETTE_ROWS_JS)
   // The cap shows the first nine — six P2P + three O2C; R2R reachability is proven by the per-query cases below.
   check(`${themeName}/item5: "ROOT CAUSE" matches all twenty (capped at nine rows)`, rows.length === 9, `rows=${rows.length}`)
   check(`${themeName}/item5: both processes appear in the list`, rows.some((r) => r.includes('· P2P')) && rows.some((r) => r.includes('· O2C')), JSON.stringify(rows.slice(0, 3)))
   await pressKey(ESC)
-  await new Promise((r) => setTimeout(r, 250))
+  await waitForCommit('palette esc (item 5)')
 
   for (const [query, label, target] of PALETTE_CASES) {
     await ctrlK()
-    await new Promise((r) => setTimeout(r, 300))
+    await waitForCommit(`palette open (${query})`)
     const typed = await evaluate(`(${TYPE_JS})(${JSON.stringify(query)})`)
     if (!typed) throw new Error('palette input not found while typing ' + query)
-    await new Promise((r) => setTimeout(r, 150))
+    await waitForText('[aria-label="Command palette"]', label, `palette rows for "${query}"`)
     rows = await evaluate(PALETTE_ROWS_JS)
     // 'master data' also matches agent #2's record and 'intercompany' also matches agent #20 (§15/§16.6);
     // root causes sort before agents, so the cause is first in both cases.
     const expectedRows = query === 'master data' || query === 'intercompany' ? 2 : 1
     check(`${themeName}/item5:"${query}" → ${expectedRows} row(s), cause first`, rows.length === expectedRows && rows[0].includes(label), JSON.stringify(rows))
     await pressKey(ENTER)
-    await waitForPath((p) => p === target, `the ${label} cause from the palette`)
+    await waitForUrl(target, `the ${label} cause from the palette`)
+    await waitForCommit(`after picking ${label}`)
   }
 
   // ---- item 5b: §16.2 — the third process cockpit: header, eight stage cards, drill to the R2R taxonomy ----
   console.log('\n-- item 5b: R2R cockpit — header + eight stage cards drilling to the R2R taxonomy')
-  await navigate(BASE + '/entity/JGL/r2r')
+  await goTo(BASE + '/entity/JGL/r2r')
   {
     const r2r = await evaluate(`(() => {
       const h1 = document.querySelector('main h1')
@@ -580,20 +699,19 @@ async function drillPass(themeName, palette) {
     const nav = await evaluate(NAV_ACTIVE_JS)
     check(`${themeName}/item5b: rail active item is the R2R cockpit`, !!nav && nav.label.startsWith('R2R cockpit'), JSON.stringify(nav))
   }
-  // All R2R stage cards share one drill target — the R2R taxonomy's first cause (§16.2); one card proves the StageFlow wiring.
-  await clickByText('Reconciliations')
-  await waitForPath((p) => p === '/entity/JGL/root-cause/r2r/reconciliation', 'the R2R reconciliation cause from a stage card')
+  // All R2R stage cards share one drill target — the full register (§17.6: no R2R section yet); one card proves the StageFlow wiring.
+  await clickOn({ text: 'Reconciliations' }, 'R2R Reconciliations stage card')
+  await waitForPath((p) => p === '/root-causes', 'the register from an R2R stage card')
   {
-    const state = await evaluate(STATE_JS)
-    assertRootCause(state, 'r2r', 'Reconciliation breaks', `${themeName}/item5b:stage-drill`)
-    check(`${themeName}/item5b: breadcrumb shows the R2R process`, !!state.breadcrumb && state.breadcrumb.includes('R2R'), JSON.stringify(state.breadcrumb))
+    const state = await evaluate(REGISTER_STATE_JS)
+    assertRegister(state, `${themeName}/item5b:stage-drill`)
   }
-  await clickCrumb('R2R') // back to the cockpit via the middle crumb
-  await waitForPath((p) => p === '/entity/JGL/r2r', 'the R2R cockpit (crumb walk-back)')
+  // The register is group-level — no R2R crumb to walk back by; navigate for the next leg.
+  await goTo(BASE + '/entity/JGL/r2r')
 
   // ---- item 5c: §16.3 — the close calendar: KPIs, blocked/critical-path table, sign-off status, palette row ----
   console.log('\n-- item 5c: close calendar — KPIs + task table + sign-off')
-  await navigate(BASE + '/entity/JGL/close-calendar')
+  await goTo(BASE + '/entity/JGL/close-calendar')
   {
     const cc = await evaluate(`(() => {
       const h1 = document.querySelector('main h1')
@@ -631,16 +749,15 @@ async function drillPass(themeName, palette) {
     const nav = await evaluate(NAV_ACTIVE_JS)
     check(`${themeName}/item5c: rail active item is the close calendar`, !!nav && nav.label.startsWith('Close calendar'), JSON.stringify(nav))
   }
-  await clickCrumb('JGL') // back to the entity page via the middle crumb
+  await clickOn({ scope: 'nav[aria-label="Breadcrumb"]', tags: 'a', text: 'JGL', match: 'exact' }, 'breadcrumb JGL crumb') // back to the entity page via the middle crumb
   await waitForPath((p) => p === '/entity/JGL', 'the entity home (crumb walk-back)')
   {
     // The palette row reaches the screen end-to-end, like its siblings.
-    await new Promise((r) => setTimeout(r, 400))
     await ctrlK()
-    await new Promise((r) => setTimeout(r, 300))
+    await waitForCommit('palette open (item 5c)')
     const typed = await evaluate(`(${TYPE_JS})('close calendar')`)
     if (!typed) throw new Error('palette input not found while typing close calendar')
-    await new Promise((r) => setTimeout(r, 150))
+    await waitForText('[aria-label="Command palette"]', 'Close calendar', '"close calendar" rows rendered')
     const rows = await evaluate(PALETTE_ROWS_JS)
     check(`${themeName}/item5c: "close calendar" → one row`, rows.length === 1 && rows[0].includes('Close calendar'), JSON.stringify(rows))
     await pressKey(ENTER)
@@ -649,42 +766,43 @@ async function drillPass(themeName, palette) {
 
   // ---- item 6: §8.2 consequence strip drills out to its four targets ----
   console.log('\n-- item 6: consequence strip — accrual, revenue at risk, provision adequacy, FX/intercompany')
-  await navigate(BASE + '/entity/JGL')
+  await goTo(BASE + '/entity/JGL')
   // a:not(.fct-trace-link) — the §8.10 trace strip inside this section adds three more links; the check is about the four consequence figures only
   check(`${themeName}/item6: all four figures are links`, (await evaluate(`document.getElementById('fct-consequence').querySelectorAll('a:not(.fct-trace-link)').length`)) === 4, `links=${await evaluate(`document.getElementById('fct-consequence').querySelectorAll('a:not(.fct-trace-link)').length`)}`)
   // The Close tile on this same screen drills to the close calendar too — one figure, two entry points.
   const closeTile = await evaluate(`(() => { const a = document.querySelector('main a[href="/entity/JGL/close-calendar"]'); return a && a.textContent.trim().startsWith('Close') ? 'tile' : null })()`)
   check(`${themeName}/item6: the Close tile drills to the close calendar`, closeTile === 'tile', `got=${JSON.stringify(closeTile)}`)
 
-  await clickStripFigure('₹6.4 cr') // accrual exposure → blocked worklist filtered to missing GR
+  await clickOn({ scope: '#fct-consequence', tags: 'a', text: '₹6.4 cr' }, 'strip accrual figure') // accrual exposure → blocked worklist filtered to missing GR
   await waitForPath((p) => p === '/entity/JGL/p2p/invoices', 'the blocked invoice worklist from the strip')
   check(`${themeName}/item6: accrual drill lands on the worklist with ?cause=missing-gr`, (await evaluate('location.search')) === '?cause=missing-gr', `search=${await evaluate('location.search')}`)
   // A drill from a financial figure shows everything behind that figure — all four missing-GR rows, the two agents resolved included (the needs-you default applies to navigation, not to figure drills). The 111 denominator still proves the cause filter applied.
   check(`${themeName}/item6: worklist is filtered to missing GR — the full figure, agent-resolved rows included`, await evaluate(`document.querySelector('main').textContent.includes('4 of 111 shown')`), '')
   await screenshot(`${themeName}-item6-missing-gr-worklist.png`)
 
-  await navigate(BASE + '/entity/JGL') // fresh load per drill — the strip lives on the entity home
-  await clickStripFigure('₹8.7 cr') // revenue at risk → O2C cockpit, Collection stage anchor
-  await waitForPath((p) => p === '/entity/JGL/o2c', 'the O2C cockpit from the strip')
-  check(`${themeName}/item6: revenue drill carries #fct-stage-COL`, (await evaluate('location.hash')) === '#fct-stage-COL', `hash=${await evaluate('location.hash')}`)
-  await waitForInView('fct-stage-COL', 'the Collection stage card after the hash scroll')
+  await goTo(BASE + '/entity/JGL') // fresh load per drill — the strip lives on the entity home
+  await clickOn({ scope: '#fct-consequence', tags: 'a', text: '₹8.7 cr' }, 'strip revenue-at-risk figure') // §18.3 — revenue at risk → O2C worklist, disputes + credit blocks
+  await waitForPath((p) => p === '/entity/JGL/o2c/invoices', 'the O2C worklist from the strip')
+  check(`${themeName}/item6: revenue drill lands on the worklist filtered to disputes and credit blocks`, (await evaluate('location.search')) === '?cause=credit-block,pricing-disputes', `search=${await evaluate('location.search')}`)
+  // A drill from a financial figure shows everything behind that figure — all five sample rows (the needs-you default applies to navigation, not to figure drills). The 122 denominator still proves the cause filter applied.
+  check(`${themeName}/item6: worklist is filtered to disputes and credit blocks — the full figure`, await evaluate(`document.querySelector('main').textContent.includes('5 of 122 shown')`), '')
 
-  await navigate(BASE + '/entity/JGL')
-  await clickStripFigure('₹3.6 cr') // FX/intercompany → working capital, intercompany netting row anchor
+  await goTo(BASE + '/entity/JGL')
+  await clickOn({ scope: '#fct-consequence', tags: 'a', text: '₹3.6 cr' }, 'strip FX/intercompany figure') // FX/intercompany → working capital, intercompany netting row anchor
   await waitForPath((p) => p === '/entity/JGL/working-capital', 'the working capital view from the strip')
   check(`${themeName}/item6: FX drill carries #fct-ic-netting`, (await evaluate('location.hash')) === '#fct-ic-netting', `hash=${await evaluate('location.hash')}`)
   await waitForInView('fct-ic-netting', 'the intercompany netting row after the hash scroll')
   await screenshot(`${themeName}-item6-ic-netting.png`)
 
-  await navigate(BASE + '/entity/JGL')
-  await clickStripFigure('Provision adequacy') // → R2R cockpit, accruals panel anchor — the figure's own home
+  await goTo(BASE + '/entity/JGL')
+  await clickOn({ scope: '#fct-consequence', tags: 'a', text: 'Provision adequacy' }, 'strip provision-adequacy figure') // → R2R cockpit, accruals panel anchor — the figure's own home
   await waitForPath((p) => p === '/entity/JGL/r2r', 'the R2R cockpit from the strip')
   check(`${themeName}/item6: provision drill carries #fct-panel-accruals`, (await evaluate('location.hash')) === '#fct-panel-accruals', `hash=${await evaluate('location.hash')}`)
   await waitForInView('fct-panel-accruals', 'the accruals panel after the hash scroll')
 
   // ---- item 7: service & attribution — per-entity bar + group comparison, gross/net scorecard, greyed unmeasurable SLAs, breadcrumb + active nav ----
   console.log('\n-- item 7: service & attribution screen')
-  await navigate(BASE + '/entity/JGL/service')
+  await goTo(BASE + '/entity/JGL/service')
   const svc = await evaluate(`(() => {
     const h1 = document.querySelector('main h1')
     const segs = Array.from(document.querySelectorAll('.fct-sla-seg'))
@@ -727,7 +845,7 @@ async function drillPass(themeName, palette) {
 
   // ---- item 8: risk & control — RESTRICTED banner + demo toggle, five categories, eight signals, effectiveness metrics; §8.8 negative checks on the cockpits ----
   console.log('\n-- item 8: risk & control screen')
-  await navigate(BASE + '/risk-control')
+  await goTo(BASE + '/risk-control')
   const rc = await evaluate(`(() => {
     const h1 = document.querySelector('main h1')
     const mainText = document.querySelector('main').textContent
@@ -764,7 +882,7 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item8: active nav item is Risk & control`, !!rcNav && rcNav.label.startsWith('Risk & control'), JSON.stringify(rcNav))
 
   // demo-only access toggle: PLANT MANAGER hides the sections, FC AND ABOVE restores them
-  await clickByText('PLANT MANAGER')
+  await clickOn({ text: 'PLANT MANAGER' }, 'demo toggle PLANT MANAGER')
   const rcRestricted = await evaluate(`(() => {
     const mainText = document.querySelector('main').textContent
     return {
@@ -773,7 +891,7 @@ async function drillPass(themeName, palette) {
     }
   })()`)
   check(`${themeName}/item8: PLANT MANAGER hides the signal sections (§8.8)`, rcRestricted.hidden && rcRestricted.notice, JSON.stringify(rcRestricted))
-  await clickByText('FC AND ABOVE')
+  await clickOn({ text: 'FC AND ABOVE' }, 'demo toggle FC AND ABOVE')
   const rcRestored = await evaluate(`document.querySelector('main').textContent.includes('Vendor bank detail changed 3 days before payment run')`)
   check(`${themeName}/item8: FC AND ABOVE restores the sections`, rcRestored === true, '')
   await screenshot(`${themeName}-risk-control.png`)
@@ -817,7 +935,7 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item8: the three rising rates are interpreted on screen — delegation vs policy (§15.6)`, !!gov && gov.interpretations.length === 3, JSON.stringify(gov ? gov.interpretations : null))
 
   // Each row drills into that agent's own record.
-  const govDrill = await evaluate(`(() => { const r = document.querySelector('[data-fct-gov-row="match-resolution"]'); if (!r) return false; const a = r.querySelector('a'); if (!a) return false; a.click(); return true })()`)
+  const govDrill = await clicked('[data-fct-gov-row="match-resolution"] a', 'governance row drill')
   check(`${themeName}/item8: a governance row drills into the agent's record`, govDrill === true, '')
   await waitForPath((p) => p === '/agents/match-resolution', 'the agent record from the governance slice')
   const govDetail = await evaluate(`(() => { const h1 = document.querySelector('main h1'); return { h1: h1 ? h1.textContent : null, delegation: document.querySelector('main').textContent.includes('Delegation of authority') } })()`)
@@ -832,7 +950,7 @@ async function drillPass(themeName, palette) {
     ['/entity/JGL/cost-centre/jgl-nanjangud-operations', 'cost-centre-page'],
     ['/entity/JGL/plant/jgl-nanjangud', 'plant-page'],
   ]) {
-    await navigate(BASE + route)
+    await goTo(BASE + route)
     const leaked = await evaluate(`(() => {
       const t = document.querySelector('main').textContent
       return ['SoD conflict', 'bank detail changed'].filter((s) => t.includes(s))
@@ -842,7 +960,7 @@ async function drillPass(themeName, palette) {
 
   // ---- item 9: predictive — live DSO headline, contestable drivers, ranked actions (§7.3), DPO honesty flag (§8.6) ----
   console.log('\n-- item 9: predictive screen')
-  await navigate(BASE + '/entity/JGL/predictive')
+  await goTo(BASE + '/entity/JGL/predictive')
   const pred = await evaluate(`(() => {
     const h1 = document.querySelector('main h1')
     const mainText = document.querySelector('main').textContent
@@ -867,12 +985,7 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item9: base case shows all four drivers open at month-end`, pred.openTags === 4, `open=${pred.openTags}`)
 
   // Contest a driver through its stable id — row order is a rendering detail and must not be load-bearing (§7.23).
-  const predClickA = await evaluate(`(() => {
-    const b = document.querySelector('main [data-driver-id="jgl-amrit"]')
-    if (!b) return false
-    b.click()
-    return true
-  })()`)
+  const predClickA = await clicked('main [data-driver-id="jgl-amrit"]', 'Amrit driver row')
   check(`${themeName}/item9: the Amrit driver row exposes a stable control`, predClickA === true, '')
   const predResolved = await evaluate(`document.querySelector('main h1').textContent`)
   check(`${themeName}/item9: marking Amrit Distributors resolved drops the projection to 67.9`, predResolved === 'DSO 62 today → 67.9 projected at month-end', `h1=${JSON.stringify(predResolved)}`)
@@ -891,11 +1004,12 @@ async function drillPass(themeName, palette) {
     return true
   })()`)
   check(`${themeName}/item9: Deccan settlement date is editable`, predDateSet === true, '')
+  await waitForCommit('Deccan settlement date set')
   const predContested = await evaluate(`document.querySelector('main h1').textContent`)
   check(`${themeName}/item9: settling Deccan by month-end drops the projection to 65.8`, predContested === 'DSO 62 today → 65.8 projected at month-end', `h1=${JSON.stringify(predContested)}`)
 
   // Reset returns every assumption to the base case.
-  await clickByText('RESET TO BASE CASE')
+  await clickOn({ text: 'RESET TO BASE CASE' }, 'reset to base case button')
   const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()).padStart(2, '0')}`
   const predReset = await evaluate(`(() => {
     return { h1: document.querySelector('main h1').textContent, inputs: Array.from(document.querySelectorAll('main input[type="date"]')).map((i) => i.value) }
@@ -908,7 +1022,7 @@ async function drillPass(themeName, palette) {
   await screenshot(`${themeName}-predictive.png`)
 
   // §7.23 — the route is per-entity: navigating to JRP shows JRP's forecast, not JGL's.
-  await navigate(BASE + '/entity/JRP/predictive')
+  await goTo(BASE + '/entity/JRP/predictive')
   const predJrp = await evaluate(`(() => {
     const mainText = document.querySelector('main').textContent
     return { h1: document.querySelector('main h1').textContent, hasMontRoyal: mainText.includes('Mont-Royal Imaging — pricing dispute'), hasAmrit: mainText.includes('Amrit Distributors') }
@@ -924,51 +1038,39 @@ async function drillPass(themeName, palette) {
     ['/entity/JGL/cost-centre/jgl-nanjangud-operations', 'Nanjangud Operations'],
     ['/entity/JGL/plant/jgl-nanjangud', 'Nanjangud'],
   ]) {
-    await navigate(BASE + route)
+    await goTo(BASE + route)
     const cp = await evaluate(`document.querySelector('main h1') ? document.querySelector('main h1').textContent : null`)
     check(`${themeName}/item10: ${route} loads with its counterparty name`, cp === name, `h1=${JSON.stringify(cp)}`)
   }
 
   // Worklist rows drill sideways to vendor and plant pages — the plant cell is a detail column inside the row's expansion.
-  await navigate(BASE + '/entity/JGL/p2p/invoices')
-  const wlExpand = await evaluate(`(() => {
-    const row = Array.from(document.querySelectorAll('.fct-table-row')).find((r) => r.textContent.includes('Suraksha Chemicals Pvt Ltd'))
-    if (!row) return 'no-row'
-    const exp = row.querySelector('.fct-expand')
-    if (exp && exp.getAttribute('aria-expanded') !== 'true') { exp.click(); return 'expanded' }
-    return exp ? 'open' : 'no-expander'
-  })()`)
-  await new Promise((r) => setTimeout(r, 300))
+  await goTo(BASE + '/entity/JGL/p2p/invoices')
+  const wlExpanded = await clicked({ rows: '.fct-table-row', rowText: 'Suraksha Chemicals Pvt Ltd', tags: '.fct-expand' }, 'worklist Suraksha expander')
   const wlDrill = await evaluate(`Array.from(document.querySelectorAll('main a')).filter((a) => a.textContent === 'Suraksha Chemicals Pvt Ltd' || a.textContent === 'Nanjangud').map((a) => ({ text: a.textContent, href: a.getAttribute('href') }))`)
-  check(`${themeName}/item10: worklist vendor and plant cells link to counterparty pages`, wlDrill.some((l) => l.text === 'Suraksha Chemicals Pvt Ltd' && l.href === '/entity/JGL/vendor/suraksha-chemicals-pvt-ltd') && wlDrill.some((l) => l.text === 'Nanjangud' && l.href === '/entity/JGL/plant/jgl-nanjangud'), JSON.stringify({ expanded: wlExpand, links: wlDrill }))
-  // In-page synthetic click — a coordinate click after a fresh full load can land on stale layout.
-  const wlClick = await evaluate(`(() => { const a = Array.from(document.querySelectorAll('main a')).find((x) => x.textContent === 'Suraksha Chemicals Pvt Ltd' && x.getAttribute('href') === '/entity/JGL/vendor/suraksha-chemicals-pvt-ltd'); if (!a) return false; a.click(); return true })()`)
+  check(`${themeName}/item10: worklist vendor and plant cells link to counterparty pages`, wlExpanded && wlDrill.some((l) => l.text === 'Suraksha Chemicals Pvt Ltd' && l.href === '/entity/JGL/vendor/suraksha-chemicals-pvt-ltd') && wlDrill.some((l) => l.text === 'Nanjangud' && l.href === '/entity/JGL/plant/jgl-nanjangud'), JSON.stringify({ expanded: wlExpanded, links: wlDrill }))
+  const wlClick = await clicked('main a[href="/entity/JGL/vendor/suraksha-chemicals-pvt-ltd"]', 'worklist vendor cell')
   check(`${themeName}/item10: clicking the worklist vendor cell opens its page`, wlClick === true, '')
   await waitForPath((p) => p === '/entity/JGL/vendor/suraksha-chemicals-pvt-ltd', 'the vendor page from the worklist')
 
-  // Root-cause by-plant rows and P2P-cockpit cost-centre rows drill on too.
-  await navigate(BASE + '/entity/JGL/root-cause/p2p/missing-gr')
-  const rcDrill = await evaluate(`(() => { const a = Array.from(document.querySelectorAll('main a')).find((x) => x.textContent === 'Nanjangud'); return a ? a.getAttribute('href') : null })()`)
-  check(`${themeName}/item10: root-cause by-plant row links to the plant page`, rcDrill === '/entity/JGL/plant/jgl-nanjangud', `href=${JSON.stringify(rcDrill)}`)
-  await navigate(BASE + '/entity/JGL/p2p')
+  // P2P-cockpit cost-centre rows drill on too. (The register's rows carry no counterparty links — §17.)
+  await goTo(BASE + '/entity/JGL/p2p')
   const ccDrill = await evaluate(`(() => { const a = Array.from(document.querySelectorAll('main a')).find((x) => x.textContent.includes('Nanjangud Operations')); return a ? a.getAttribute('href') : null })()`)
   check(`${themeName}/item10: P2P cockpit cost-centre row links to the cost-centre page`, ccDrill === '/entity/JGL/cost-centre/jgl-nanjangud-operations', `href=${JSON.stringify(ccDrill)}`)
 
   // ⌘K finds a counterparty by name and opens its page.
-  await new Promise((r) => setTimeout(r, 400))
   await ctrlK()
-  await new Promise((r) => setTimeout(r, 400))
+  await waitForCommit('palette open (item 10)')
   check(`${themeName}/item10: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('suraksha')`)) === true)
-  await new Promise((r) => setTimeout(r, 200))
+  await waitForText('[aria-label="Command palette"]', 'Suraksha Chemicals Pvt Ltd', '"suraksha" rows rendered')
   const cpRows = await evaluate(PALETTE_ROWS_JS)
   check(`${themeName}/item10: "suraksha" lists the exception and its vendor page`, cpRows.length === 2 && cpRows.some((r) => r.includes('VENDOR') && r.includes('Suraksha Chemicals Pvt Ltd')), JSON.stringify(cpRows))
-  const cpClick = await evaluate(`(() => { const r = Array.from(document.querySelectorAll('.fct-palette-row')).find((x) => x.textContent.includes('VENDOR')); if (!r) return false; r.click(); return true })()`)
+  const cpClick = await clicked({ scope: '[aria-label="Command palette"]', tags: '.fct-palette-row', text: 'VENDOR' }, 'vendor palette row')
   check(`${themeName}/item10: clicking the vendor row opens its page`, cpClick === true, '')
   await waitForPath((p) => p === '/entity/JGL/vendor/suraksha-chemicals-pvt-ltd', 'the vendor page from the palette')
 
   // ---- item 11: compliance (§7.26) — jurisdiction-matched obligations, one overdue row, the clickable veto chain ----
   console.log('\n-- item 11: compliance screen')
-  await navigate(BASE + '/compliance')
+  await goTo(BASE + '/compliance')
   const comp = await evaluate(`(() => {
     const h1 = document.querySelector('main h1')
     const mainText = document.querySelector('main').textContent
@@ -1001,7 +1103,7 @@ async function drillPass(themeName, palette) {
 
   // ---- item 12: data & MDM quality (§7.27) — domain-grouped checks, interface health, the working-capital link ----
   console.log('\n-- item 12: data quality screen')
-  await navigate(BASE + '/data-quality')
+  await goTo(BASE + '/data-quality')
   const dq = await evaluate(`(() => {
     const h1 = document.querySelector('main h1')
     const mainText = document.querySelector('main').textContent
@@ -1014,7 +1116,7 @@ async function drillPass(themeName, palette) {
       impacts: ['Blocks e-invoice validation', 'Duplicate payment risk', 'Fraud surface, master data bloat', 'Billing rejections', 'Manual coding, misposting risk', 'Missing transactions, stale figures'].filter((s) => mainText.includes(s)),
       health: ['ON SCHEDULE', 'DELAYED', 'STALE'].every((h) => mainText.includes(h)),
       lastRuns: ['31 Aug 2026, 04:00', '27 Aug 2026, 16:35'].every((r) => mainText.includes(r)),
-      causeLink: links.some((a) => a.getAttribute('href') === '/entity/JGL/root-cause/p2p/vendor-master'),
+      causeLink: links.some((a) => a.getAttribute('href') === '/root-causes?cause=vendor-master'),
       causeFigures: mainText.includes('11%') && mainText.includes('₹2.0 cr'),
       breadcrumb: bc ? bc.textContent.trim().replace(/\\s+/g, ' ') : null,
     }
@@ -1034,7 +1136,7 @@ async function drillPass(themeName, palette) {
 
   // ---- item 13: service desk (§7.29) — one intake for six request types, stop-clock queue, deflection counter ----
   console.log('\n-- item 13: service desk screen')
-  await navigate(BASE + '/service-desk')
+  await goTo(BASE + '/service-desk')
   // Mirror the dataset's window derivation node-side (ANCHOR = start of today; fmtDate zero-pads the day).
   const sdNow = new Date()
   const sdSince = new Date(sdNow.getFullYear(), sdNow.getMonth(), sdNow.getDate() - 5)
@@ -1105,7 +1207,7 @@ async function drillPass(themeName, palette) {
     return true
   })()`)
   check(`${themeName}/item13: the new-request form takes a JRP dispute from "Drill probe"`, sdFormSet === true, '')
-  const sdSubmit = await evaluate(`(() => { const b = Array.from(document.querySelectorAll('main button')).find((x) => x.textContent.trim() === 'Add to queue'); if (!b) return false; b.click(); return true })()`)
+  const sdSubmit = await clicked({ scope: 'main', tags: 'button', text: 'Add to queue', match: 'exact' }, '"Add to queue" button')
   check(`${themeName}/item13: "Add to queue" submits the form`, sdSubmit === true, '')
   const sdAfter = await evaluate(`(() => {
     const sections = Array.from(document.querySelectorAll('main section'))
@@ -1117,29 +1219,28 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item13: the new row carries JRP · Dispute · Drill probe · C. Tremblay · OPEN`, !!sdAfter.newRow && ['JRP', 'Dispute', 'Drill probe', 'C. Tremblay', 'OPEN'].every((t) => sdAfter.newRow.includes(t)), JSON.stringify(sdAfter.newRow))
 
   // ⌘K finds the screen by name; its count comes from the request dataset, never a literal.
-  await new Promise((r) => setTimeout(r, 400))
   await ctrlK()
-  await new Promise((r) => setTimeout(r, 400))
+  await waitForCommit('palette open (item 13)')
   check(`${themeName}/item13: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('service desk')`)) === true)
-  await new Promise((r) => setTimeout(r, 200))
+  await waitForText('[aria-label="Command palette"]', 'Finance Service Desk', '"service desk" rows rendered')
   const sdPalette = await evaluate(PALETTE_ROWS_JS)
   check(`${themeName}/item13: "service desk" lists exactly one screen with a live open-request count`, sdPalette.length === 1 && sdPalette[0].includes('Finance Service Desk') && /\d+ open requests/.test(sdPalette[0]), JSON.stringify(sdPalette))
-  const sdPick = await evaluate(`(() => { const r = Array.from(document.querySelectorAll('.fct-palette-row')).find((x) => x.textContent.includes('Finance Service Desk')); if (!r) return false; r.click(); return true })()`)
+  const sdPick = await clicked({ scope: '[aria-label="Command palette"]', tags: '.fct-palette-row', text: 'Finance Service Desk' }, 'service-desk palette row')
   check(`${themeName}/item13: picking the row opens the service desk`, sdPick === true, '')
   await waitForPath((p) => p === '/service-desk', 'the service desk from the palette')
-  await new Promise((r) => setTimeout(r, 300))
+  await waitForCommit('palette pick (item 13)')
   check(`${themeName}/item13: the palette closes after picking`, (await evaluate(`!document.querySelector('.fct-palette-scrim')`)) === true, '')
   await screenshot(`${themeName}-service-desk.png`)
 
-  // ---- item 14: cause elimination backlog (§7.30) — register of named owners + the asserted mechanism trend ----
-  console.log('\n-- item 14: cause elimination backlog screen')
-  await navigate(BASE + '/cause-backlog')
-  const cb = await evaluate(`(() => {
+  // ---- item 14: root cause register (§17) — group-level register of root causes under each §6.1 cause + mechanism trend ----
+  console.log('\n-- item 14: root cause register screen')
+  await goTo(BASE + '/root-causes')
+  const regState = await evaluate(`(() => {
     const h1 = document.querySelector('main h1')
     const mainText = document.querySelector('main').textContent
     const sections = Array.from(document.querySelectorAll('main section'))
     const regSec = sections.find((s) => s.textContent.includes('Register'))
-    // Status words repeat in the register, so resolve each stat label to its numeric sibling.
+    // State words repeat in the register, so resolve each stat label to its numeric sibling.
     const statValue = (label) => {
       const els = Array.from(document.querySelectorAll('main span')).filter((s) => s.textContent === label)
       for (const el of els) if (el.nextElementSibling && /^\\d+$/.test(el.nextElementSibling.textContent || '')) return el.nextElementSibling.textContent
@@ -1148,54 +1249,54 @@ async function drillPass(themeName, palette) {
     const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
     return {
       h1: h1 ? h1.textContent : null,
-      stats: { identified: statValue('IDENTIFIED'), eliminated: statValue('ELIMINATED'), inProgress: statValue('IN PROGRESS'), notStarted: statValue('NOT STARTED') },
+      stats: { identified: statValue('IDENTIFIED'), eliminated: statValue('ELIMINATED'), fixedAtSource: statValue('FIXED AT SOURCE'), inProgress: statValue('IN PROGRESS') },
       regRows: regSec ? regSec.querySelectorAll('.fct-table-row').length : -1,
-      statuses: ['ELIMINATED', 'IN-PROGRESS', 'IDENTIFIED'].filter((s) => regSec && regSec.textContent.includes(s)),
-      elim: Array.from(document.querySelectorAll('[data-series="eliminated"]')).map((el) => el.textContent),
+      states: ['ELIMINATED', 'FIXED-AT-SOURCE', 'IN-PROGRESS', 'IDENTIFIED'].filter((s) => regSec && regSec.textContent.includes(s)),
+      closed: Array.from(document.querySelectorAll('[data-series="closed"]')).map((el) => el.textContent),
       open: Array.from(document.querySelectorAll('[data-series="open-exceptions"]')).map((el) => el.textContent),
       guard: mainText.includes('it does not clear the existing pool'),
-      claim: mainText.includes('generated 47 exceptions last period and none in this one'),
+      claim: mainText.includes('generated 37 exceptions last period and none in this one'),
       breadcrumb: bc ? bc.textContent.trim().replace(/\\s+/g, ' ') : null,
     }
   })()`)
-  check(`${themeName}/item14: h1 is Cause elimination`, cb.h1 === 'Cause elimination', JSON.stringify(cb.h1))
-  check(`${themeName}/item14: headline counts are 34 / 11 / 6 / 17`, cb.stats.identified === '34' && cb.stats.eliminated === '11' && cb.stats.inProgress === '6' && cb.stats.notStarted === '17', JSON.stringify(cb.stats))
-  check(`${themeName}/item14: the register lists all 34 causes`, cb.regRows === 34, `rows=${cb.regRows}`)
-  check(`${themeName}/item14: all three elimination statuses appear in the register`, cb.statuses.length === 3, JSON.stringify(cb.statuses))
-  const CB_ELIM = ['3', '5', '6', '8', '9', '11']
-  const CB_OPEN = ['2,158', '2,117', '2,069', '2,034', '2,012', '1,980']
-  check(`${themeName}/item14: cumulative eliminations read 3 · 5 · 6 · 8 · 9 · 11`, JSON.stringify(cb.elim) === JSON.stringify(CB_ELIM), JSON.stringify(cb.elim))
-  check(`${themeName}/item14: group open exceptions read 2,158 → 1,980 over the same six points`, JSON.stringify(cb.open) === JSON.stringify(CB_OPEN), JSON.stringify(cb.open))
-  const cbNum = (s) => Number(String(s).replace(/,/g, ''))
-  let mechOk = cb.elim.length === 6 && cb.open.length === 6
-  for (let i = 0; i < 5 && mechOk; i++) {
-    mechOk = cbNum(cb.elim[i]) < cbNum(cb.elim[i + 1]) && cbNum(cb.open[i]) > cbNum(cb.open[i + 1])
+  check(`${themeName}/item14: h1 is Root causes`, regState.h1 === 'Root causes', JSON.stringify(regState.h1))
+  check(`${themeName}/item14: headline counts are 17 / 4 / 7 / 8 of the 36 rows`, regState.stats.identified === '17' && regState.stats.eliminated === '4' && regState.stats.fixedAtSource === '7' && regState.stats.inProgress === '8', JSON.stringify(regState.stats))
+  check(`${themeName}/item14: the register lists all 36 root causes`, regState.regRows === 36, `rows=${regState.regRows}`)
+  check(`${themeName}/item14: all four states appear in the register`, regState.states.length === 4, JSON.stringify(regState.states))
+  const RC_CLOSED = ['1', '2', '4', '6', '9', '11']
+  const RC_OPEN = ['2,158', '2,117', '2,069', '2,034', '2,012', '1,980']
+  check(`${themeName}/item14: cumulative closures read 1 · 2 · 4 · 6 · 9 · 11`, JSON.stringify(regState.closed) === JSON.stringify(RC_CLOSED), JSON.stringify(regState.closed))
+  check(`${themeName}/item14: group open exceptions read the live series joined to the four early points`, JSON.stringify(regState.open) === JSON.stringify(RC_OPEN), JSON.stringify(regState.open))
+  const rcNum = (s) => Number(String(s).replace(/,/g, ''))
+  let rcMechOk = regState.closed.length === 6 && regState.open.length === 6
+  for (let i = 0; i < 5 && rcMechOk; i++) {
+    rcMechOk = rcNum(regState.closed[i]) < rcNum(regState.closed[i + 1]) && rcNum(regState.open[i]) > rcNum(regState.open[i + 1])
   }
-  check(`${themeName}/item14: as eliminations rise, group open exceptions fall across the same six points`, mechOk, JSON.stringify({ e: cb.elim, o: cb.open }))
-  check(`${themeName}/item14: the overclaim guard says which claim the screen is making`, cb.guard, 'guard missing')
-  check(`${themeName}/item14: the defensible p6 claim renders (47 last period, none this one)`, cb.claim, 'claim missing')
-  check(`${themeName}/item14: breadcrumb shows Cause elimination`, !!cb.breadcrumb && cb.breadcrumb.includes('Cause elimination'), JSON.stringify(cb.breadcrumb))
-  const cbNav = await evaluate(NAV_ACTIVE_JS)
-  check(`${themeName}/item14: active nav item is Cause elimination`, !!cbNav && cbNav.label.startsWith('Cause elimination'), JSON.stringify(cbNav))
+  check(`${themeName}/item14: as closures rise, group open exceptions fall across the same six points`, rcMechOk, JSON.stringify({ c: regState.closed, o: regState.open }))
+  check(`${themeName}/item14: the overclaim guard says which claim the screen is making`, regState.guard, 'guard missing')
+  check(`${themeName}/item14: the defensible p6 claim renders (37 last period, none this one)`, regState.claim, 'claim missing')
+  check(`${themeName}/item14: breadcrumb shows Root causes`, !!regState.breadcrumb && regState.breadcrumb.includes('Root causes'), JSON.stringify(regState.breadcrumb))
+  const regNav = await evaluate(NAV_ACTIVE_JS)
+  check(`${themeName}/item14: active nav item is Root causes`, !!regNav && regNav.label.startsWith('Root causes'), JSON.stringify(regNav))
 
-  // ⌘K finds the screen by name; its count comes from the register, never a literal.
-  await new Promise((r) => setTimeout(r, 400))
+  // ⌘K finds the screen by name; its count comes from the register, never a literal. The query carries the trailing
+  // "s" so it matches only this SCREEN row — the per-entity rows are kind "ROOT CAUSE" (no s) and must not appear.
   await ctrlK()
-  await new Promise((r) => setTimeout(r, 400))
-  check(`${themeName}/item14: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('cause elimination')`)) === true)
-  await new Promise((r) => setTimeout(r, 200))
-  const cbPalette = await evaluate(PALETTE_ROWS_JS)
-  check(`${themeName}/item14: "cause elimination" lists exactly one screen with a live eliminated count`, cbPalette.length === 1 && cbPalette[0].includes('Cause elimination') && /\d+ of \d+ causes eliminated/.test(cbPalette[0]), JSON.stringify(cbPalette))
-  const cbPick = await evaluate(`(() => { const r = Array.from(document.querySelectorAll('.fct-palette-row')).find((x) => x.textContent.includes('Cause elimination')); if (!r) return false; r.click(); return true })()`)
-  check(`${themeName}/item14: picking the row opens the backlog`, cbPick === true, '')
-  await waitForPath((p) => p === '/cause-backlog', 'the cause elimination backlog from the palette')
-  await new Promise((r) => setTimeout(r, 300))
+  await waitForCommit('palette open (item 14)')
+  check(`${themeName}/item14: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('root causes')`)) === true)
+  await waitForText('[aria-label="Command palette"]', 'Root causes', '"root causes" rows rendered')
+  const regPalette = await evaluate(PALETTE_ROWS_JS)
+  check(`${themeName}/item14: "root causes" lists exactly one screen with a live closed count`, regPalette.length === 1 && regPalette[0].includes('Root causes') && /\d+ of \d+ closed/.test(regPalette[0]), JSON.stringify(regPalette))
+  const regPick = await clicked({ scope: '[aria-label="Command palette"]', tags: '.fct-palette-row', text: 'Root causes' }, 'register palette row')
+  check(`${themeName}/item14: picking the row opens the register`, regPick === true, '')
+  await waitForPath((p) => p === '/root-causes', 'the root cause register from the palette')
+  await waitForCommit('palette pick (item 14)')
   check(`${themeName}/item14: the palette closes after picking`, (await evaluate(`!document.querySelector('.fct-palette-scrim')`)) === true, '')
-  await screenshot(`${themeName}-cause-backlog.png`)
+  await screenshot(`${themeName}-root-causes.png`)
 
   // ---- item 15: agent workforce (§15) — roster, coverage strip, authority, records, sort ----
   console.log('\n-- item 15: agent workforce screen')
-  await navigate(BASE + '/agents')
+  await goTo(BASE + '/agents')
   const ag = await evaluate(`(() => {
     const h1 = document.querySelector('main h1')
     const mainText = document.querySelector('main').textContent
@@ -1226,6 +1327,7 @@ async function drillPass(themeName, palette) {
         preventive: statValue('PREVENTIVE'),
       },
       stages: document.querySelectorAll('[data-fct-stage]').length,
+      prChips: stageChips('PR'),
       poChips: stageChips('PO'),
       dlvChips: stageChips('DLV'),
       dspChips: stageChips('DSP'),
@@ -1246,8 +1348,8 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item15: eyebrow is Agents`, ag.eyebrow === 'Agents', JSON.stringify(ag.eyebrow))
   check(`${themeName}/item15: the §15.1 simulated label renders`, ag.simulated, 'simulated tag missing')
   check(`${themeName}/item15: spec-pinned cycle line renders (last ran 06:42 · next 07:00)`, ag.cycle, 'cycle line missing')
-  check(`${themeName}/item15: active roles read "10 of 22"`, ag.stats.liveRoles === '10 of 22', JSON.stringify(ag.stats.liveRoles))
-  check(`${themeName}/item15: preventive reads "8 of 22"`, ag.stats.preventive === '8 of 22', JSON.stringify(ag.stats.preventive))
+  check(`${themeName}/item15: active roles read "10 of 27"`, ag.stats.liveRoles === '10 of 27', JSON.stringify(ag.stats.liveRoles))
+  check(`${themeName}/item15: preventive reads "12 of 27"`, ag.stats.preventive === '12 of 27', JSON.stringify(ag.stats.preventive))
   const agNum = (s) => Number(String(s).replace(/,/g, ''))
   check(`${themeName}/item15: workforce totals are consistent (resolved + escalated ≤ actions; overridden and reversed ≤ resolved)`,
     !!ag.stats.actions && !!ag.stats.resolved &&
@@ -1256,6 +1358,8 @@ async function drillPass(themeName, palette) {
     agNum(ag.stats.reversed) <= agNum(ag.stats.resolved),
     JSON.stringify(ag.stats))
   check(`${themeName}/item15: the coverage strip has twenty-two stages (seven P2P + seven O2C + eight R2R)`, ag.stages === 22, `stages=${ag.stages}`)
+  // §18.2 — PR carries six: buying compliance plus the five requisition agents; the top of the funnel is covered.
+  check(`${themeName}/item15: the PR stage positions six agents`, ag.prChips === 6, `chips=${ag.prChips}`)
   check(`${themeName}/item15: the PO stage positions three agents`, ag.poChips === 3, `chips=${ag.poChips}`)
   check(`${themeName}/item15: DLV and DSP are visible gaps — no agent acts there`, ag.dlvChips === 0 && ag.dspChips === 0, JSON.stringify({ dlv: ag.dlvChips, dsp: ag.dspChips }))
   check(`${themeName}/item15: provisioning sits at INV as a pre-close action`, ag.preCloseNote, 'pre-close note missing')
@@ -1264,17 +1368,16 @@ async function drillPass(themeName, palette) {
   // Authority fields live inside the expanded record — open each card, let React flush, then read it back.
   // The roster holds one expandedId at a time, so each record must be read before the next card opens.
   let agAuthority = true
-  for (const id of ['payment-proposal', 'buying-compliance', 'receipt-discipline', 'credit-watch', 'billing-readiness', 'cut-off-surveillance']) {
-    const opened = await evaluate(`(() => { const t = document.querySelector('[data-fct-agent-toggle="${id}"]'); if (!t) return false; t.click(); return true })()`)
-    await new Promise((r) => setTimeout(r, 200))
+  for (const id of ['payment-proposal', 'buying-compliance', 'receipt-discipline', 'credit-watch', 'billing-readiness', 'cut-off-surveillance', 'budget-exposure', 'duplicate-pr']) {
+    const opened = await clicked(`[data-fct-agent-toggle="${id}"]`, `agent toggle ${id}`)
     const want = id === 'payment-proposal' ? 'proposes only' : 'advisory'
-    const has = await evaluate(`(() => { const r = document.querySelector('[data-fct-record="${id}"]'); return r ? (r.textContent.includes('AUTHORITY') && r.textContent.includes('${want}')) : false })()`)
+    const has = await evaluate(`(() => { const r = document.querySelector('[data-fct-record="${id}"]'); return r ? (r.textContent.includes('AUTHORITY') && r.textContent.includes(${JSON.stringify(want)})) : false })()`)
     if (!opened || !has) agAuthority = false
   }
   check(`${themeName}/item15: restricted authority sits on each agent's own record — proposes only / advisory (§10.1)`, agAuthority, 'authority fields missing')
-  check(`${themeName}/item15: the roster lists all twenty-two roles`, ag.cards === 22, `cards=${ag.cards}`)
-  check(`${themeName}/item15: every card carries a drill into that agent's own record (§15.7)`, ag.drillLinks === 22, `links=${ag.drillLinks}`)
-  check(`${themeName}/item15: ten cards are Active and twelve Not active (§15.2)`, ag.liveBadges === 10 && ag.designedBadges === 12, JSON.stringify({ live: ag.liveBadges, designed: ag.designedBadges }))
+  check(`${themeName}/item15: the roster lists all twenty-seven roles`, ag.cards === 27, `cards=${ag.cards}`)
+  check(`${themeName}/item15: every card carries a drill into that agent's own record (§15.7)`, ag.drillLinks === 27, `links=${ag.drillLinks}`)
+  check(`${themeName}/item15: ten cards are Active and seventeen Not active (§15.2 / §18.2)`, ag.liveBadges === 10 && ag.designedBadges === 17, JSON.stringify({ live: ag.liveBadges, designed: ag.designedBadges }))
   check(`${themeName}/item15: payment proposal is designed and would never act on releasing a run`, ag.ppCard, 'payment-proposal card wrong')
   check(`${themeName}/item15: §15.8 lists all eight never-automate items prominently`, ag.neverItems === 8 && ag.neverTexts, `items=${ag.neverItems}`)
   check(`${themeName}/item15: breadcrumb shows Agents`, !!ag.breadcrumb && ag.breadcrumb.includes('Agents'), JSON.stringify(ag.breadcrumb))
@@ -1302,9 +1405,8 @@ async function drillPass(themeName, palette) {
   ]), JSON.stringify(agOrder))
 
   // Sort by escalation rate: active agents rank first within their section; not-active sink to the bottom.
-  const agSortClick = await evaluate(`(() => { const b = document.querySelector('[data-fct-sort="escalation"]'); if (!b) return false; b.click(); return true })()`)
+  const agSortClick = await clicked('[data-fct-sort="escalation"]', 'escalation sort control')
   check(`${themeName}/item15: the escalation-rate sort control responds`, agSortClick === true, '')
-  await new Promise((r) => setTimeout(r, 200))
   const agSections = await evaluate(AG_SECTIONS_JS)
   let agSortOk = Array.isArray(agSections) && agSections.length === 4
   for (const g of agSections ?? []) {
@@ -1319,9 +1421,8 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item15: the escalation sort control shows its active state`, sameColor(agSortBtnBg, palette.bgSelected), `got=${agSortBtnBg} want=${palette.bgSelected}`)
 
   // Clicking an agent opens its record inline: full delegation, supervisor, action log.
-  const agExpand = await evaluate(`(() => { const t = document.querySelector('[data-fct-agent-toggle="follow-up"]'); if (!t) return false; t.click(); return true })()`)
+  const agExpand = await clicked('[data-fct-agent-toggle="follow-up"]', 'follow-up toggle')
   check(`${themeName}/item15: clicking follow-up opens its record`, agExpand === true, '')
-  await new Promise((r) => setTimeout(r, 200))
   const agRecord = await evaluate(`(() => {
     const rec = document.querySelector('[data-fct-record="follow-up"]')
     if (!rec) return null
@@ -1339,19 +1440,17 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item15: the record repeats the §15.1 simulated label`, !!agRecord && agRecord.simulated, 'simulated tag missing in record')
 
   // Commitments is live and has a performance record now — exception follow-ups plus one PO-stage engagement per open PO it chased, amended or proposed on (§15.7). The honest-absence case sits with payment-proposal below.
-  const agCommit = await evaluate(`(() => { const t = document.querySelector('[data-fct-agent-toggle="commitments"]'); if (!t) return false; t.click(); return true })()`)
+  const agCommit = await clicked('[data-fct-agent-toggle="commitments"]', 'commitments toggle')
   check(`${themeName}/item15: clicking commitments opens its record`, agCommit === true, '')
-  await new Promise((r) => setTimeout(r, 200))
   const agCommitRec = await evaluate(`(() => { const rec = document.querySelector('[data-fct-record="commitments"]'); return rec ? (rec.querySelectorAll('[data-fct-action]').length >= 6 && !!rec.querySelector('a[href*="/p2p/invoices/"]') && !!rec.querySelector('a[href*="/p2p/commitments/"]')) : false })()`)
   check(`${themeName}/item15: commitments is live with a performance record — exception follow-ups plus PO-stage engagements, each opening its target`, agCommitRec === true, '')
-  const agPp = await evaluate(`(() => { const t = document.querySelector('[data-fct-agent-toggle="payment-proposal"]'); if (!t) return false; t.click(); return true })()`)
+  const agPp = await clicked('[data-fct-agent-toggle="payment-proposal"]', 'payment-proposal toggle')
   check(`${themeName}/item15: clicking payment proposal opens its record`, agPp === true, '')
-  await new Promise((r) => setTimeout(r, 200))
   const agPpRec = await evaluate(`(() => { const rec = document.querySelector('[data-fct-record="payment-proposal"]'); return rec ? (rec.textContent.includes('not built; no performance record') && rec.textContent.includes('No action log yet.')) : false })()`)
   check(`${themeName}/item15: a designed agent's record shows dashes, not invented metrics`, agPpRec === true, '')
 
   // §15.7 — the per-agent drill from the roster into that agent's own record; breadcrumb and rail carry it back.
-  const agDrill = await evaluate(`(() => { const l = document.querySelector('[data-fct-agent-link="follow-up"]'); if (!l) return false; l.click(); return true })()`)
+  const agDrill = await clicked('[data-fct-agent-link="follow-up"]', 'roster drill link')
   check(`${themeName}/item15: clicking the drill opens follow-up's record page`, agDrill === true, '')
   await waitForPath((p) => p === '/agents/follow-up', 'the agent record from the roster')
   const agDetail = await evaluate(`(() => {
@@ -1375,25 +1474,24 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item15: the Agents rail entry stays active on the record page`, !!agDetailNav && agDetailNav.label.startsWith('Agents'), JSON.stringify(agDetailNav))
 
   // ⌘K finds the screen by name; its count comes from the dataset, never a literal.
-  await new Promise((r) => setTimeout(r, 400))
   await ctrlK()
-  await new Promise((r) => setTimeout(r, 400))
+  await waitForCommit('palette open (item 15)')
   check(`${themeName}/item15: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('agents')`)) === true)
-  await new Promise((r) => setTimeout(r, 200))
+  await waitForText('[aria-label="Command palette"]', 'roles active', '"agents" rows rendered')
   const agPalette = await evaluate(PALETTE_ROWS_JS)
   // "agents" also matches the vendor "Aravalli Reagents"; assert on the screen row's meta, not the total row count.
   const agScreenRows = agPalette.filter((t) => /\d+ of \d+ roles active/.test(t))
   check(`${themeName}/item15: "agents" lists exactly one screen with a live role count`, agScreenRows.length === 1 && agScreenRows[0].includes('Agents'), JSON.stringify(agPalette))
-  const agPick = await evaluate(`(() => { const r = Array.from(document.querySelectorAll('.fct-palette-row')).find((x) => x.textContent.includes('Agents')); if (!r) return false; r.click(); return true })()`)
+  const agPick = await clicked({ scope: '[aria-label="Command palette"]', tags: '.fct-palette-row', text: 'Agents' }, 'agents palette row')
   check(`${themeName}/item15: picking the row opens the agent workforce`, agPick === true, '')
   await waitForPath((p) => p === '/agents', 'the agent workforce from the palette')
-  await new Promise((r) => setTimeout(r, 300))
+  await waitForCommit('palette pick (item 15)')
   check(`${themeName}/item15: the palette closes after picking`, (await evaluate(`!document.querySelector('.fct-palette-scrim')`)) === true, '')
   await screenshot(`${themeName}-agents.png`)
 
   // ---- item 16: touch economics (§15.3/§15.4) — funnel, the two levers, cause mix, reconciliation ----
   console.log('\n-- item 16: touch economics screen')
-  await navigate(BASE + '/touch-economics')
+  await goTo(BASE + '/touch-economics')
   const te = await evaluate(`(() => {
     const h1 = document.querySelector('main h1')
     const mainText = document.querySelector('main').textContent
@@ -1472,25 +1570,24 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item16: active nav item is Touch economics`, !!teNav && teNav.label.startsWith('Touch economics'), JSON.stringify(teNav))
 
   // ⌘K finds the screen by name; its meta states JGL's touch rate from the dataset, never a literal.
-  await new Promise((r) => setTimeout(r, 400))
   await ctrlK()
-  await new Promise((r) => setTimeout(r, 400))
+  await waitForCommit('palette open (item 16)')
   check(`${themeName}/item16: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('touch')`)) === true)
-  await new Promise((r) => setTimeout(r, 200))
+  await waitForText('[aria-label="Command palette"]', '/ 1,000', '"touch" rows rendered')
   const tePalette = await evaluate(PALETTE_ROWS_JS)
   // "touch" may match other rows; assert on the screen row's meta.
   const teScreenRows = tePalette.filter((t) => /JGL \d+ → \d+ \/ 1,000/.test(t))
   check(`${themeName}/item16: "touch" lists exactly one screen with JGL's touch rate`, teScreenRows.length === 1 && teScreenRows[0].includes('Touch economics'), JSON.stringify(tePalette))
-  const tePick = await evaluate(`(() => { const r = Array.from(document.querySelectorAll('.fct-palette-row')).find((x) => x.textContent.includes('Touch economics')); if (!r) return false; r.click(); return true })()`)
+  const tePick = await clicked({ scope: '[aria-label="Command palette"]', tags: '.fct-palette-row', text: 'Touch economics' }, 'touch-economics palette row')
   check(`${themeName}/item16: picking the row opens touch economics`, tePick === true, '')
   await waitForPath((p) => p === '/touch-economics', 'touch economics from the palette')
-  await new Promise((r) => setTimeout(r, 300))
+  await waitForCommit('palette pick (item 16)')
   check(`${themeName}/item16: the palette closes after picking`, (await evaluate(`!document.querySelector('.fct-palette-scrim')`)) === true, '')
   await screenshot(`${themeName}-touch-economics.png`)
 
   // ---- item 17: one exception, end to end (§15.2) — the missing-GR walkthrough and both credit-block records ----
   console.log('\n-- item 17: one exception, end to end')
-  await navigate(BASE + '/entity/JGL/p2p/invoices/AP-104402')
+  await goTo(BASE + '/entity/JGL/p2p/invoices/AP-104402')
   const wt0 = await evaluate(`(() => {
     const wt = document.querySelector('[data-fct-walkthrough]')
     if (!wt) return null
@@ -1515,9 +1612,8 @@ async function drillPass(themeName, palette) {
   // Stepped, not animated — advance by hand; agent rows carry the AGENT tag (§15.7).
   const wtSeen = []
   for (let i = 0; i < 7; i++) {
-    const clicked = await evaluate(`(() => { const b = document.querySelector('[data-fct-wt-next]'); if (!b || b.disabled) return false; b.click(); return true })()`)
-    if (!clicked) break
-    await new Promise((r) => setTimeout(r, 150))
+    const advanced = await clicked('[data-fct-wt-next]', `walkthrough next ${i + 1}`)
+    if (!advanced) break
     wtSeen.push(
       await evaluate(`(() => { const wt = document.querySelector('[data-fct-walkthrough]'); if (!wt) return null; const m = /Step (\\d+) of (\\d+)/.exec(wt.textContent); const body = wt.querySelector('[data-fct-step]'); return { n: m ? Number(m[1]) : null, agentTag: body ? body.textContent.includes('AGENT') : false } })()`)
     )
@@ -1534,19 +1630,18 @@ async function drillPass(themeName, palette) {
     }
   })()`)
   check(`${themeName}/item17: the final step disables Next and points to supervision — agent log and audit sampling`, !!wtLast && wtLast.nextDisabled === true && wtLast.logLink && wtLast.auditLink, JSON.stringify(wtLast))
-  const wtReset = await evaluate(`(() => { const b = document.querySelector('[data-fct-wt-reset]'); if (!b) return false; b.click(); return true })()`)
-  await new Promise((r) => setTimeout(r, 150))
+  const wtReset = await clicked('[data-fct-wt-reset]', 'walkthrough start-over')
   const wtAfterReset = await evaluate(`(() => { const wt = document.querySelector('[data-fct-walkthrough]'); if (!wt) return null; const m = /Step (\\d+) of (\\d+)/.exec(wt.textContent); return m ? m[0] : null })()`)
   check(`${themeName}/item17: "Start over" returns to step 1`, wtReset === true && wtAfterReset === 'Step 1 of 8', JSON.stringify(wtAfterReset))
   await screenshot(`${themeName}-exception-walkthrough.png`)
 
   // The walkthrough is earned, not decorative — a sibling missing-GR row without the full arc has none.
-  await navigate(BASE + '/entity/JGL/p2p/invoices/AP-104281')
+  await goTo(BASE + '/entity/JGL/p2p/invoices/AP-104281')
   const wtNeg = await evaluate(`(() => ({ walkthrough: !!document.querySelector('[data-fct-walkthrough]'), decision: !!document.querySelector('[data-fct-decision]') }))()`)
   check(`${themeName}/item17: AP-104281 has a decision record but no walkthrough — only the full arc earns one`, wtNeg.walkthrough === false && wtNeg.decision === true, JSON.stringify(wtNeg))
 
   // ---- item 17b: O2C beat — release against policy, never against exposure (§15.2.1) ----
-  await navigate(BASE + '/entity/JGL/customer/jgl-deccan')
+  await goTo(BASE + '/entity/JGL/customer/jgl-deccan')
   const decJgl = await evaluate(`(() => {
     const dec = document.querySelector('[data-fct-decision]')
     if (!dec) return null
@@ -1562,7 +1657,7 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item17: Deccan's release is approved but not yet posted — policy defect, both checks pass`, !!decJgl && decJgl.approved && decJgl.passSpans === 2 && decJgl.failSpans === 0, JSON.stringify(decJgl))
   check(`${themeName}/item17: its delegation names the line it never crosses — release against exposure`, !!decJgl && decJgl.neverActsOn && decJgl.escalatesWhen, JSON.stringify(decJgl))
 
-  await navigate(BASE + '/entity/JPS/customer/jps-pasir')
+  await goTo(BASE + '/entity/JPS/customer/jps-pasir')
   const decJps = await evaluate(`(() => {
     const dec = document.querySelector('[data-fct-decision]')
     if (!dec) return null
@@ -1576,14 +1671,14 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item17: Pasir is NOT released — the record escalates with its cause check failing`, !!decJps && decJps.escalated && decJps.passSpans === 1 && decJps.failSpans === 1, JSON.stringify(decJps))
 
   // A blocked customer with no logged decision shows the block but no record — nothing invented to fill the space.
-  await navigate(BASE + '/entity/JCP/customer/jcp-lakeshore')
+  await goTo(BASE + '/entity/JCP/customer/jcp-lakeshore')
   const decNeg = await evaluate(`(() => ({ badge: document.querySelector('main').textContent.includes('CREDIT BLOCKED'), decision: !!document.querySelector('[data-fct-decision]') }))()`)
   check(`${themeName}/item17: a blocked customer with no logged decision shows the block but no record`, decNeg.badge === true && decNeg.decision === false, JSON.stringify(decNeg))
   await screenshot(`${themeName}-credit-block-records.png`)
 
   // ---- item 18: the preventive agent (§15.2.1) — commitments watch on the PO stage ----
   console.log('\n-- item 18: commitments watch')
-  await navigate(BASE + '/entity/JGL/p2p/commitments')
+  await goTo(BASE + '/entity/JGL/p2p/commitments')
   const cw = await evaluate(`(() => {
     const main = document.querySelector('main')
     if (!main) return null
@@ -1619,29 +1714,24 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item18: the PO stage keeps the P2P cockpit active in the rail`, !!cwNav && cwNav.label.startsWith('P2P cockpit'), JSON.stringify(cwNav))
 
   // The drill is earned from the cockpit itself — the PO stage card links to the watch, not the worklist.
-  await navigate(BASE + '/entity/JGL/p2p')
-  const poStage = await evaluate(`(() => {
-    const a = document.getElementById('fct-stage-PO')
-    if (!a) return null
-    a.scrollIntoView({ block: 'nearest', behavior: 'instant' })
-    const r = a.getBoundingClientRect()
-    return { x: r.x + r.width / 2, y: r.y + r.height / 2, href: a.getAttribute('href') }
-  })()`)
-  check(`${themeName}/item18: the PO stage card points at the commitments watch`, !!poStage && poStage.href === '/entity/JGL/p2p/commitments', JSON.stringify(poStage))
-  if (poStage) { await clickAt(poStage.x, poStage.y); await waitForPath((p) => p === '/entity/JGL/p2p/commitments', 'PO stage card → commitments watch') }
+  await goTo(BASE + '/entity/JGL/p2p')
+  const poHref = await readAttr('#fct-stage-PO', 'href')
+  check(`${themeName}/item18: the PO stage card points at the commitments watch`, poHref === '/entity/JGL/p2p/commitments', JSON.stringify(poHref))
+  await clickOn('#fct-stage-PO', 'PO stage card')
+  await waitForPath((p) => p === '/entity/JGL/p2p/commitments', 'PO stage card → commitments watch')
 
   // ⌘K finds the screen by name; its meta states the pool and at-risk value from the dataset, never literals.
-  await new Promise((r) => setTimeout(r, 400))
   await ctrlK()
-  await new Promise((r) => setTimeout(r, 400))
+  await waitForCommit('palette open (item 18)')
   check(`${themeName}/item18: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('commitments')`)) === true)
-  await new Promise((r) => setTimeout(r, 200))
+  await waitForText('[aria-label="Command palette"]', 'Commitments watch', '"commitments" rows rendered')
   const cwPalette = await evaluate(PALETTE_ROWS_JS)
   const cwScreenRows = cwPalette.filter((t) => /open POs · ₹[\d.]+ cr at risk/.test(t))
   check(`${themeName}/item18: "commitments" lists exactly one screen with the pool and at-risk value`, cwScreenRows.length === 1 && cwScreenRows[0].includes('Commitments watch'), JSON.stringify(cwPalette))
-  const cwPick = await evaluate(`(() => { const r = Array.from(document.querySelectorAll('.fct-palette-row')).find((x) => x.textContent.includes('Commitments watch')); if (!r) return false; r.click(); return true })()`)
+  const cwPick = await clicked({ scope: '[aria-label="Command palette"]', tags: '.fct-palette-row', text: 'Commitments watch' }, 'commitments-watch palette row')
   check(`${themeName}/item18: picking the row opens the commitments watch`, cwPick === true, '')
   await waitForPath((p) => p === '/entity/JGL/p2p/commitments', 'commitments watch from the palette')
+  await waitForCommit('palette pick (item 18)')
   await screenshot(`${themeName}-commitments-watch.png`)
 
   // ---- item 18b: the nine-day exchange and its failure path (§15.2.1) ----
@@ -1661,7 +1751,7 @@ async function drillPass(themeName, palette) {
       mainText: main.textContent.replace(/\\s+/g, ' '),
     }
   })()`
-  await navigate(BASE + '/entity/JGL/p2p/commitments/PO-48115')
+  await goTo(BASE + '/entity/JGL/p2p/commitments/PO-48115')
   const poA = await evaluate(poProbe)
   check(`${themeName}/item18b: PO-48115 loads from its URL with the exchange timeline`, !!poA && poA.h1 === 'PO-48115' && poA.exchange.length > 0, JSON.stringify({ h1: poA ? poA.h1 : null }))
   // The beat is a PO whose delivery was due in nine days — computed against today, not hardcoded.
@@ -1686,7 +1776,7 @@ async function drillPass(themeName, palette) {
   await screenshot(`${themeName}-po-exchange-amended.png`)
 
   // The failure path (item 4): an ambiguous reply below the confidence threshold proposes and escalates instead of acting.
-  await navigate(BASE + '/entity/JGL/p2p/commitments/PO-48307')
+  await goTo(BASE + '/entity/JGL/p2p/commitments/PO-48307')
   const poP = await evaluate(poProbe)
   check(`${themeName}/item18b: PO-48307 loads with the ambiguous reply quoted`, !!poP && poP.h1 === 'PO-48307' && poP.exchange.includes('Might slip, checking with vendor'), JSON.stringify({ h1: poP ? poP.h1 : null }))
   check(`${themeName}/item18b: below threshold the agent proposes and escalates — no change made`, !!poP && /below the threshold/.test(poP.exchange) && poP.exchange.includes('no change made'), JSON.stringify(poP ? poP.exchange.slice(0, 260) : null))
@@ -1701,14 +1791,12 @@ async function drillPass(themeName, palette) {
   const caTotal = sumV(caAll)
   const caApSum = sumV(caAll.filter((c) => c.processKey === 'p2p'))
   const caArSum = sumV(caAll.filter((c) => c.processKey === 'o2c'))
-  // JGL's register rows (mock/causeBacklog.ts, §7.18): eight causes carry a row; these four do not — the no-fix set.
-  const NO_OWNER = ['billing-errors', 'credit-block', 'customer-master', 'duplicate-suspicion']
-  const noOwnerAll = caAll.filter((c) => NO_OWNER.includes(c.key))
-  const noOwnerP2p = noOwnerAll.filter((c) => c.processKey === 'p2p')
+  // §17.1 — the elimination register merged into the root cause register, and every JGL cause now carries a row:
+  // the no-fix set is empty, so the noowner lens recomputes to zero and dims every band.
   // The P2P pool must tie to the entity's AP-blocked metric — the same figure the rail and entity home show.
   const jglApBlocked = entities.find((e) => e.code === 'JGL').metrics.apBlocked.current
   check(`${themeName}/item19: dataset ties — P2P cause sum equals JGL apBlocked`, Math.abs(caApSum - jglApBlocked) < 0.05, `causes=${caApSum} metric=${jglApBlocked}`)
-  await navigate(BASE + '/cash-attribution')
+  await goTo(BASE + '/cash-attribution')
   const caProbe = `(() => {
     const root = document.querySelector('#fct-ca')
     if (!root) return null
@@ -1717,7 +1805,7 @@ async function drillPass(themeName, palette) {
     const poolAp = document.querySelector('[data-fct-ca-pool="ap"]')
     const poolAr = document.querySelector('[data-fct-ca-pool="ar"]')
     const insp = document.querySelector('#fct-ca-inspector')
-    const nameLink = insp ? insp.querySelector('a[href^="/entity/JGL/root-cause/"]') : null
+    const nameLink = insp ? insp.querySelector('a[href^="/root-causes?cause="]') : null
     const regLink = document.querySelector('[data-fct-ca-register-link]')
     const oppLink = document.querySelector('[data-fct-ca-opp-link]')
     return {
@@ -1747,83 +1835,94 @@ async function drillPass(themeName, palette) {
   check(`${themeName}/item19: screen loads with JGL scope and the reconciled total`, !!caA && caA.scope === 'JGL · ' + entities.find((e) => e.code === 'JGL').name && caA.total === formatCr(caTotal), JSON.stringify({ scope: caA ? caA.scope : null, total: caA ? caA.total : null }))
   check(`${themeName}/item19: header counts every cause and ties the spine to AP blocked`, !!caA && caA.recon.includes(`${caAll.length} causes`) && caA.recon.includes(`ties to AP blocked ${formatCr(jglApBlocked)}`), JSON.stringify(caA ? caA.recon : null))
   check(`${themeName}/item19: mode clock shows the default period`, !!caA && caA.clock === 'PRE-CLOSE READINESS · 3 DAYS TO CLOSE', JSON.stringify(caA ? caA.clock : null))
-  const noFixAp = sumV(caAll.filter((c) => c.processKey === 'p2p' && NO_OWNER.includes(c.key)))
-  const noFixAr = sumV(caAll.filter((c) => c.processKey === 'o2c' && NO_OWNER.includes(c.key)))
-  check(`${themeName}/item19: AP pool drills to the blocked worklist and carries its no-fix figure`, !!caA && caA.poolApHref === '/entity/JGL/p2p/invoices' && caA.poolApText.includes(formatCr(caApSum)) && caA.poolApText.includes('Blocked AP') && caA.poolApText.includes(`${formatCr(noFixAp)} has no fix in flight`), JSON.stringify({ href: caA ? caA.poolApHref : null, text: caA ? caA.poolApText : '' }))
-  check(`${themeName}/item19: AR pool drills to the O2C cockpit and carries its no-fix figure`, !!caA && caA.poolArHref === '/entity/JGL/o2c' && caA.poolArText.includes(formatCr(caArSum)) && caA.poolArText.includes('Revenue at risk') && caA.poolArText.includes(`${formatCr(noFixAr)} has no fix in flight`), JSON.stringify({ href: caA ? caA.poolArHref : null, text: caA ? caA.poolArText : '' }))
+  check(`${themeName}/item19: AP pool drills to the blocked worklist and carries its total`, !!caA && caA.poolApHref === '/entity/JGL/p2p/invoices' && caA.poolApText.includes(formatCr(caApSum)) && caA.poolApText.includes('Blocked AP'), JSON.stringify({ href: caA ? caA.poolApHref : null, text: caA ? caA.poolApText : '' }))
+  check(`${themeName}/item19: AR pool drills to the O2C cockpit and carries its total`, !!caA && caA.poolArHref === '/entity/JGL/o2c' && caA.poolArText.includes(formatCr(caArSum)) && caA.poolArText.includes('Revenue at risk'), JSON.stringify({ href: caA ? caA.poolArHref : null, text: caA ? caA.poolArText : '' }))
   check(`${themeName}/item19: all twelve causes render as bands`, !!caA && caA.bandKeys.length === caAll.length && JSON.stringify(caA.bandKeys) === JSON.stringify(caAll.map((c) => c.key).sort()), JSON.stringify(caA ? caA.bandKeys : null))
   const mg = caAll.find((c) => c.key === 'missing-gr')
   check(`${themeName}/item19: default selection traces missing GR to its pool share`, !!caA && caA.caption === `${formatCr(mg.valueAtRisk)} · ${Math.round((mg.valueAtRisk / caApSum) * 100)}% of Blocked AP`, JSON.stringify(caA ? caA.caption : null))
-  check(`${themeName}/item19: inspector names the cause and links its root-cause screen`, !!caA && caA.nameLinkHref === `/entity/JGL/root-cause/p2p/${mg.key}` && caA.nameLinkText === mg.name, JSON.stringify({ href: caA ? caA.nameLinkHref : null, text: caA ? caA.nameLinkText : null }))
-  // mock/causeBacklog.ts — CB-JGL-06: missing GR, eliminated in period 1, owner P. Nair.
-  check(`${themeName}/item19: inspector shows the register row — id, owner, met target`, !!caA && caA.regId === 'CB-JGL-06' && caA.regHref === '/cause-backlog' && caA.inspText.includes('P. Nair') && caA.inspText.includes('met · period 1') && caA.inspText.includes('Eliminated'), JSON.stringify({ reg: caA ? caA.regId : null, insp: (caA ? caA.inspText : '').slice(0, 200) }))
+  check(`${themeName}/item19: inspector names the cause and links its register section`, !!caA && caA.nameLinkHref === '/root-causes?cause=missing-gr' && caA.nameLinkText === mg.name, JSON.stringify({ href: caA ? caA.nameLinkHref : null, text: caA ? caA.nameLinkText : null }))
+  // mock/rootCauses.ts — RC-001 is missing GR's largest JGL row (₹2.9 cr): eliminated, owner A. Sethi · Commercial.
+  check(`${themeName}/item19: inspector shows the register row — id, owner, state`, !!caA && caA.regId === 'RC-001' && caA.regHref === '/root-causes' && caA.inspText.includes('A. Sethi · Commercial') && caA.inspText.includes('Eliminated'), JSON.stringify({ reg: caA ? caA.regId : null, insp: (caA ? caA.inspText : '').slice(0, 200) }))
   // mock/misc.ts — the one opportunity pinned against missing GR.
   const mgOpp = { name: 'Release invoices where GR posted this week', value: 4.2, items: 38, effort: 'Low', owner: 'P2P tower' }
   check(`${themeName}/item19: inspector shows the cause's cash opportunity and drills to working capital`, !!caA && caA.oppValue === formatCr(mgOpp.value) && caA.oppName === mgOpp.name && caA.oppMeta === `${mgOpp.items} items · ${mgOpp.effort} effort · ${mgOpp.owner}` && caA.oppHref === '/entity/JGL/working-capital', JSON.stringify({ v: caA ? caA.oppValue : null, n: caA ? caA.oppName : null, m: caA ? caA.oppMeta : null }))
   const nav19 = await evaluate(NAV_ACTIVE_JS)
   check(`${themeName}/item19: breadcrumb and rail mark the screen`, !!caA && caA.crumb.includes('Cash attribution') && !!nav19 && nav19.label.startsWith('Cash attribution'), JSON.stringify({ crumb: caA ? caA.crumb : null, nav: nav19 }))
   // Lens recomputation — the readout is derived from the surviving causes, never stored.
-  await evaluate(`document.querySelector('[data-fct-ca-lens="noowner"]').click()`)
-  await new Promise((r) => setTimeout(r, 200))
+  await clickOn('[data-fct-ca-lens="noowner"]', 'noowner lens')
   const roNoOwner = await evaluate(`(() => ({ big: (document.querySelector('#fct-ca-ro-big') || {}).textContent, note: ((document.querySelector('#fct-ca-ro-note') || {}).textContent) || '', dimSel: document.querySelector('[data-fct-ca-band="missing-gr"]').style.opacity, litUnreg: document.querySelector('[data-fct-ca-band="duplicate-suspicion"]').style.opacity }))()`)
-  check(`${themeName}/item19: no-fix lens recomputes over the surviving causes`, !!roNoOwner && roNoOwner.big === formatCr(sumV(noOwnerAll)) && (roNoOwner.note || '').startsWith(`${noOwnerAll.length} of ${caAll.length} causes have no row on the elimination register`), JSON.stringify(roNoOwner))
-  check(`${themeName}/item19: the lens dims registered bands and lights unregistered ones`, !!roNoOwner && roNoOwner.dimSel === '0.13' && roNoOwner.litUnreg === '1', JSON.stringify({ dim: roNoOwner ? roNoOwner.dimSel : null, lit: roNoOwner ? roNoOwner.litUnreg : null }))
-  await evaluate(`document.querySelector('[data-fct-ca-proc="ap"]').click()`)
-  await new Promise((r) => setTimeout(r, 200))
+  check(`${themeName}/item19: no-fix lens finds nothing — every cause has a register row`, !!roNoOwner && roNoOwner.big === formatCr(0) && (roNoOwner.note || '') === 'No causes in this process match the lens.', JSON.stringify(roNoOwner))
+  check(`${themeName}/item19: every band is registered, so the lens dims them all`, !!roNoOwner && roNoOwner.dimSel === '0.13' && roNoOwner.litUnreg === '0.13', JSON.stringify({ dim: roNoOwner ? roNoOwner.dimSel : null, lit: roNoOwner ? roNoOwner.litUnreg : null }))
+  await clickOn('[data-fct-ca-proc="ap"]', 'process filter ap')
   const roP2p = await evaluate(`(() => ({ big: (document.querySelector('#fct-ca-ro-big') || {}).textContent, note: ((document.querySelector('#fct-ca-ro-note') || {}).textContent) || '' }))()`)
-  check(`${themeName}/item19: process + lens combine — P2P no-fix is one cause`, !!roP2p && roP2p.big === formatCr(sumV(noOwnerP2p)) && (roP2p.note || '').startsWith(`${noOwnerP2p.length} of ${caAll.filter((c) => c.processKey === 'p2p').length} causes have no row`), JSON.stringify(roP2p))
-  await evaluate(`document.querySelector('[data-fct-ca-proc="all"]').click(); document.querySelector('[data-fct-ca-lens="all"]').click()`)
-  await new Promise((r) => setTimeout(r, 200))
+  check(`${themeName}/item19: process + lens combine — the empty set survives the P2P filter too`, !!roP2p && roP2p.big === formatCr(0) && (roP2p.note || '') === 'No causes in this process match the lens.', JSON.stringify(roP2p))
+  await clickOn('[data-fct-ca-proc="all"]', 'process filter all')
+  await clickOn('[data-fct-ca-lens="all"]', 'lens all')
   const roReset = await evaluate(`(() => (document.querySelector('#fct-ca-ro-big') || {}).textContent)()`)
   check(`${themeName}/item19: clearing both filters restores the full total`, roReset === formatCr(caTotal), JSON.stringify(roReset))
-  // Selection change — a different cause re-traces its own pool share and register row.
-  const ppm = caAll.find((c) => c.key === 'po-price-mismatch')
-  await evaluate(`document.querySelector('[data-fct-ca-band="po-price-mismatch"]').dispatchEvent(new MouseEvent('click', { bubbles: true }))`)
-  await new Promise((r) => setTimeout(r, 200))
+  // Selection change — a different cause re-traces its own pool share and register row; an in-progress row shows its target date.
+  // The band's centre can sit on the name anchor (which drills to the register); xf=0.1 clicks the row's left
+  // hit area, where only selectCause lives — "the rest of the row selects in place" (§8.4).
+  const caApp = caAll.find((c) => c.key === 'cash-application')
+  await clickOn({ css: '[data-fct-ca-band="cash-application"]', xf: 0.1 }, 'band cash-application')
+  // The band's reveal is a second commit (+420ms setFxOn timeout in CashAttributionV2) that lands after clickOn's settle
+  // window — waitForCommit cannot see scheduled-but-unfired commits, so settle again before probing.
+  await waitForCommit('after band selection (delayed reveal commit)')
   const caB = await evaluate(caProbe)
-  check(`${themeName}/item19: selecting another cause re-traces its pool share`, !!caB && caB.caption === `${formatCr(ppm.valueAtRisk)} · ${Math.round((ppm.valueAtRisk / caApSum) * 100)}% of Blocked AP`, JSON.stringify(caB ? caB.caption : null))
-  // mock/causeBacklog.ts — CB-JGL-01: PO price mismatch, in progress, target +70 d from the start-of-day anchor.
-  check(`${themeName}/item19: the in-progress row shows its register id and target date`, !!caB && caB.regId === 'CB-JGL-01' && caB.inspText.includes('+70 d') && caB.inspText.includes('P. Nair'), JSON.stringify({ reg: caB ? caB.regId : null, insp: (caB ? caB.inspText : '').slice(0, 200) }))
-  check(`${themeName}/item19: a cause with no listed opportunity says so`, !!caB && caB.inspText.includes('No cash opportunity listed against this cause.'), '')
+  check(`${themeName}/item19: selecting another cause re-traces its pool share`, !!caB && caB.caption === `${formatCr(caApp.valueAtRisk)} · ${Math.round((caApp.valueAtRisk / caArSum) * 100)}% of Revenue at risk`, JSON.stringify(caB ? caB.caption : null))
+  // mock/rootCauses.ts — RC-031 is cash application's largest JGL row: in progress, target +24 d from the start-of-day anchor.
+  check(`${themeName}/item19: the in-progress row shows its register id and target date`, !!caB && caB.regId === 'RC-031' && caB.inspText.includes('+24 d') && caB.inspText.includes('J. Halloran · Treasury'), JSON.stringify({ reg: caB ? caB.regId : null, insp: (caB ? caB.inspText : '').slice(0, 200) }))
+  // mock/misc.ts — the opportunity pinned against cash application drills to working capital.
+  const appOpp = { name: 'Apply matched receipts to open AR', value: 2.1, items: 19, effort: 'Low', owner: 'Cash application' }
+  check(`${themeName}/item19: inspector shows the cause's cash opportunity and drills to working capital`, !!caB && caB.oppValue === formatCr(appOpp.value) && caB.oppName === appOpp.name && caB.oppMeta === `${appOpp.items} items · ${appOpp.effort} effort · ${appOpp.owner}` && caB.oppHref === '/entity/JGL/working-capital', JSON.stringify({ v: caB ? caB.oppValue : null, n: caB ? caB.oppName : null, m: caB ? caB.oppMeta : null, h: caB ? caB.oppHref : null }))
+  // A cause with no listed opportunity says so rather than inventing one; its identified row carries no target date.
+  const tax = caAll.find((c) => c.key === 'tax-mismatch')
+  await clickOn({ css: '[data-fct-ca-band="tax-mismatch"]', xf: 0.1 }, 'band tax-mismatch')
+  // Second settle — same delayed reveal commit as above, before the caC probes and the pool-anchor navigation.
+  await waitForCommit('after band selection (delayed reveal commit)')
+  const caC = await evaluate(caProbe)
+  check(`${themeName}/item19: the third selection re-traces its own pool share`, !!caC && caC.caption === `${formatCr(tax.valueAtRisk)} · ${Math.round((tax.valueAtRisk / caApSum) * 100)}% of Blocked AP`, JSON.stringify(caC ? caC.caption : null))
+  check(`${themeName}/item19: a cause with no listed opportunity says so`, !!caC && caC.inspText.includes('No cash opportunity listed against this cause.'), '')
+  // mock/rootCauses.ts — RC-016 is tax mismatch's largest JGL row: identified, so the register carries no target date.
+  check(`${themeName}/item19: an identified row shows its state and no invented target`, !!caC && caC.regId === 'RC-016' && caC.inspText.includes('Identified') && caC.inspText.includes('— none set'), JSON.stringify({ reg: caC ? caC.regId : null, insp: (caC ? caC.inspText : '').slice(0, 200) }))
   // Drills out — real clicks on the SVG anchors (script .click() does not navigate SVG <a>).
-  const poolRect = await evaluate(`(() => { const r = document.querySelector('[data-fct-ca-pool="ap"] rect').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })()`)
+  const poolRect = await evaluate(`(() => { const el = document.querySelector('[data-fct-ca-pool="ap"] rect'); if (!el) return null; const b = el.getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 } })()`)
   check(`${themeName}/item19: AP pool anchor is on screen`, !!poolRect && poolRect.x > 0 && poolRect.y > 0, JSON.stringify(poolRect))
-  await clickAt(poolRect.x, poolRect.y)
+  // The painted target is the pool's colour block — the <a>'s own box centre falls in unpainted space between its text lines.
+  await clickOn('[data-fct-ca-pool="ap"] rect', 'AP pool anchor')
   await waitForPath((p) => p === '/entity/JGL/p2p/invoices', 'AP pool drill')
-  await navigate(BASE + '/cash-attribution')
-  const caC = await evaluate(`(() => { const a = document.querySelector('[data-fct-ca-band="cash-application"] a'); return a ? a.getAttribute('href') : null })()`)
-  check(`${themeName}/item19: the band name links its root-cause screen`, caC === '/entity/JGL/root-cause/o2c/cash-application', JSON.stringify(caC))
-  const nameRect = await evaluate(`(() => { const a = document.querySelector('[data-fct-ca-band="cash-application"] a'); if (!a) return null; const r = a.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })()`)
-  await clickAt(nameRect.x, nameRect.y)
-  await waitForPath((p) => p === '/entity/JGL/root-cause/o2c/cash-application', 'band-name drill')
-  // The band name is a native anchor — a full reload. The URL lands before React remounts, so wait for the shell
-  // (rail or breadcrumb) before driving the palette; its window keydown listener does not exist until then.
-  await waitForApp()
+  await goTo(BASE + '/cash-attribution')
+  const caBandHref = await readAttr('[data-fct-ca-band="cash-application"] a', 'href')
+  check(`${themeName}/item19: the band name links its register section`, caBandHref === '/root-causes?cause=cash-application', JSON.stringify(caBandHref))
+  // The band name is a native anchor — a full reload. clickOn detects the document swap and waits for the reloaded
+  // app to commit (shell included, whose window keydown listener the palette needs) before returning.
+  // Target the <text>, not the <a>: SVG text is hit-tested per glyph, and the resolver aims at a real character.
+  await clickOn('[data-fct-ca-band="cash-application"] a text', 'band-name drill')
+  await waitForUrl('/root-causes?cause=cash-application', 'band-name drill')
   // ⌘K — the screen is findable with its cause count and stuck value.
   await ctrlK()
-  await new Promise((r) => setTimeout(r, 400))
+  await waitForCommit('palette open (item 19)')
   check(`${themeName}/item19: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('cash attribution')`)) === true)
-  await new Promise((r) => setTimeout(r, 250))
+  await waitForText('[aria-label="Command palette"]', 'Cash attribution', '"cash attribution" rows rendered')
   const caPalette = await evaluate(PALETTE_ROWS_JS)
   const caRows = caPalette.filter((t) => t.includes('Cash attribution'))
   check(`${themeName}/item19: "cash attribution" lists exactly one screen with the cause count and stuck value`, caRows.length === 1 && caRows[0].includes(`${caAll.length} causes · ${formatCr(caTotal)} stuck`), JSON.stringify(caPalette))
-  const caPick = await evaluate(`(() => { const r = Array.from(document.querySelectorAll('.fct-palette-row')).find((x) => x.textContent.includes('Cash attribution')); if (!r) return false; r.click(); return true })()`)
+  const caPick = await clicked({ scope: '[aria-label="Command palette"]', tags: '.fct-palette-row', text: 'Cash attribution' }, 'cash-attribution palette row')
   check(`${themeName}/item19: picking the row opens the screen`, caPick === true, '')
   await waitForPath((p) => p === '/cash-attribution', 'cash attribution from the palette')
+  await waitForCommit('palette pick (item 19)')
   await screenshot(`${themeName}-cash-attribution.png`)
 
-  // ---- theme legibility: status colors + ageing-bar fills on the five views ----
-  console.log(`\n-- legibility (${themeName}): O2C + R2R cockpits, all three root-cause variants`)
+  // ---- theme legibility: status colors + ageing-bar fills on the cockpits; the register carries no fill-coloured
+  // elements (state colours are text), so it is contrast-audited only ----
+  console.log(`\n-- legibility (${themeName}): O2C + R2R cockpits, register contrast`)
   const fillTargets = [palette.accent, palette.ageingBarAlt, palette.statusGreen, palette.statusAmber, palette.statusRed].map(hexToRgb)
   for (const [route, name] of [
     ['/entity/JGL/o2c', 'o2c-cockpit'],
     // §16.2 — shares StageFlow with O2C; Step 26's panels add fills of their own, so this route carries fill pairs to audit
     ['/entity/JGL/r2r', 'r2r-cockpit'],
-    ['/entity/JGL/root-cause/p2p/missing-gr', 'rc-p2p-missing-gr'],
-    ['/entity/JGL/root-cause/o2c/pricing-disputes', 'rc-o2c-pricing-disputes'],
-    ['/entity/JGL/root-cause/r2r/reconciliation', 'rc-r2r-reconciliation'],
   ]) {
-    await navigate(BASE + route)
+    await goTo(BASE + route)
     reports.push({ theme: themeName, name, pairs: await evaluate(AUDIT_JS) })
     const fills = await evaluate(`(${FILL_AUDIT_JS})(${JSON.stringify(fillTargets)})`)
     // Harness guard: an empty census would let a whole route's fills go unaudited while the run stays green.
@@ -1833,6 +1932,16 @@ async function drillPass(themeName, palette) {
       const ratio = contrast(fill, bg)
       check(`${themeName}/${name}: fill ${fill} on ${bg} ≥ 3:1`, ratio >= 3.0, `ratio=${ratio.toFixed(2)} (x${count})`)
     }
+    await screenshot(`${themeName}-${name}.png`)
+  }
+  for (const [route, name] of [
+    ['/root-causes', 'root-causes'],
+    ['/root-causes?cause=missing-gr', 'root-causes-missing-gr'],
+    // §18 — the requisition pipeline: chase-state text in all three colours, no fill-coloured elements (text-only audit)
+    ['/entity/JGL/requisitions', 'requisitions'],
+  ]) {
+    await goTo(BASE + route)
+    reports.push({ theme: themeName, name, pairs: await evaluate(AUDIT_JS) })
     await screenshot(`${themeName}-${name}.png`)
   }
 
@@ -1847,13 +1956,149 @@ async function drillPass(themeName, palette) {
     check(`${tag}: no left-border indicator on the active pill`, nav.borderLeftW === '0px', `width=${nav.borderLeftW}`)
     return { bg: nav.bg, color: nav.color }
   }
-  await navigate(BASE + '/entity/JGL/p2p')
+  await goTo(BASE + '/entity/JGL/p2p')
   const p2pActive = expectActive(await evaluate(NAV_ACTIVE_JS), 'P2P cockpit', `${themeName}/nav:p2p`)
-  await navigate(BASE + '/entity/JGL/o2c')
+  await goTo(BASE + '/entity/JGL/o2c')
   const o2cActive = expectActive(await evaluate(NAV_ACTIVE_JS), 'O2C cockpit', `${themeName}/nav:o2c`)
   check(`${themeName}/nav: O2C active state matches its P2P sibling`,
     !!p2pActive && !!o2cActive && p2pActive.bg === o2cActive.bg && p2pActive.color === o2cActive.color,
     `p2p=${JSON.stringify(p2pActive)} o2c=${JSON.stringify(o2cActive)}`)
+
+  // ---- item 20: requisitions (§18) — the PR stage drills to the pipeline; the unconverted pool ties to §7.4 ----
+  console.log('\n-- item 20: requisitions')
+  await goTo(BASE + '/entity/JGL/p2p')
+  const prHref = await readAttr('#fct-stage-PR', 'href')
+  check(`${themeName}/item20: the PR stage card points at the requisition pipeline`, prHref === '/entity/JGL/requisitions', JSON.stringify(prHref))
+  await clickOn('#fct-stage-PR', 'PR stage card')
+  await waitForPath((p) => p === '/entity/JGL/requisitions', 'PR stage card → requisitions')
+
+  // Deep link — the screen stands on its own: title, breadcrumb, active rail entry and §18.1's pinned pipeline (JGL).
+  await goTo(BASE + '/entity/JGL/requisitions')
+  const reqState = await evaluate(`(() => {
+    const h1 = document.querySelector('h1')
+    const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
+    const pipe = document.querySelector('[data-fct-pipeline]')
+    const table = document.querySelector('[data-fct-requisitions]')
+    return {
+      title: h1 ? h1.textContent : null,
+      breadcrumb: bc ? bc.textContent.trim().replace(/\\s+/g, ' ') : null,
+      prs: pipe ? Number(pipe.getAttribute('data-prs')) : -1,
+      converted: pipe ? Number(pipe.getAttribute('data-converted')) : -1,
+      unconverted: pipe ? Number(pipe.getAttribute('data-unconverted')) : -1,
+      rows: table ? table.querySelectorAll('.fct-table-row').length : -1,
+      causes: document.querySelectorAll('[data-fct-pr-cause]').length,
+      budgetSrc: (document.querySelector('[data-fct-budget-panel]') || { textContent: '' }).textContent,
+      agents: Array.from(document.querySelectorAll('[data-fct-req-agent]')).map((el) => el.getAttribute('data-fct-req-agent')),
+    }
+  })()`)
+  check(`${themeName}/item20: deep link renders the screen with its breadcrumb`, reqState.title === 'Requisitions' && !!reqState.breadcrumb && reqState.breadcrumb.includes('Requisitions'), JSON.stringify({ title: reqState.title, bc: reqState.breadcrumb }))
+  // §18.1 — JGL's pinned pipeline; unconverted = PR − PO, the same figures the stage cards above carry.
+  check(`${themeName}/item20: JGL's pipeline is 412 in flight · 386 converted · 26 unconverted`, reqState.prs === 412 && reqState.converted === 386 && reqState.unconverted === 26, JSON.stringify({ prs: reqState.prs, converted: reqState.converted, unconverted: reqState.unconverted }))
+  check(`${themeName}/item20: the table carries all 26 unconverted PRs`, reqState.rows === 26, `rows=${reqState.rows}`)
+  check(`${themeName}/item20: the six §18.1 causes are named on screen`, reqState.causes === 6, `causes=${reqState.causes}`)
+  check(`${themeName}/item20: the budget panel states its source is the Spend Control Tower`, !!reqState.budgetSrc && reqState.budgetSrc.includes('Spend Control Tower'), JSON.stringify((reqState.budgetSrc || '').slice(0, 80)))
+  // §18.2 — the five agents in roster order; the preventive ones tag what they prevent with the taxonomy's share.
+  check(`${themeName}/item20: the five requisition agents are listed in roster order`, JSON.stringify(reqState.agents) === JSON.stringify(['budget-exposure', 'contract-catalogue-routing', 'pr-completeness', 'duplicate-pr', 'pr-ageing-chase']), JSON.stringify(reqState.agents))
+  const reqPrevents = await evaluate(`(() => {
+    const a24 = document.querySelector('[data-fct-req-agent="contract-catalogue-routing"]')
+    const a26 = document.querySelector('[data-fct-req-agent="duplicate-pr"]')
+    return { a24: a24 ? a24.textContent : '', a26: a26 ? a26.textContent : '' }
+  })()`)
+  check(`${themeName}/item20: contract routing tags the cause it prevents with its share of blocked AP`, reqPrevents.a24.includes('PO price mismatch · 22% of blocked AP'), JSON.stringify(reqPrevents.a24.slice(0, 120)))
+  check(`${themeName}/item20: duplicate PR tags the cause it prevents with its share of blocked AP`, reqPrevents.a26.includes('Duplicate suspicion · 8% of blocked AP'), JSON.stringify(reqPrevents.a26.slice(0, 120)))
+
+  // ⌘K — the screen is findable with its unconverted pool.
+  await ctrlK()
+  await waitForCommit('palette open (item 20)')
+  check(`${themeName}/item20: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('requisitions')`)) === true)
+  await waitForText('[aria-label="Command palette"]', 'Requisitions', '"requisitions" rows rendered')
+  const reqPalette = await evaluate(PALETTE_ROWS_JS)
+  const reqScreenRows = reqPalette.filter((t) => /unconverted PRs/.test(t))
+  check(`${themeName}/item20: "requisitions" lists exactly one screen with the unconverted pool`, reqScreenRows.length === 1 && reqScreenRows[0].includes('Requisitions') && reqScreenRows[0].includes('26 unconverted PRs'), JSON.stringify(reqPalette))
+  const reqPick = await clicked({ scope: '[aria-label="Command palette"]', tags: '.fct-palette-row', text: 'Requisitions' }, 'requisitions palette row')
+  check(`${themeName}/item20: picking the row opens the screen`, reqPick === true, '')
+  await waitForPath((p) => p === '/entity/JGL/requisitions', 'requisitions from the palette')
+  await waitForCommit('palette pick (item 20)')
+  await screenshot(`${themeName}-requisitions.png`)
+
+  // ---- item 21: O2C worklist (§18.3) — the same shape as the P2P pair with its own data; stage drills per §18.4 ----
+  console.log('\n-- item 21: O2C worklist')
+  const jgl = entities.find((e) => e.code === 'JGL')
+  const o2cCauses = causes.filter((c) => c.processKey === 'o2c')
+  // mock/exceptions.ts — JGL's pinned sample: twelve rows summing to ₹9.60 cr; eight of them are >30 days, ₹7.96 cr.
+  const O2C_SAMPLE_TOTAL = 9.6
+  const O2C_STALE = 7.96
+
+  // §18.4 — the seven stage cards point at the worklist pre-filtered to that stage's causes; Delivery keeps the full list.
+  await goTo(BASE + '/entity/JGL/o2c')
+  for (const [step, want] of [
+    ['ORD', '/entity/JGL/o2c/invoices?cause=customer-master'],
+    ['CRD', '/entity/JGL/o2c/invoices?cause=credit-block'],
+    ['DLV', '/entity/JGL/o2c/invoices'],
+    ['BIL', '/entity/JGL/o2c/invoices?cause=billing-errors,pricing-disputes'],
+    ['DSP', '/entity/JGL/o2c/invoices?cause=billing-errors'],
+    ['COL', '/entity/JGL/o2c/invoices?cause=credit-block,pricing-disputes'],
+    ['CSH', '/entity/JGL/o2c/invoices?cause=cash-application,deductions'],
+  ]) {
+    check(`${themeName}/item21: the ${step} stage card drills the worklist to its causes`, (await readAttr(`#fct-stage-${step}`, 'href')) === want, JSON.stringify(await readAttr(`#fct-stage-${step}`, 'href')))
+  }
+
+  // Deep link — the screen stands on its own: title, breadcrumb and the Worklist rail entry.
+  await goTo(BASE + '/entity/JGL/o2c/invoices')
+  const o2w = await evaluate(`(() => {
+    const h1 = document.querySelector('h1')
+    const bc = document.querySelector('nav[aria-label="Breadcrumb"]')
+    return { title: h1 ? h1.textContent : null, breadcrumb: bc ? bc.textContent.trim().replace(/\\s+/g, ' ') : null }
+  })()`)
+  check(`${themeName}/item21: deep link renders the screen with its breadcrumb`, o2w.title === 'O2C exceptions worklist' && !!o2w.breadcrumb && o2w.breadcrumb.includes('Invoices'), JSON.stringify(o2w))
+  const nav21 = await evaluate(NAV_ACTIVE_JS)
+  check(`${themeName}/item21: the Worklist rail entry is active, like its P2P pair`, !!nav21 && nav21.label.startsWith('Worklist'), JSON.stringify(nav21))
+
+  // §7.20 — sample against pool, unfiltered: all six O2C causes pooled (largest-remainder sums exactly to o2cExceptionCount).
+  const o2wMain = await evaluate(`(() => { const el = document.querySelector('main'); return el ? el.textContent : '' })()`)
+  check(`${themeName}/item21: header states the sample against the entity pool`, !!o2wMain && o2wMain.includes(`12 of ${jgl.metrics.o2cExceptionCount} shown`), (o2wMain || '').slice(0, 200))
+  check(`${themeName}/item21: header ties the sample value to the pooled cause values`, !!o2wMain && o2wMain.includes(`${formatCr(O2C_SAMPLE_TOTAL, 2)} of ${formatCr(o2cCauses.reduce((s, c) => s + c.valueAtRisk, 0))}`), '')
+  check(`${themeName}/item21: header carries the >30-day share`, !!o2wMain && o2wMain.includes(`>30 days ${formatCr(O2C_STALE, 2)}`), '')
+
+  // §15.7 — every row's agent lane says why it never ran; no cycle button on a process agents do not cover.
+  const o2wLanes = await evaluate(`(() => Array.from(document.querySelectorAll('.fct-table-row')).map((r) => r.textContent))()`)
+  check(`${themeName}/item21: all twelve rows render`, o2wLanes.length === 12, `rows=${o2wLanes.length}`)
+  check(`${themeName}/item21: every lane reads never-automated — no live agent for O2C causes in this build`, o2wLanes.every((t) => t.includes('No live agent for this cause in this build')), JSON.stringify(o2wLanes[0] || ''))
+  check(`${themeName}/item21: no cycle button on a process agents do not cover`, (await evaluate(`document.querySelector('main').textContent.includes('Run the next cycle')`)) === false, '')
+
+  // §18.4 — the Collection drill's figure: credit-block + pricing-disputes, five sample rows against their pooled 122.
+  await goTo(BASE + '/entity/JGL/o2c/invoices?cause=credit-block,pricing-disputes')
+  const o2wCol = await evaluate(`(() => { const el = document.querySelector('main'); return el ? el.textContent : '' })()`)
+  check(`${themeName}/item21: the cause filter pools its own causes — 5 of 122 shown`, !!o2wCol && o2wCol.includes('5 of 122 shown'), (o2wCol || '').slice(0, 200))
+  check(`${themeName}/item21: the filtered value ties to the two causes' values at risk`, !!o2wCol && o2wCol.includes(`₹4.67 cr of ${formatCr(7.5)}`), '')
+
+  // §17.10 — a register row reaches its traced items: RC-019 (pricing disputes, fixed at source) holds AR-704001 in JGL's sample.
+  await goTo(BASE + '/entity/JGL/o2c/invoices?rc=RC-019')
+  const o2wRc = await evaluate(`(() => { const el = document.querySelector('main'); return el ? el.textContent : '' })()`)
+  check(`${themeName}/item21: the register drill shows its traced items against the entry's pool`, !!o2wRc && o2wRc.includes('1 of 40 shown') && o2wRc.includes('AR-704001'), (o2wRc || '').slice(0, 200))
+
+  // Item detail — the shared transaction screen follows the row's own process.
+  await clickOn({ scope: 'main', tags: 'a', text: 'AR-704001' }, 'O2C item link')
+  await waitForPath((p) => p === '/entity/JGL/o2c/invoices/AR-704001', 'O2C item detail')
+  const o2dMain = await evaluate(`(() => { const el = document.querySelector('main'); return el ? el.textContent : '' })()`)
+  check(`${themeName}/item21: the detail back link returns to the O2C worklist`, (await readAttr('a.fct-link', 'href')) === '/entity/JGL/o2c/invoices', JSON.stringify(await readAttr('a.fct-link', 'href')))
+  check(`${themeName}/item21: responsible function names the cause's originating function`, !!o2dMain && o2dMain.includes('O2C tower — Commercial'), '')
+  check(`${themeName}/item21: next action carries the open line with its escalation timer`, !!o2dMain && o2dMain.includes('Awaiting rate confirmation from commercial') && o2dMain.includes('escalation due in'), '')
+  check(`${themeName}/item21: no payables vocabulary on a receivables row`, !!o2dMain && !o2dMain.includes('payables completeness') && !o2dMain.includes('Chase GR'), '')
+
+  // ⌘K — the screen is findable with its pool, like its P2P pair.
+  await ctrlK()
+  await waitForCommit('palette open (item 21)')
+  check(`${themeName}/item21: palette input accepts typing`, (await evaluate(`(${TYPE_JS})('o2c exceptions')`)) === true)
+  await waitForText('[aria-label="Command palette"]', 'O2C exceptions worklist', '"o2c exceptions" rows rendered')
+  const o2wPalette = await evaluate(PALETTE_ROWS_JS)
+  const o2wScreenRows = o2wPalette.filter((t) => t.includes('O2C exceptions worklist'))
+  check(`${themeName}/item21: "o2c exceptions" lists exactly one screen with the pool count`, o2wScreenRows.length === 1 && o2wScreenRows[0].includes(`${jgl.metrics.o2cExceptionCount} items`), JSON.stringify(o2wPalette))
+  const o2wPick = await clicked({ scope: '[aria-label="Command palette"]', tags: '.fct-palette-row', text: 'O2C exceptions worklist' }, 'o2c worklist palette row')
+  check(`${themeName}/item21: picking the row opens the screen`, o2wPick === true, '')
+  await waitForPath((p) => p === '/entity/JGL/o2c/invoices', 'o2c worklist from the palette')
+  await waitForCommit('palette pick (item 21)')
+  await screenshot(`${themeName}-o2c-worklist.png`)
 
   return reports
 }

@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { applySensitivity, causeBacklog, computeScore, DIMENSION_KEYS, DIMENSION_LABELS, DIMENSION_WEIGHTS, entityTileSubs, getEntity, listCauses, pointDirection, priorScore } from '../api'
 import type { Effort, Trend } from '../api'
 import { useAppMode, type CockpitMode } from '../app/mode'
-import { defaultRootCauseTo } from '../app/paths'
+import { rootCauseTo } from '../app/paths'
 import { Bar, CrossProcessTrace, DimensionBar, Eyebrow, FreshnessStamp, Metric, StatusDot } from '../components'
 import { AssistantContext } from '../features/assistant/AssistantDrawer'
 import { formatCr, formatRecurrence } from '../lib/format'
@@ -102,17 +102,19 @@ export function EntityHome() {
     const backlog = causeBacklog(m.causeElimination!) // §7.18 — per-entity backlog; notStarted derived in the data layer
     panel = [
       { label: 'AP blocked invoices', value: `${m.apBlockedCount}`, sub: countDelta(m.apBlockedCount, m.apBlockedCountPrevious), subTone: trendColor(pointDirection(m.apBlockedCount, m.apBlockedCountPrevious, true)), to: `/entity/${entity.code}/p2p/invoices` },
-      { label: 'O2C exceptions', value: `${m.o2cExceptionCount}`, sub: countDelta(m.o2cExceptionCount, m.o2cExceptionCountPrevious), subTone: trendColor(pointDirection(m.o2cExceptionCount, m.o2cExceptionCountPrevious, true)), to: `/entity/${entity.code}/o2c` },
+      // §18.3 — the count drills the O2C worklist that holds those items, not just the cockpit.
+      { label: 'O2C exceptions', value: `${m.o2cExceptionCount}`, sub: countDelta(m.o2cExceptionCount, m.o2cExceptionCountPrevious), subTone: trendColor(pointDirection(m.o2cExceptionCount, m.o2cExceptionCountPrevious, true)), to: `/entity/${entity.code}/o2c/invoices` },
       { label: 'Cash opportunity', value: formatCr(m.cashOpportunity!.value), sub: `${m.cashOpportunity!.items} items`, to: `/entity/${entity.code}/working-capital` },
       { label: 'Cause elimination', value: `${backlog.eliminated} of ${backlog.identified}`, sub: `${backlog.inProgress} in progress · ${backlog.notStarted} not started`, to: '/' },
     ]
   } else {
     panel = [
       // §7.18 — unposted GR is the same quantity as accrual exposure (§8.2); vendors and recurrence come from the per-entity row.
-      { label: 'Unposted goods receipts', value: formatCr(m.accrualExposure!), sub: `${m.unpostedGr!.vendors} vendors · ${formatRecurrence(m.unpostedGr!.recurrenceMonths)}`, to: `/entity/${entity.code}/root-cause/p2p/missing-gr` },
+      { label: 'Unposted goods receipts', value: formatCr(m.accrualExposure!), sub: `${m.unpostedGr!.vendors} vendors · ${formatRecurrence(m.unpostedGr!.recurrenceMonths)}`, to: rootCauseTo('missing-gr') },
       { label: 'Unapplied cash', value: formatCr(m.cashUnapplied.current), sub: subs.cashUnapplied, to: `/entity/${entity.code}/working-capital` },
-      { label: 'Aged reconciliation breaks', value: `${m.reconAgedBreaks}`, sub: `${formatCr(m.reconValue.current)} at stake · oldest ${m.reconOldestDays} d`, to: defaultRootCauseTo(entity.code) },
-      { label: 'Open disputes', value: formatCr(m.revenueAtRisk!), sub: 'disputes and credit blocks', to: `/entity/${entity.code}/o2c#fct-stage-COL` },
+      { label: 'Aged reconciliation breaks', value: `${m.reconAgedBreaks}`, sub: `${formatCr(m.reconValue.current)} at stake · oldest ${m.reconOldestDays} d`, to: rootCauseTo() },
+      // §18.3 — disputes and credit blocks are worklist items now; the drill lands on them, filtered to those two causes.
+      { label: 'Open disputes', value: formatCr(m.revenueAtRisk!), sub: 'disputes and credit blocks', to: `/entity/${entity.code}/o2c/invoices?cause=credit-block,pricing-disputes` },
     ]
   }
 
@@ -121,8 +123,8 @@ export function EntityHome() {
     { label: 'AP blocked', value: formatCr(entity.metrics.apBlocked.current), trend: entity.metrics.apBlocked, inverse: true, sub: subs.apBlocked, tone: colors.statusRed, to: `/entity/${entity.code}/p2p` },
     { label: 'AR > 90 days', value: formatCr(entity.metrics.arOver90.current), trend: entity.metrics.arOver90, inverse: true, sub: subs.arOver90, tone: colors.statusRed, to: `/entity/${entity.code}/working-capital` },
     { label: 'Close', value: `${entity.metrics.closePercent.current}%`, trend: entity.metrics.closePercent, inverse: false, sub: subs.close, tone: colors.statusAmber, to: `/entity/${entity.code}/close-calendar` },
-    { label: 'Reconciliations', value: formatCr(entity.metrics.reconValue.current), trend: entity.metrics.reconValue, inverse: true, sub: subs.recon, tone: colors.statusRed, to: defaultRootCauseTo(entity.code) },
-    { label: 'Controls', value: `${entity.metrics.controlBreaches} breaches`, sub: subs.controls, tone: colors.statusAmber, to: defaultRootCauseTo(entity.code) },
+    { label: 'Reconciliations', value: formatCr(entity.metrics.reconValue.current), trend: entity.metrics.reconValue, inverse: true, sub: subs.recon, tone: colors.statusRed, to: rootCauseTo() },
+    { label: 'Controls', value: `${entity.metrics.controlBreaches} breaches`, sub: subs.controls, tone: colors.statusAmber, to: rootCauseTo() },
   ]
 
   // §7.31 — every figure per entity; the JGL-only literals contradicted the panels on this same screen.
@@ -130,8 +132,8 @@ export function EntityHome() {
     { dot: colors.statusRed, label: 'AP blocked > 30 days', value: formatCr(m.apBlocked.current), age: `oldest ${m.apBlockedOldestDays} d`, owner: 'Entity controller', to: `/entity/${entity.code}/p2p` },
     { dot: colors.statusRed, label: 'Overdue AR > 90 days', value: formatCr(m.arOver90.current), age: `oldest ${m.arOver90OldestDays} d`, owner: 'Collections lead', to: `/entity/${entity.code}/working-capital` },
     { dot: colors.statusAmber, label: 'Unapplied cash', value: formatCr(m.cashUnapplied.current), age: `oldest ${m.cashUnappliedOldestDays} d`, owner: 'Cash application', to: `/entity/${entity.code}/working-capital` },
-    { dot: colors.statusAmber, label: 'Reconciliation breaks', value: `${m.reconAgedBreaks} items`, age: `oldest ${m.reconOldestDays} d`, owner: 'R2R tower', to: `/entity/${entity.code}/root-cause/p2p/missing-gr` },
-    { dot: colors.statusAmber, label: 'High-risk manual journals', value: `${m.highRiskJEs} JEs`, age: 'this period', owner: 'Financial controller', to: `/entity/${entity.code}/root-cause/p2p/missing-gr` },
+    { dot: colors.statusAmber, label: 'Reconciliation breaks', value: `${m.reconAgedBreaks} items`, age: `oldest ${m.reconOldestDays} d`, owner: 'R2R tower', to: rootCauseTo() },
+    { dot: colors.statusAmber, label: 'High-risk manual journals', value: `${m.highRiskJEs} JEs`, age: 'this period', owner: 'Financial controller', to: rootCauseTo() },
     { dot: colors.statusAmber, label: 'Overdue queries', value: `${m.queriesOverdue} tickets`, age: 'SLA breached', owner: 'Service delivery', to: `/entity/${entity.code}/p2p/invoices` },
   ]
 
@@ -139,10 +141,11 @@ export function EntityHome() {
 
   // §8.2 — financial consequence strip; all six entities carry the four figures, so render where they exist.
   const consequenceReady = entity.metrics.accrualExposure !== undefined && entity.metrics.revenueAtRisk !== undefined && entity.metrics.provisionAdequacyPct !== undefined && entity.metrics.fxIntercompanyExposure !== undefined
-  // §8.2 drill targets: accrual → blocked worklist filtered to the goods-receipt cause; revenue at risk → O2C collection stage; provision adequacy → R2R accruals panel that carries it; FX/intercompany → working-capital netting row.
+  // §8.2 drill targets: accrual → blocked worklist filtered to the goods-receipt cause; revenue at risk → O2C worklist
+  // filtered to the dispute and credit-block causes (§18.3); provision adequacy → R2R accruals panel that carries it; FX/intercompany → working-capital netting row.
   const consequence: Array<{ label: string; value: string; explanation: string; to: string }> = [
     { label: 'Accrual exposure at close', value: formatCr(entity.metrics.accrualExposure!), explanation: entity.metrics.accrualExposureNote ?? 'blocked payables not yet accrued', to: `/entity/${entity.code}/p2p/invoices?cause=missing-gr` },
-    { label: 'Revenue at risk', value: formatCr(entity.metrics.revenueAtRisk!), explanation: 'open disputes and credit blocks', to: `/entity/${entity.code}/o2c#fct-stage-COL` },
+    { label: 'Revenue at risk', value: formatCr(entity.metrics.revenueAtRisk!), explanation: 'open disputes and credit blocks', to: `/entity/${entity.code}/o2c/invoices?cause=credit-block,pricing-disputes` },
     { label: 'Provision adequacy', value: `${entity.metrics.provisionAdequacyPct}%`, explanation: 'provision vs actual utilisation', to: `/entity/${entity.code}/r2r#fct-panel-accruals` },
     { label: 'FX / intercompany exposure', value: formatCr(entity.metrics.fxIntercompanyExposure!), explanation: 'unmatched intercompany with related parties', to: `/entity/${entity.code}/working-capital#fct-ic-netting` },
   ]
@@ -353,10 +356,10 @@ export function EntityHome() {
           <section style={{ ...clay.card, padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Eyebrow style={typeScale.tableHeader}>Root cause insights</Eyebrow>
-              <Link to={defaultRootCauseTo(entity.code)} style={{ fontSize: 12, color: colors.accentText, textDecoration: 'none' }}>Analyse →</Link>
+              <Link to={rootCauseTo()} style={{ fontSize: 12, color: colors.accentText, textDecoration: 'none' }}>Analyse →</Link>
             </div>
             {insights.map((c) => (
-              <Link key={c.key} to={`/entity/${entity.code}/root-cause/p2p/${c.key}`} style={{ display: 'flex', flexDirection: 'column', gap: 7, color: colors.textPrimary, textDecoration: 'none' }}>
+              <Link key={c.key} to={rootCauseTo(c.key)} style={{ display: 'flex', flexDirection: 'column', gap: 7, color: colors.textPrimary, textDecoration: 'none' }}>
                 <span style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                   <span>{c.name}</span>
                   <span style={{ fontFamily: fonts.mono, color: colors.textMuted }}>{`${c.sharePct}%`}</span>

@@ -3,6 +3,7 @@ import { Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import { getEntity, getTouchLeverStages, listCauses, listTouchFunnel } from '../api'
 import type { CauseNode, TouchFunnelRow } from '../api'
+import { rootCauseTo } from '../app/paths'
 import { DataTable, Eyebrow, type Column } from '../components'
 import { colors, fonts, spacing, typeScale } from '../theme/tokens'
 
@@ -51,8 +52,8 @@ export function TouchEconomics() {
   ]
 
   const causeColumns: Array<Column<CauseNode>> = [
-    // §15.4 — the mix is JGL's, so each cause drills to its root-cause record on that entity.
-    { width: '240px', header: 'Cause', render: (c) => <Link to={`/entity/JGL/root-cause/p2p/${c.key}`} style={{ color: colors.accentText, textDecoration: 'none' }}>{c.name}</Link> },
+    // §15.4 — each cause drills to its section of the root-cause register.
+    { width: '240px', header: 'Cause', render: (c) => <Link to={rootCauseTo(c.key)} style={{ color: colors.accentText, textDecoration: 'none' }}>{c.name}</Link> },
     { width: '160px', align: 'right', header: 'Share of exceptions %', render: (c) => <span style={{ fontFamily: fonts.mono }}>{`${c.sharePct}%`}</span> },
     { width: '180px', align: 'right', header: 'Agents can resolve %', render: (c) => <span style={{ fontFamily: fonts.mono }}>{`${c.agentResolvablePct}%`}</span> },
   ]

@@ -35,12 +35,13 @@ describe('P2P cockpit (spec/05)', () => {
     expect(m.getByText('In flight at each stage')).toBeTruthy()
     expect(m.getByText('Open work in progress, not period volumes')).toBeTruthy()
 
-    // Six stage cards plus the "Open blocked invoices" button-link target the worklist; §15.7 — the Purchase order card drills to the commitments watch instead (open POs by delivery date).
+    // §18 — the Requisition card drills to the requisition pipeline; §15.7 — the Purchase order card drills to the commitments watch; §17.4 — the blocking stages drill the worklist filtered to their causes, and Payment keeps the full list with the pinned button.
     const toWorklist = m.getAllByRole('link').filter((l) => l.getAttribute('href') === '/entity/JGL/p2p/invoices')
-    expect(toWorklist).toHaveLength(7)
-    for (const name of ['Requisition', 'Goods receipt', 'Invoice', 'Three-way match', 'Approval', 'Payment']) {
-      expect(toWorklist.some((l) => (l.textContent ?? '').includes(name))).toBe(true)
-    }
+    expect(toWorklist).toHaveLength(2) // Payment stage card + the "Open blocked invoices" button
+    expect((toWorklist[0].textContent ?? '').includes('Payment')).toBe(true)
+    const toRequisitions = m.getAllByRole('link').filter((l) => l.getAttribute('href') === '/entity/JGL/requisitions')
+    expect(toRequisitions).toHaveLength(1)
+    expect((toRequisitions[0].textContent ?? '').includes('Requisition')).toBe(true)
     const toCommitments = m.getAllByRole('link').filter((l) => l.getAttribute('href') === '/entity/JGL/p2p/commitments')
     expect(toCommitments).toHaveLength(1)
     expect((toCommitments[0].textContent ?? '').includes('Purchase order')).toBe(true)
@@ -56,9 +57,16 @@ describe('P2P cockpit (spec/05)', () => {
     }
     expect(m.getByText('₹5.9 cr')).toBeTruthy()
 
-    // Top causes — each row drills to its root-cause page.
-    expect(m.getByRole('link', { name: /Missing GR/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
-    expect(m.getByRole('link', { name: /PO price mismatch/ }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/po-price-mismatch')
+    // §17.1 — cockpit cause drills go to the worklist filtered by cause, not to a taxonomy page.
+    expect(m.getByRole('link', { name: /Missing GR/ }).getAttribute('href')).toBe('/entity/JGL/p2p/invoices?cause=missing-gr')
+    expect(m.getByRole('link', { name: /PO price mismatch/ }).getAttribute('href')).toBe('/entity/JGL/p2p/invoices?cause=po-price-mismatch')
+
+    // §17.4 — each blocking stage drills the worklist to the causes that block at that stage; the invoice stage carries three.
+    const hrefs = m.getAllByRole('link').map((l) => l.getAttribute('href'))
+    expect(hrefs.filter((h) => h === '/entity/JGL/p2p/invoices?cause=missing-gr')).toHaveLength(2) // GR stage card + the Top-causes row
+    expect(hrefs).toContain('/entity/JGL/p2p/invoices?cause=vendor-master,duplicate-suspicion,tax-mismatch')
+    expect(hrefs).toContain('/entity/JGL/p2p/invoices?cause=po-price-mismatch')
+    expect(hrefs).toContain('/entity/JGL/p2p/invoices?cause=approval-pending')
     expect(m.getByText('34%')).toBeTruthy()
 
     // Service & control values.
@@ -117,6 +125,64 @@ describe('Worklist (spec/05)', () => {
     expect(window.location.search).toBe('')
     expect(worklistLinks(m)).toHaveLength(6)
     expect(m.getByText('327 blocked · 241 resolved by agents · 86 need you · agents last ran 06:42 · next cycle 07:00 · 6 of 327 shown · ₹5.53 cr of ₹18.6 cr · >30 days ₹3.45 cr · 2 of 38 resolvable in this view')).toBeTruthy()
+  })
+
+  it('multi-selects causes — the chips stay active and the pool sums the selected causes (§17.4)', () => {
+    window.history.pushState(null, '', '/entity/JGL/p2p/invoices')
+    render(<App />)
+    const m = main()
+
+    fireEvent.click(m.getByRole('button', { name: 'Missing GR' }))
+    fireEvent.click(m.getByRole('button', { name: 'PO price mismatch' }))
+    expect(window.location.search).toBe('?cause=missing-gr%2Cpo-price-mismatch') // the browser percent-encodes the comma; useSearchParams decodes it back
+
+    // Both chips stay active; the pool is the sum of the two causes' own pools (183 / ₹10.5 cr), not the entity-wide one.
+    const grChip = m.getByRole('button', { name: 'Missing GR' })
+    const ppChip = m.getByRole('button', { name: 'PO price mismatch' })
+    expect(grChip.className).toContain('fct-chip--active')
+    expect(ppChip.className).toContain('fct-chip--active')
+
+    const ids = worklistLinks(m).map((r) => r.textContent ?? '')
+    expect([...ids].sort()).toEqual(['AP-104281', 'AP-104306', 'AP-104402', 'AP-104458', 'AP-104522', 'AP-104588'].sort())
+
+    expect(m.getByText('327 blocked · 241 resolved by agents · 86 need you · agents last ran 06:42 · next cycle 07:00 · 6 of 183 shown · ₹8.04 cr of ₹10.5 cr · >30 days ₹7.57 cr · 1 of 38 resolvable in this view')).toBeTruthy()
+
+    // Clicking an active chip deselects it; the pool follows back to the single cause.
+    fireEvent.click(grChip)
+    expect(window.location.search).toBe('?cause=po-price-mismatch')
+    expect(m.getByText('327 blocked · 241 resolved by agents · 86 need you · agents last ran 06:42 · next cycle 07:00 · 2 of 72 shown · ₹2.57 cr of ₹4.1 cr · >30 days ₹2.57 cr · 0 of 38 resolvable in this view')).toBeTruthy()
+  })
+
+  it('opens on the invoice-stage cause set from the cockpit drill (§17.4)', () => {
+    window.history.pushState(null, '', '/entity/JGL/p2p/invoices?cause=vendor-master,duplicate-suspicion,tax-mismatch')
+    render(<App />)
+    const m = main()
+
+    // The three invoice-stage causes are all active at once.
+    for (const name of ['Vendor master', 'Duplicate suspicion', 'Tax mismatch']) {
+      expect(m.getByRole('button', { name }).className).toContain('fct-chip--active')
+    }
+
+    const ids = worklistLinks(m).map((r) => r.textContent ?? '')
+    expect([...ids].sort()).toEqual(['AP-104417', 'AP-104473', 'AP-104570', 'AP-104611'].sort())
+
+    // §7.20 — the pool is the sum of the three causes' pools (85 / ₹4.8 cr).
+    expect(m.getByText('327 blocked · 241 resolved by agents · 86 need you · agents last ran 06:42 · next cycle 07:00 · 4 of 85 shown · ₹2.63 cr of ₹4.8 cr · >30 days ₹0.00 cr · 2 of 38 resolvable in this view')).toBeTruthy()
+  })
+
+  it('drills from a register entry — the items traced to that root cause, with its pool as denominator (§17.4)', () => {
+    window.history.pushState(null, '', '/entity/JGL/p2p/invoices?rc=RC-004')
+    render(<App />)
+    const m = main()
+
+    // The register's Items figure (32 / ₹2.3 cr) is the denominator; the sample holds the one traced item.
+    expect(m.getByText('327 blocked · 241 resolved by agents · 86 need you · agents last ran 06:42 · next cycle 07:00 · 1 of 32 shown · ₹1.96 cr of ₹2.3 cr · >30 days ₹1.96 cr · 0 of 38 resolvable in this view')).toBeTruthy()
+
+    const ids = worklistLinks(m).map((r) => r.textContent ?? '')
+    expect(ids).toEqual(['AP-104306'])
+
+    // The traced item's lane reads resolved — the elimination is visible on the row, not just claimed.
+    expect(m.getByText('agent resolved')).toBeTruthy()
   })
 
   it('sorts by value, age and vendor via the URL', () => {
@@ -283,18 +349,19 @@ describe('Exception detail (spec/05)', () => {
     }
 
     // Header actions.
-    expect(m.getByRole('link', { name: 'Why does this keep happening?' }).getAttribute('href')).toBe('/entity/JGL/root-cause/p2p/missing-gr')
+    expect(m.getByRole('link', { name: 'Why does this keep happening?' }).getAttribute('href')).toBe('/root-causes?cause=missing-gr')
     expect(m.getByRole('button', { name: 'Escalate to plant controller' })).toBeTruthy()
     expect(m.getByRole('link', { name: /Back to worklist/ }).getAttribute('href')).toBe('/entity/JGL/p2p/invoices')
   })
 
-  it('never inherits the last-viewed cause — the button targets the exception\'s own reason (spec/08 Part D)', () => {
+  it('the button targets the exception’s own reason, not the last-viewed cause (spec/08 Part D)', () => {
     // Arrive via the O2C cockpit so an O2C cause is the most recently viewed one.
     window.history.pushState(null, '', '/entity/JGL/o2c')
     render(<App />)
     const m = main()
     fireEvent.click(m.getByRole('link', { name: /Pricing disputes/ }))
-    expect(window.location.pathname).toBe('/entity/JGL/root-cause/o2c/pricing-disputes')
+    expect(window.location.pathname).toBe('/root-causes')
+    expect(window.location.search).toBe('?cause=pricing-disputes')
 
     // Back to the P2P worklist, open invoice AP-104281 (blocking reason 'Missing GR').
     const rail = screen.getByRole('navigation', { name: 'Primary' })
@@ -302,10 +369,10 @@ describe('Exception detail (spec/05)', () => {
     expect(window.location.pathname).toBe('/entity/JGL/p2p/invoices')
     fireEvent.click(m.getByRole('link', { name: /AP-104281/ }))
 
-    // The button lands on Missing GR / P2P — not the O2C cause seen moments earlier.
+    // The button lands on Missing GR’s register section — not the O2C cause seen moments earlier.
     fireEvent.click(m.getByRole('link', { name: 'Why does this keep happening?' }))
-    expect(window.location.pathname).toBe('/entity/JGL/root-cause/p2p/missing-gr')
-    expect(m.getByRole('heading', { level: 1, name: 'Why blocked invoices keep recurring' })).toBeTruthy()
-    expect(m.getByText(/taxonomy — p2p/i)).toBeTruthy()
+    expect(window.location.pathname).toBe('/root-causes')
+    expect(window.location.search).toBe('?cause=missing-gr')
+    expect(m.getByRole('heading', { level: 1, name: 'Root causes' })).toBeTruthy()
   })
 })

@@ -1,4 +1,5 @@
-// §15 — the agent workforce: twenty-two roles, ten live in this prototype. Step 27 adds the four R2R agents of §16.6;
+// §15 — the agent workforce: twenty-seven roles, ten live in this prototype. Step 27 adds the four R2R agents of §16.6;
+// Step 35 adds the five requisition agents of §18.2 (four preventive, one reactive) at the top of the P2P funnel.
 // cut-off surveillance is live (the one to prioritise), the other three are specified but not built. Every card states
 // which; the honesty is what makes the coverage credible (§15.2). The spec pins no per-agent figures, so value caps,
 // per-period volumes and action logs are seeded deterministically on stable keys (mulberry32(fnv1a(...)), mirroring
@@ -96,9 +97,10 @@ function buildMetrics(id: string): AgentMetrics {
   return { actionsThisPeriod, resolvedWithoutHuman, escalated, overriddenByHuman, reversed, valueActedOnCr, valueActedOnWithoutReviewCr, delegationBreaches: 0, resolvedShareTrend, escalationRateTrend, overrideRateTrend, reversalRateTrend };
 }
 
-// §15.2 / §16.6 — the twenty-two roles. scope is the table's "Acts on" / "What it does"; boundedBy is the "Bounded by"
-// column; both verbatim. Live here (1, 2, 3, 7, 8, 9, 11, 16, 17) plus cut-off surveillance (22 — Step 27, the one to
-// prioritise); the other twelve are designed. None of the four R2R agents posts a journal (§16.6).
+// §15.2 / §16.6 / §18.2 — the twenty-seven roles (twenty-two plus the five requisition agents). scope is the table's
+// "Acts on" / "What it does"; boundedBy is the "Bounded by" column; both verbatim. Live here (1, 2, 3, 7, 8, 9, 11, 16,
+// 17) plus cut-off surveillance (22 — Step 27, the one to prioritise); the other seventeen are designed. None of the
+// four R2R agents posts a journal (§16.6).
 export const agents: Agent[] = [
   {
     number: 1, id: 'follow-up', name: 'Follow-up & escalation', process: 'shared', type: 'reactive',
@@ -254,18 +256,56 @@ export const agents: Agent[] = [
     delegation: { requiresDualControl: false, neverActsOn: ['postings', 'period-end adjustments'], escalatesWhen: [] },
     supervisor: supervisorFor(22), status: 'live', metrics: buildMetrics('cut-off-surveillance'),
   },
+  // §18.2 — the five requisition agents; four of the five are preventive, acting at the top of the funnel rather than
+  // after it. None creates a commitment — every one flags, proposes or chases. All designed: specified, not built.
+  {
+    number: 23, id: 'budget-exposure', name: 'Budget exposure', process: 'p2p', type: 'preventive', advisoryOnly: true,
+    scope: "Reads the Spend Control Tower's availability verdict; flags PRs that will fail conversion and chases the cost centre owner",
+    boundedBy: 'Advisory — never performs the check itself, never blocks a requisition',
+    delegation: { requiresDualControl: false, neverActsOn: ['requisitions'], escalatesWhen: [] },
+    supervisor: supervisorFor(23), status: 'designed',
+  },
+  {
+    number: 24, id: 'contract-catalogue-routing', name: 'Contract and catalogue routing', process: 'p2p', type: 'preventive',
+    scope: 'Routes free-text to an existing contract or catalogue item',
+    boundedBy: 'Proposes the contract; the requisitioner accepts',
+    delegation: { requiresDualControl: false, neverActsOn: ['requisitions'], escalatesWhen: [] },
+    supervisor: supervisorFor(24), status: 'designed', prevents: { causeKey: 'po-price-mismatch' },
+  },
+  {
+    number: 25, id: 'pr-completeness', name: 'PR completeness', process: 'p2p', type: 'preventive',
+    scope: "Fills cost centre, GL and delivery date from the requisitioner's history",
+    boundedBy: 'Never the vendor, never the value',
+    delegation: { requiresDualControl: false, neverActsOn: ['vendor selection', 'value'], escalatesWhen: [] },
+    supervisor: supervisorFor(25), status: 'designed',
+  },
+  {
+    number: 26, id: 'duplicate-pr', name: 'Duplicate PR', process: 'p2p', type: 'preventive', advisoryOnly: true,
+    scope: 'Flags another PR covering the same need',
+    boundedBy: 'Flags only — two similar PRs are often both valid',
+    delegation: { requiresDualControl: false, neverActsOn: ['requisitions'], escalatesWhen: [] },
+    supervisor: supervisorFor(26), status: 'designed', prevents: { causeKey: 'duplicate-suspicion' },
+  },
+  {
+    number: 27, id: 'pr-ageing-chase', name: 'PR ageing and chase', process: 'p2p', type: 'reactive',
+    scope: 'Chases the approver, escalates on timer',
+    boundedBy: 'Nothing — no financial effect',
+    delegation: { requiresDualControl: false, neverActsOn: ['anything with a financial effect'], escalatesWhen: ['approver unresponsive past the chase timer'] },
+    supervisor: supervisorFor(27), status: 'designed',
+  },
 ];
 
 // Action-log targets are picked from the live datasets at module load so every link in a record opens (§15.2.1:
 // "precedent must be readable"). Non-JGL exception ids are seed-dependent, so nothing is hardcoded by id — only by
-// reason key and position within that key's rows (JGL's pinned rows come first).
-const byReason = (key: string) => exceptions.filter((x) => x.reasonKey === key);
+// reason key and position within that key's rows (JGL's pinned rows come first). §6.1 lists 'pricing' in both the P2P
+// and O2C taxonomies; the keys stay apart only by naming, so every reason lookup carries its process as well.
+const byReason = (processKey: Exception['processKey'], key: string) => exceptions.filter((x) => x.processKey === processKey && x.reasonKey === key);
 
-const missingGr = byReason('missing-gr');
-const vendorMaster = byReason('vendor-master');
-const approvalPending = byReason('approval-pending');
-const priceMismatch = byReason('po-price-mismatch');
-const duplicateSuspicion = byReason('duplicate-suspicion');
+const missingGr = byReason('p2p', 'missing-gr');
+const vendorMaster = byReason('p2p', 'vendor-master');
+const approvalPending = byReason('p2p', 'approval-pending');
+const priceMismatch = byReason('p2p', 'po-price-mismatch');
+const duplicateSuspicion = byReason('p2p', 'duplicate-suspicion');
 
 // Existence is guaranteed by the seeded categories in requests.ts (masterData/dispute/query are all in VOLUME);
 // a missing row would throw at module load, which the test suite catches immediately.
@@ -287,9 +327,10 @@ function daysAgo(k: number): string {
 // item from the seeded worklist; it drives the row's agent lane instead.
 const cr2 = (n: number) => `₹${n.toFixed(2)} cr`;
 
-// A precedent for an exception action: a same-cause sibling on the same entity first, then any same-cause row — never itself.
+// A precedent for an exception action: a same-process, same-cause sibling on the same entity first, then any
+// same-process, same-cause row — never itself. Process is part of "same cause": §6.1 shares 'pricing' across P2P and O2C.
 function causePrecedent(x: Exception): string[] {
-  const siblings = exceptions.filter((o) => o.id !== x.id && o.reasonKey === x.reasonKey);
+  const siblings = exceptions.filter((o) => o.id !== x.id && o.processKey === x.processKey && o.reasonKey === x.reasonKey);
   const sameEntity = siblings.find((o) => o.entityCode === x.entityCode);
   return [sameEntity ? sameEntity.id : siblings[0].id];
 }
@@ -538,7 +579,7 @@ function seededExceptionActions(): AgentAction[] {
   push({ agentId: 'commitments', targetType: 'exception', targetId: missingGr[3].id, entityCode: missingGr[3].entityCode, takenAt: daysAgo(2), action: 'Amended the PO delivery date after the owner confirmed slippage', outcome: 'awaiting', precedents: causePrecedent(missingGr[3]), evidence: commitmentsEvidence(missingGr[3]), ...commitmentsRecord(missingGr[3]) });
 
   SEED_ORDER.forEach((code, e) => {
-    const rows = (key: string) => exceptions.filter((x) => x.entityCode === code && x.reasonKey === key);
+    const rows = (key: string) => exceptions.filter((x) => x.entityCode === code && x.processKey === 'p2p' && x.reasonKey === key);
     const mg = rows('missing-gr');
     push({ agentId: 'provisioning', targetType: 'exception', targetId: mg[0].id, entityCode: code, takenAt: daysAgo(1 + (e % 3)), action: 'Posted a reversing accrual rather than a Service Entry Sheet', outcome: 'resolved', precedents: causePrecedent(mg[0]), evidence: ['accrual posted with reversal scheduled for the next period'], ...provisioningRecord(mg[0]) });
     push({ agentId: 'follow-up', targetType: 'exception', targetId: mg[1].id, entityCode: code, takenAt: daysAgo(2 + (e % 3)), action: 'Chased plant stores, 2nd nudge', outcome: 'awaiting', precedents: causePrecedent(mg[1]), evidence: ['GR not posted against the PO line'], ...followUpRecord(mg[1], 'awaiting') });
@@ -655,29 +696,40 @@ const overriddenDecisions = new Set<string>();
 const NEED_YOU_SHARE = 0.263; // round(327 × 0.263) = 86
 const CYCLE_DROP_SHARE = 0.08; // round(86 × 0.08) = 7 → 86 − 7 = 79
 
+// §15.1.1 — the demo cycle's session state is scoped by (process, entity), not entity alone: a P2P press must never
+// flip an O2C lane even once an agent acts on one, and each process keeps its own one-shot.
+const cycleScope = (entityCode: string, processKey: Exception['processKey']) => `${processKey}:${entityCode}`;
+
+// The cycle's arithmetic runs on the process's own pool — P2P pools apBlockedCount, O2C pools o2cExceptionCount (§18.3),
+// mirroring causePool — so a worklist wired to this trigger in another process drops from its own pool, not P2P's.
+const cyclePool = (entityCode: string, processKey: Exception['processKey']): number => {
+  const e = entities.find((x) => x.code === entityCode);
+  return e ? (processKey === 'o2c' ? e.metrics.o2cExceptionCount : e.metrics.apBlockedCount) : 0;
+};
+
 export function worklistAgentCounts(entityCode: string): WorklistAgentCounts {
-  const pool = entities.find((e) => e.code === entityCode)?.metrics.apBlockedCount ?? 0;
+  const pool = cyclePool(entityCode, 'p2p'); // the P2P pool — this header is the P2P worklist's
   const baseNeedYou = Math.round(pool * NEED_YOU_SHARE);
-  const drop = cycleRan.has(entityCode) ? Math.round(baseNeedYou * CYCLE_DROP_SHARE) : 0;
+  const drop = cycleRan.has(cycleScope(entityCode, 'p2p')) ? Math.round(baseNeedYou * CYCLE_DROP_SHARE) : 0;
   const needYou = Math.max(0, baseNeedYou - drop);
   return { pool, cleared: pool - needYou, needYou };
 }
 
-export function runNextAgentCycle(entityCode: string): void {
-  if (cycleRan.has(entityCode)) return; // one-shot per session
-  cycleRan.add(entityCode);
-  const pool = entities.find((e) => e.code === entityCode)?.metrics.apBlockedCount ?? 0;
+export function runNextAgentCycle(entityCode: string, processKey: Exception['processKey']): void {
+  if (cycleRan.has(cycleScope(entityCode, processKey))) return; // one-shot per session, per process
+  cycleRan.add(cycleScope(entityCode, processKey));
+  const pool = cyclePool(entityCode, processKey);
   const drop = Math.round(Math.round(pool * NEED_YOU_SHARE) * CYCLE_DROP_SHARE);
   // The visible rows are a sample of the pool: flip up to `drop` working lanes, highest value first.
   const working = exceptions
-    .filter((x) => x.entityCode === entityCode && laneForException(x).state === 'working')
+    .filter((x) => x.entityCode === entityCode && x.processKey === processKey && laneForException(x).state === 'working')
     .sort((a, b) => b.amount - a.amount);
   for (const x of working.slice(0, drop)) cycleResolvedIds.add(x.id);
 }
 
 // The demo cycle button stays disabled after its one press even across navigation, because the store is the source of truth.
-export function agentCycleRan(entityCode: string): boolean {
-  return cycleRan.has(entityCode)
+export function agentCycleRan(entityCode: string, processKey: Exception['processKey']): boolean {
+  return cycleRan.has(cycleScope(entityCode, processKey))
 }
 
 // §15.1.2 — the override control is the human's exit; it feeds the agent's override rate (§15.6).
@@ -707,7 +759,7 @@ export function resetAgentLaneStore(): void {
 // PCK and SGN are visible gaps. "+ 1, 2 across all" is rendered as a legend by the screen, not stored per stage.
 export const COVERAGE_STRIP: CoverageStrip = {
   p2p: [
-    { code: 'PR', agents: ['buying-compliance'] },
+    { code: 'PR', agents: ['buying-compliance', 'budget-exposure', 'contract-catalogue-routing', 'pr-completeness', 'duplicate-pr', 'pr-ageing-chase'] }, // §18.2 — the five requisition agents act at the top of the funnel
     { code: 'PO', agents: ['commitments', 'buying-compliance', 'contract-price-sync'] },
     { code: 'GR', agents: ['receipt-discipline'] },
     { code: 'INV', agents: ['duplicate-adjudication', 'tax-determination'], preClose: ['provisioning'] },

@@ -61,19 +61,19 @@ describe('App shell end to end (spec/02)', () => {
     expect(main().getAllByRole('link').filter((l) => (l.textContent ?? '').startsWith('AP-'))).toHaveLength(6)
   })
 
-  it('rail keeps the current entity in context when drilling to root cause', () => {
+  it('rail opens the group-level root cause register, even from an entity page', () => {
     render(<App />)
     fireEvent.click(main().getByRole('link', { name: /Jubilant Biosys Ltd/ }))
     expect(activeNavLabel()).toContain('Entity health')
 
     const rail = screen.getByRole('navigation', { name: 'Primary' })
-    fireEvent.click(within(rail).getByRole('link', { name: /Root cause/ }))
-    expect(main().getByRole('heading', { level: 1, name: 'Why blocked invoices keep recurring' })).toBeTruthy()
+    // §17 — the register is group-scoped; drilling in from an entity lands on it, not on a per-entity page.
+    fireEvent.click(within(rail).getByRole('link', { name: /Root causes/ }))
+    expect(main().getByRole('heading', { level: 1, name: 'Root causes' })).toBeTruthy()
     const bc = breadcrumbText()
-    expect(bc).toContain('JBL')
-    expect(bc).toContain('P2P')
-    expect(bc).toContain('Root cause')
-    expect(activeNavLabel()).toContain('Root cause')
+    expect(bc).toContain('Group')
+    expect(bc).toContain('Root causes')
+    expect(activeNavLabel()).toContain('Root causes')
   })
 
   it('working capital route renders with its breadcrumb and nav state', () => {

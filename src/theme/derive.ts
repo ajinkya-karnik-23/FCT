@@ -89,14 +89,15 @@ export function requestSlaColor(word: RequestSlaWord): string {
   return colors.textSecondary // on track — nothing to flag yet; green is reserved for met
 }
 
-// §7.30 — cause elimination status; the single place that decides this band. Eliminated is done (green), in
-// progress is work underway (amber); identified-but-not-started stays muted — a blank target date is the honest
-// state, and there is nothing to flag.
-export type CauseEliminationWord = 'identified' | 'in-progress' | 'eliminated'
+// §17 — root cause state; the single place that decides this band. Eliminated is done (green); fixed-at-source and
+// in-progress are work underway (amber) — one has stopped the inflow, the other hasn't started its fix yet, and both
+// deserve the same "watch me" colour; identified stays muted — a blank target date is the honest state, and there is
+// nothing to flag.
+export type CauseEliminationWord = 'identified' | 'in-progress' | 'eliminated' | 'fixed-at-source'
 
 export function causeEliminationColor(status: CauseEliminationWord): string {
   if (status === 'eliminated') return colors.statusGreen
-  if (status === 'in-progress') return colors.statusAmber
+  if (status === 'in-progress' || status === 'fixed-at-source') return colors.statusAmber
   return colors.textMuted // identified — not started yet; no commitment to flag
 }
 
