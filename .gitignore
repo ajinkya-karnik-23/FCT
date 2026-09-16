@@ -5,3 +5,7 @@ dist
 .env
 scrollcraft/
 .DS_Store
+
+# Video production tooling/output (screencast configs, node_modules, and
+# rendered .mp4/.wav/.webm) — not part of the app, kept out of the repo.
+Finance_Control_Tower_Video/*/video_resources/
