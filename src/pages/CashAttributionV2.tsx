@@ -218,8 +218,18 @@ function Starfield() {
     refreshInk()
     if (reduce) draw(0)
     else raf = requestAnimationFrame(loop)
-    window.addEventListener('resize', () => { seedField(); if (reduce) draw(0) })
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', () => { seedField(); if (reduce) draw(0) }) }
+    const onResize = () => { seedField(); if (reduce) draw(0) }
+    window.addEventListener('resize', onResize)
+    // Everything else on the page is styled through colors.* (var(--…) references), so it re-themes on its
+    // own when applyTheme swaps the variables. This canvas paints into a bitmap from a colour snapshot taken
+    // in JS, so it has to be told: watch the data-theme attribute applyTheme sets and re-resolve the ink.
+    const themeObserver = new MutationObserver(() => { refreshInk(); if (reduce) draw(0) })
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResize)
+      themeObserver.disconnect()
+    }
   }, [])
   return <canvas ref={ref} aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.55, pointerEvents: 'none' }} />
 }
